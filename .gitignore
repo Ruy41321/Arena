@@ -1,0 +1,126 @@
+# Unreal Engine 5 - Arena Project .gitignore
+
+# === ESSENZIALI DA ESCLUDERE ===
+
+# File binari generati
+Binaries/
+DerivedDataCache/
+
+# File intermedi di compilazione
+Intermediate/
+
+# Cache e salvataggi automatici
+Saved/
+
+# === VISUAL STUDIO ===
+
+# File di progetto Visual Studio (rigenerabili)
+.vs/
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.suo
+*.user
+*.VC.db
+*.VC.opendb
+*.opensdf
+*.sdf
+
+# === XCODE (macOS) ===
+
+# Xcode project files
+*.xcodeproj
+*.xcworkspace
+
+# === BUILD E CACHE ===
+
+# File di build
+Build/
+x64/
+x86/
+Win64/
+Win32/
+
+# Log files
+*.log
+*.tmp
+*.temp
+*_temp.*
+*.cache
+
+# === EXECUTABLES ===
+
+# Compiled executables
+*.exe
+*.out
+*.app
+*.ipa
+
+# === PRECOMPILED HEADERS ===
+
+*.gch
+*.pch
+
+# === COMPILED LIBRARIES ===
+
+# Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# === COMPILED OBJECT FILES ===
+
+*.slo
+*.lo
+*.o
+*.obj
+
+# === FORTRAN ===
+
+# Fortran module files
+*.mod
+
+# === EDITOR ALTERNATIVI ===
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# JetBrains Rider
+.idea/
+
+# === PIATTAFORME ===
+
+# macOS
+.DS_Store
+.DS_Store?
+._*
+
+# Linux
+*~
+
+# === UNREAL ENGINE SPECIFICI ===
+
+# File di backup dei content
+**/Content/**/*.uasset.backup
+**/Content/**/*.umap.backup
+
+# Plugin binaries
+Plugins/*/Binaries/
+Plugins/*/Intermediate/
+
+# WhitelistPlatforms (se usi custom platform whitelist)
+WhitelistPlatforms.txt
+
+# === PERSONALIZZAZIONI PROGETTO ARENA ===
+
+# Aggiungi qui file specifici del tuo progetto
+# MiaCartella/
+# *.miaestensione
