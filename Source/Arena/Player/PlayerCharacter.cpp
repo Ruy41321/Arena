@@ -3,10 +3,14 @@
 
 #include "PlayerCharacter.h"
 #include "Camera/CameraComponent.h"
+#include "GameFramework/SpringArmComponent.h"
 
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "Components/InputComponent.h"
+
+#include "GameFramework/CharacterMovementComponent.h"
+#include "../PlayerAnimation/PlayerAnimInstance.h"
 
 // Sets default values
 APlayerCharacter::APlayerCharacter()
@@ -14,9 +18,17 @@ APlayerCharacter::APlayerCharacter()
 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 
+	UCharacterMovementComponent* const mov = GetCharacterMovement();
+	if (mov)
+		mov->bOrientRotationToMovement = true; // Character will rotate to movement direction
+	bUseControllerRotationYaw = false; // Disable controller rotation yaw to allow character movement direction to control rotation
+
+	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("Camera Boom"));
+	CameraBoom->SetupAttachment(RootComponent);
+	CameraBoom->bUsePawnControlRotation = true;
+
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Player Camera"));
-	Camera->SetupAttachment(RootComponent);
-	Camera->bUsePawnControlRotation = true;
+	Camera->SetupAttachment(CameraBoom);
 }
 
 // Called when the game starts or when spawned
@@ -51,6 +63,10 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 		EnhancedInputComponent->BindAction(MoveForwardAction, ETriggerEvent::Triggered, this, &APlayerCharacter::MoveForward);
 		EnhancedInputComponent->BindAction(MoveRightAction, ETriggerEvent::Triggered, this, &APlayerCharacter::MoveRight);
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &APlayerCharacter::Look);
+		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Started, this, &APlayerCharacter::Sprint);
+		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Completed, this, &APlayerCharacter::Sprint);
+		EnhancedInputComponent->BindAction(JumpPressedAction, ETriggerEvent::Started, this, &APlayerCharacter::JumpPressed);
+		EnhancedInputComponent->BindAction(JumpPressedAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
 	}
 	else
 	{
@@ -92,4 +108,40 @@ void APlayerCharacter::Look(const FInputActionValue& Value)
 		AddControllerYawInput(LookAxis.X);
 		AddControllerPitchInput(LookAxis.Y);
 	}
+}
+
+void APlayerCharacter::Sprint(const FInputActionValue& Value)
+{
+	const bool SprintValue = Value.Get<bool>();
+	if (SprintValue)
+	{
+		IsSprinting = true;
+		GetCharacterMovement()->MaxWalkSpeed *= 2.0f; // Increase speed when sprinting
+	}
+	else
+	{
+		IsSprinting = false;
+		GetCharacterMovement()->MaxWalkSpeed /= 2.0f; // Reset speed when not sprinting
+	}
+}
+
+void APlayerCharacter::JumpPressed(const FInputActionValue& Value)
+{
+	if (!IsLanding)
+	{
+		Jump();
+	}
+}
+
+void APlayerCharacter::Landed(const FHitResult& Hit)
+{
+	Super::Landed(Hit);
+	IsLanding = true;
+	// set a timer of x seconds to reset IsLanding
+	GetWorld()->GetTimerManager().SetTimer(LandingTimerHandle, this, &APlayerCharacter::ResetLanding, 0.1f, false);
+}
+
+void APlayerCharacter::ResetLanding()
+{
+	IsLanding = false;
 }

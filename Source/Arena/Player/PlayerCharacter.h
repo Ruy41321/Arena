@@ -3,13 +3,15 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GameFramework/Character.h"
 #include "InputActionValue.h"
+#include "GameFramework/Character.h"
 #include "PlayerCharacter.generated.h"
 
 // Forward declarations for Enhanced Input
 class UInputMappingContext;
 class UInputAction;
+class UCameraComponent;
+class USpringArmComponent;
 
 UCLASS()
 class ARENA_API APlayerCharacter : public ACharacter
@@ -30,6 +32,14 @@ protected:
 
 	void Look(const FInputActionValue& Value);
 
+	void Sprint(const FInputActionValue& Value);
+
+	void JumpPressed(const FInputActionValue& Value);
+
+	virtual void Landed(const FHitResult& Hit) override;
+
+	void ResetLanding();
+
 public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
@@ -39,8 +49,12 @@ public:
 
 protected:
 
-	UPROPERTY(EditAnywhere)
-	class UCameraComponent* Camera;
+	UPROPERTY(EditAnywhere, category = "Camera")
+	TObjectPtr<UCameraComponent> Camera;
+
+	// Spring arm component for camera attachment
+	UPROPERTY(EditAnywhere, Category = "Camera")
+	TObjectPtr<USpringArmComponent> CameraBoom;
 
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UInputMappingContext> DefaultMappingContext;
@@ -53,4 +67,22 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UInputAction> LookAction;
+
+	UPROPERTY(EditAnywhere, Category = "Input")
+	TObjectPtr<UInputAction> SprintAction;
+
+	UPROPERTY(EditAnywhere, Category = "Input")
+	TObjectPtr<UInputAction> JumpPressedAction;
+
+
+public:
+	UPROPERTY(BlueprintReadOnly, Category = "Movement")
+	bool IsSprinting;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Movement")
+	bool IsLanding;
+	// Add this member variable to your APlayerCharacter class definition
+
+private:
+	FTimerHandle LandingTimerHandle;
 };
