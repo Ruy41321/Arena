@@ -20,6 +20,8 @@ APlayerCharacter::APlayerCharacter()
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Player Camera"));
 	Camera->SetupAttachment(CameraBoom);
 
+	DodgeSystem = CreateDefaultSubobject<UDodgeSystemComponent>(TEXT("Dodge System Component"));
+	
 	CrouchTargetHeight = 65.0f;
 	StandTargetHeight = 90.0f;
 	HeightAdjustmentRate = FMath::Abs(StandTargetHeight - CrouchTargetHeight) * 10.0f; // * 10 = it needs 1/10 of a second to adjust the height
@@ -35,7 +37,7 @@ APlayerCharacter::APlayerCharacter()
 void APlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
-
+	
 	if (APlayerController *PlayerController = Cast<APlayerController>(Controller))
 	{
 		if (UEnhancedInputLocalPlayerSubsystem *Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
@@ -49,9 +51,24 @@ void APlayerCharacter::BeginPlay()
 void APlayerCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-
 	if (GetCharacterMovement())
 	{
+		// Handle dodge movement
+		const FVector2D Velocity2D = FVector2D(GetCharacterMovement()->Velocity.X, GetCharacterMovement()->Velocity.Y);
+
+		if (Velocity2D.Size() <= 0.0f)
+		{
+			// No movement detected - reset all movement input
+			DodgeSystem->SetCurrentMovementInput(FVector::ZeroVector);
+			DodgeSystem->SetHasMovementInput(false);
+		}
+
+		if (DodgeSystem->IsDodging() && !DodgeSystem->GetDodgeDirection().IsZero())
+		{
+			DodgeSystem->UpdateDodgeDirection();
+			AddMovementInput(DodgeSystem->GetDodgeDirection(), 1.0f);
+		}
+		
 		// Adjust capsule height based on crouching state
 		float TargetCapsuleHeight = IsCrouched ? CrouchTargetHeight : StandTargetHeight;
 		float TargetMeshHeight = IsCrouched ? CrouchMeshHeightOffset : StandMeshHeightOffset;
@@ -68,19 +85,35 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent *PlayerInputCom
 	if (UEnhancedInputComponent *EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent))
 	{
 		EnhancedInputComponent->BindAction(MoveForwardAction, ETriggerEvent::Triggered, this, &APlayerCharacter::MoveForward);
+		EnhancedInputComponent->BindActionValueLambda(MoveForwardAction, ETriggerEvent::Completed, 
+			[this](const FInputActionValue& Value) 
+			{
+				DodgeSystem->SetCurrentMovementInputAxis("X", 0.0f);
+			});
 		EnhancedInputComponent->BindAction(MoveRightAction, ETriggerEvent::Triggered, this, &APlayerCharacter::MoveRight);
+		EnhancedInputComponent->BindActionValueLambda(MoveRightAction, ETriggerEvent::Completed, 
+			[this](const FInputActionValue& Value) 
+			{
+				DodgeSystem->SetCurrentMovementInputAxis("Y", 0.0f);
+			});
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &APlayerCharacter::Look);
 		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Started, this, &APlayerCharacter::Sprint);
 		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Completed, this, &APlayerCharacter::Sprint);
 		EnhancedInputComponent->BindAction(JumpPressedAction, ETriggerEvent::Started, this, &APlayerCharacter::JumpPressed);
 		EnhancedInputComponent->BindAction(JumpPressedAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
 		EnhancedInputComponent->BindAction(CrouchPressedAction, ETriggerEvent::Started, this, &APlayerCharacter::CrouchPressed);
+		EnhancedInputComponent->BindActionValueLambda(DodgeAction, ETriggerEvent::Started,
+			[this](const FInputActionValue& Value) {
+				if (DodgeSystem)
+					DodgeSystem->StartDodge();
+			});
 	}
 	else
 	{
 		UE_LOG(LogTemp, Warning, TEXT("PlayerInputComponent is not of type UEnhancedInputComponent"));
 	}
 }
+
 
 void APlayerCharacter::MoveForward(const FInputActionValue &Value)
 {
@@ -91,7 +124,12 @@ void APlayerCharacter::MoveForward(const FInputActionValue &Value)
 
 	if (Direction != 0.0f)
 	{
-		AddMovementInput(Forward, Direction);
+		// Update current movement input for dodge system
+		DodgeSystem->SetCurrentMovementInputAxis("X", Direction);
+		DodgeSystem->SetHasMovementInput(true);
+
+		if (!DodgeSystem->IsDodging())
+			AddMovementInput(Forward, Direction);
 	}
 }
 
@@ -104,7 +142,12 @@ void APlayerCharacter::MoveRight(const FInputActionValue &Value)
 
 	if (Direction != 0.0f)
 	{
-		AddMovementInput(Right, Direction);
+		// Update current movement input for dodge system  
+		DodgeSystem->SetCurrentMovementInputAxis("Y", Direction);
+		DodgeSystem->SetHasMovementInput(true);
+
+		if (!DodgeSystem->IsDodging())
+			AddMovementInput(Right, Direction);
 	}
 }
 
@@ -124,6 +167,8 @@ void APlayerCharacter::Sprint(const FInputActionValue &Value)
 	if (SprintValue)
 	{
 		SprintInterrupted = false;
+		if (DodgeSystem->IsDodging())
+			return;
 		if (IsCrouched)
 		{
 			if (!CanUncrouchSafely())
@@ -142,7 +187,7 @@ void APlayerCharacter::Sprint(const FInputActionValue &Value)
 
 void APlayerCharacter::JumpPressed(const FInputActionValue &Value)
 {
-	if (!IsLanding)
+	if (!IsLanding && !DodgeSystem->IsDodging())
 	{
 		if (!IsCrouched)
 			Jump();
@@ -166,6 +211,8 @@ void APlayerCharacter::ResetLanding()
 
 void APlayerCharacter::CrouchPressed(const FInputActionValue &Value)
 {
+	if (DodgeSystem->IsDodging())
+		return;
 	if (IsCrouched)
 	{
 		if (!CanUncrouchSafely())
@@ -218,15 +265,15 @@ void APlayerCharacter::AdjustCapsuleHeight(float DeltaTime, float TargetCapsuleH
 		GetMesh()->SetRelativeLocation(CurrentLocation);
 	}
 
-	UE_LOG(LogTemp, Log, TEXT("AdjustCapsuleHeight: Capsule Height: %f, Mesh Height: %f"),
-		   GetCapsuleComponent()->GetScaledCapsuleHalfHeight(), GetMesh()->GetRelativeLocation().Z);
+	//UE_LOG(LogTemp, Log, TEXT("AdjustCapsuleHeight: Capsule Height: %f, Mesh Height: %f"),
+	//	   GetCapsuleComponent()->GetScaledCapsuleHalfHeight(), GetMesh()->GetRelativeLocation().Z);
 
 	IsCrouchingInProgress = !IsFinished;
 }
 
 bool APlayerCharacter::CanUncrouchSafely() const
 {
-	if (!GetCapsuleComponent() || !GetWorld())
+	if (!GetCapsuleComponent() || !GetWorld() || !IsCrouched)
 	{
 		return false;
 	}
@@ -278,4 +325,18 @@ bool APlayerCharacter::CanUncrouchSafely() const
 	
 	// If there's no overlap, we can safely uncrouch
 	return !bHasOverlap;
+}
+
+void APlayerCharacter::UpdateMaxWalkSpeed()
+{
+	float MaxSpeed;
+	if (DodgeSystem->IsDodging())
+		MaxSpeed = DodgeSystem->GetDodgeSpeed();
+	else if (IsCrouched)
+		MaxSpeed = CrouchSpeed;
+	else if (!SprintInterrupted)
+		MaxSpeed = RunSpeed;
+	else
+		MaxSpeed = WalkSpeed;
+	GetCharacterMovement()->MaxWalkSpeed = MaxSpeed;
 }

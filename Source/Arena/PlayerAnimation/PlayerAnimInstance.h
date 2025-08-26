@@ -12,11 +12,14 @@ UCLASS()
 class ARENA_API UPlayerAnimInstance : public UAnimInstance
 {
 	GENERATED_BODY()
+
+public:
+	FString GetCurrentStateMachineName();
 	
 protected:
     virtual void NativeBeginPlay() override;
     virtual void NativeUpdateAnimation(float DeltaSeconds) override;
-
+	
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Default")
 	class APlayerCharacter* PlayerCharacter;
@@ -31,6 +34,10 @@ protected:
 	FVector Velocity;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Default")
 	bool IsLanding;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Default")
+	bool IsDodging;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Default")
+	bool CanDodge;
 
 	// Crouching properties
 

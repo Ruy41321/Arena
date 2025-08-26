@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "InputActionValue.h"
 #include "../Utils/Utils.h"
+#include "../Components/DodgeSystemComponent.h"
 
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
@@ -39,12 +40,13 @@ public:
 
 	virtual void Tick(float DeltaTime) override;
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+	void CrouchPressed(const FInputActionValue& Value);
+	bool CanUncrouchSafely() const;
+	void UpdateMaxWalkSpeed();
 
 private:
 	void AdjustCapsuleHeight(float DeltaTime, float TargetCapsuleHeight, float TargetMeshHeight);
 	
-	// Check if there's enough space above the character to uncrouch
-	bool CanUncrouchSafely() const;
 
 protected:
 	virtual void BeginPlay() override;
@@ -58,13 +60,15 @@ protected:
 	virtual void Landed(const FHitResult& Hit) override;
 	void ResetLanding();
 
-	void CrouchPressed(const FInputActionValue& Value);
 	virtual void Crouch(bool bClientSimulation = false) override;
 	virtual void UnCrouch(bool bClientSimulation = false) override;
 
 // Properties section
 
 public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dodge System")
+	TObjectPtr<UDodgeSystemComponent> DodgeSystem;
+
 	UPROPERTY(BlueprintReadOnly, Category = "Movement")
 	bool IsLanding;
 	UPROPERTY(BlueprintReadOnly, Category = "Movement")
@@ -78,17 +82,18 @@ public:
 	float RunSpeed = 600.0f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
 	float CrouchSpeed = 100.0f;
+	bool SprintInterrupted = true;
 
 private:
 	FTimerHandle LandingTimerHandle;
-	bool SprintInterrupted = true;
-
+	
 protected:
 	// Camera
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, category = "Camera")
+	UPROPERTY(BlueprintReadWrite, category = "Camera")
 	TObjectPtr<UCameraComponent> Camera;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera")
+	UPROPERTY(BlueprintReadWrite, Category = "Camera")
 	TObjectPtr<USpringArmComponent> CameraBoom;
+
 
 	// Input actions and mapping context
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
@@ -105,6 +110,8 @@ protected:
 	TObjectPtr<UInputAction> JumpPressedAction;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
 	TObjectPtr<UInputAction> CrouchPressedAction;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
+	TObjectPtr<UInputAction> DodgeAction;
 
 	// Capsule height adjustment parameters when crouching
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crouching")
