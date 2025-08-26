@@ -61,6 +61,10 @@ void UDodgeSystemComponent::StartDodge()
 	// If no movement input, set dodge direction to forward
 	if (!UpdateDodgeDirection())
 		DodgeDirection = PlayerCharacter->GetActorForwardVector();
+	
+	// Store the initial dodge direction for blending
+	InitialDodgeDirection = DodgeDirection;
+	
 	bCanDodge = false;
 	// Set a timer to reset dodge after a short duration as security in case animation notify fails
 	GetWorld()->GetTimerManager().SetTimer(DodgeTimerHandle, this, &UDodgeSystemComponent::ResetDodge, DodgeDuration, false);
@@ -74,8 +78,9 @@ void UDodgeSystemComponent::ResetDodge()
 
 	bIsDodging = false;
 
-	// Clear dodge direction
+	// Clear dodge direction and initial direction
 	DodgeDirection = FVector::ZeroVector;
+	InitialDodgeDirection = FVector::ZeroVector;
 
 	// Uncrouch if it was so and its possible
 	if (PlayerCharacter->CanUncrouchSafely() && !bWasCrouchingPreDodge)
@@ -93,16 +98,53 @@ void UDodgeSystemComponent::ResetDodge()
 bool UDodgeSystemComponent::UpdateDodgeDirection()
 {
 	APlayerCharacter* PlayerCharacter = GetValidPlayerCharacter();
-	if (!PlayerCharacter || !(bHasMovementInput && !CurrentMovementInput.IsNearlyZero()))
+	if (!PlayerCharacter)
 		return false;
 
-	// Player is moving, dodge in the current movement direction
-	const FRotator Rotation = PlayerCharacter->Controller ? PlayerCharacter->Controller->GetControlRotation() : FRotator::ZeroRotator;
-	const FRotator YawRotation(0.f, Rotation.Yaw, 0.f);
-	const FVector Forward = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
-	const FVector Right = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
+	// If we're not dodging or don't have an initial direction, use original behavior
+	if (!bIsDodging || InitialDodgeDirection.IsZero())
+	{
+		if (!(bHasMovementInput && !CurrentMovementInput.IsNearlyZero()))
+			return false;
 
-	DodgeDirection = (Forward * CurrentMovementInput.X + Right * CurrentMovementInput.Y).GetSafeNormal();
+		// Player is moving, dodge in the current movement direction
+		const FRotator Rotation = PlayerCharacter->Controller ? PlayerCharacter->Controller->GetControlRotation() : FRotator::ZeroRotator;
+		const FRotator YawRotation(0.f, Rotation.Yaw, 0.f);
+		const FVector Forward = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
+		const FVector Right = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
+
+		DodgeDirection = (Forward * CurrentMovementInput.X + Right * CurrentMovementInput.Y).GetSafeNormal();
+		return true;
+	}
+
+	// We're dodging - blend initial direction with current input based on influence factor
+	FVector CurrentInputDirection = FVector::ZeroVector;
+	
+	// Calculate current input direction if player is providing input
+	if (bHasMovementInput && !CurrentMovementInput.IsNearlyZero())
+	{
+		const FRotator Rotation = PlayerCharacter->Controller ? PlayerCharacter->Controller->GetControlRotation() : FRotator::ZeroRotator;
+		const FRotator YawRotation(0.f, Rotation.Yaw, 0.f);
+		const FVector Forward = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
+		const FVector Right = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
+		
+		CurrentInputDirection = (Forward * CurrentMovementInput.X + Right * CurrentMovementInput.Y).GetSafeNormal();
+	}
+	
+	// Blend between initial dodge direction and current input direction
+	// InputInfluenceFactor = 0: stick to initial direction
+	// InputInfluenceFactor = 1: follow current input completely
+	if (CurrentInputDirection.IsZero())
+	{
+		// No input, use initial direction
+		DodgeDirection = InitialDodgeDirection;
+	}
+	else
+	{
+		// Blend between initial and current input directions
+		DodgeDirection = FMath::Lerp(InitialDodgeDirection, CurrentInputDirection, InputInfluenceFactor).GetSafeNormal();
+	}
+	
 	return true;
 }
 

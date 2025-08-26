@@ -46,10 +46,15 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Dodge System", meta = (ToolTip = "Returns cooldown time in seconds"))
 	float GetDodgeCooldown() const { return DodgeCooldown; }
 
+	/** Gets input influence factor */
+	UFUNCTION(BlueprintPure, Category = "Dodge System", meta = (ToolTip = "Returns how much input affects dodge direction"))
+	float GetInputInfluenceFactor() const { return InputInfluenceFactor; }
+
 	void SetCanDodge(bool NewCanDodge) { bCanDodge = NewCanDodge; }
 	void SetIsDodging(bool NewIsDodging) { bIsDodging = NewIsDodging; }
 	void SetDodgeSpeed(float NewDodgeSpeed) { DodgeSpeed = NewDodgeSpeed; }
 	void SetDodgeCooldown(float NewDodgeCooldown) { DodgeCooldown = NewDodgeCooldown; }
+	void SetInputInfluenceFactor(float NewInputInfluenceFactor) { InputInfluenceFactor = FMath::Clamp(NewInputInfluenceFactor, 0.0f, 1.0f); }
 
 	const FVector& GetCurrentMovementInput() const { return CurrentMovementInput; }
 	void SetCurrentMovementInput(const FVector& NewCurrentMovementInput) { CurrentMovementInput = NewCurrentMovementInput; }
@@ -57,6 +62,8 @@ public:
 
 	const FVector& GetDodgeDirection() const { return DodgeDirection; }
 	void SetDodgeDirection(const FVector& NewDodgeDirection) { DodgeDirection = NewDodgeDirection; }
+
+	const FVector& GetInitialDodgeDirection() const { return InitialDodgeDirection; }
 
 	bool HasMovementInput() const { return bHasMovementInput; }
 	void SetHasMovementInput(bool NewHasMovementInput) { bHasMovementInput = NewHasMovementInput; }
@@ -78,6 +85,11 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dodge System", 
 		meta = (ToolTip = "Cooldown to re-dodge after a dodge finish in seconds", ClampMin = "0.0", ClampMax = "1.0"))
 	float DodgeCooldown = 0.2f;
+
+	/** How much user input influences dodge direction during dodge execution */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dodge System", 
+		meta = (ToolTip = "Controls how much player input affects dodge direction. 0 = no influence (locked direction), 1 = full influence (current behavior)", ClampMin = "0.0", ClampMax = "1.0"))
+	float InputInfluenceFactor = 0.49f;
 
 	/** Whether dodge is available */
 	UPROPERTY(BlueprintReadOnly, Category = "Dodge System", 
@@ -103,6 +115,9 @@ private:
 
 	/** World space dodge direction */
 	FVector DodgeDirection = FVector::ZeroVector;
+
+	/** Initial dodge direction when dodge started (used as base for blending) */
+	FVector InitialDodgeDirection = FVector::ZeroVector;
 
 	/** Whether player is providing input */
 	bool bHasMovementInput = false;
