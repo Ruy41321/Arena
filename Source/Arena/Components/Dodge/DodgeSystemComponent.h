@@ -58,17 +58,10 @@ public:
 	void SetDodgeCooldown(float NewDodgeCooldown) { DodgeCooldown = NewDodgeCooldown; }
 	void SetInputInfluenceFactor(float NewInputInfluenceFactor) { InputInfluenceFactor = FMath::Clamp(NewInputInfluenceFactor, 0.0f, 1.0f); }
 
-	const FVector& GetCurrentMovementInput() const { return CurrentMovementInput; }
-	void SetCurrentMovementInput(const FVector& NewCurrentMovementInput) { CurrentMovementInput = NewCurrentMovementInput; }
-	void SetCurrentMovementInputAxis(FString Axis, float Value);
-
 	const FVector& GetDodgeDirection() const { return DodgeDirection; }
 	void SetDodgeDirection(const FVector& NewDodgeDirection) { DodgeDirection = NewDodgeDirection; }
 
 	const FVector& GetInitialDodgeDirection() const { return InitialDodgeDirection; }
-
-	bool HasMovementInput() const { return bHasMovementInput; }
-	void SetHasMovementInput(bool NewHasMovementInput) { bHasMovementInput = NewHasMovementInput; }
 
 	bool WasCrouchingPreDodge() const { return bWasCrouchingPreDodge; }
     void SetWasCrouchingPreDodge(bool NewWasCrouchingPreDodge) { bWasCrouchingPreDodge = NewWasCrouchingPreDodge; }
@@ -112,17 +105,11 @@ private:
 	/** Timer for dodge cooldown */
 	FTimerHandle DodgeTimerHandle;
 
-	/** Current normalized movement input */
-	FVector CurrentMovementInput = FVector::ZeroVector;
-
 	/** World space dodge direction */
 	FVector DodgeDirection = FVector::ZeroVector;
 
 	/** Initial dodge direction when dodge started (used as base for blending) */
 	FVector InitialDodgeDirection = FVector::ZeroVector;
-
-	/** Whether player is providing input */
-	bool bHasMovementInput = false;
 
 	/** Crouch state before dodge started */
 	bool bWasCrouchingPreDodge = false;

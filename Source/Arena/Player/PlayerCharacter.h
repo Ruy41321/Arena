@@ -7,6 +7,7 @@
 #include "../Utils/Utils.h"
 #include "../Components/Dodge/DodgeSystemComponent.h"
 #include "../Components/Crouch/CrouchSystemComponent.h"
+#include "../Components/MovementInput/MovementInputComponent.h"
 
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
@@ -44,11 +45,7 @@ public:
 protected:
 	virtual void BeginPlay() override;
 
-	void MoveForward(const FInputActionValue& Value);
-	void MoveRight(const FInputActionValue& Value);
 	void Sprint(const FInputActionValue& Value);
-	void Look(const FInputActionValue& Value);
-
 	void JumpPressed(const FInputActionValue& Value);
 	virtual void Landed(const FHitResult& Hit) override;
 	void ResetLanding();
@@ -59,6 +56,9 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crouch System")
 	TObjectPtr<UCrouchSystemComponent> CrouchSystem;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement Input")
+	TObjectPtr<UMovementInputComponent> MovementInputSystem;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Movement")
 	bool IsLanding;

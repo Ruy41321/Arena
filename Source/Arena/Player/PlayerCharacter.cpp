@@ -22,6 +22,7 @@ APlayerCharacter::APlayerCharacter()
 
 	DodgeSystem = CreateDefaultSubobject<UDodgeSystemComponent>(TEXT("Dodge System Component"));
 	CrouchSystem = CreateDefaultSubobject<UCrouchSystemComponent>(TEXT("Crouch System Component"));
+	MovementInputSystem = CreateDefaultSubobject<UMovementInputComponent>(TEXT("Movement Input Component"));
 }
 
 // Called when the game starts or when spawned
@@ -42,6 +43,24 @@ void APlayerCharacter::BeginPlay()
 void APlayerCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+	
+	if (GetCharacterMovement())
+	{
+		// Handle dodge movement
+		if (DodgeSystem && DodgeSystem->IsDodging() && !DodgeSystem->GetDodgeDirection().IsZero())
+		{
+			DodgeSystem->UpdateDodgeDirection();
+			AddMovementInput(DodgeSystem->GetDodgeDirection(), 1.0f);
+		}
+		
+		// Handle crouch height adjustment
+		if (CrouchSystem && CrouchSystem->IsCrouchingInProgress())
+		{
+			float TargetCapsuleHeight = CrouchSystem->IsCrouched() ? CrouchSystem->GetCrouchTargetHeight() : CrouchSystem->GetStandTargetHeight();
+			float TargetMeshHeight = CrouchSystem->IsCrouched() ? CrouchSystem->GetCrouchMeshHeightOffset() : CrouchSystem->GetStandMeshHeightOffset();
+			CrouchSystem->AdjustCapsuleHeight(DeltaTime, TargetCapsuleHeight, TargetMeshHeight);
+		}
+	}
 }
 
 // Called to bind functionality to input
@@ -51,19 +70,36 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent *PlayerInputCom
 
 	if (UEnhancedInputComponent *EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent))
 	{
-		EnhancedInputComponent->BindAction(MoveForwardAction, ETriggerEvent::Triggered, this, &APlayerCharacter::MoveForward);
+		// Bind movement input to MovementInputSystem using lambdas
+		EnhancedInputComponent->BindActionValueLambda(MoveForwardAction, ETriggerEvent::Triggered, 
+			[this](const FInputActionValue& Value) {
+				if (MovementInputSystem)
+					MovementInputSystem->MoveForward(Value);
+			});
 		EnhancedInputComponent->BindActionValueLambda(MoveForwardAction, ETriggerEvent::Completed, 
 			[this](const FInputActionValue& Value) 
 			{
-				DodgeSystem->SetCurrentMovementInputAxis("X", 0.0f);
+				if (MovementInputSystem)
+					MovementInputSystem->OnMovementInputCompleted("X");
 			});
-		EnhancedInputComponent->BindAction(MoveRightAction, ETriggerEvent::Triggered, this, &APlayerCharacter::MoveRight);
+		EnhancedInputComponent->BindActionValueLambda(MoveRightAction, ETriggerEvent::Triggered, 
+			[this](const FInputActionValue& Value) {
+				if (MovementInputSystem)
+					MovementInputSystem->MoveRight(Value);
+			});
 		EnhancedInputComponent->BindActionValueLambda(MoveRightAction, ETriggerEvent::Completed, 
 			[this](const FInputActionValue& Value) 
 			{
-				DodgeSystem->SetCurrentMovementInputAxis("Y", 0.0f);
+				if (MovementInputSystem)
+					MovementInputSystem->OnMovementInputCompleted("Y");
 			});
-		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &APlayerCharacter::Look);
+		EnhancedInputComponent->BindActionValueLambda(LookAction, ETriggerEvent::Triggered, 
+			[this](const FInputActionValue& Value) {
+				if (MovementInputSystem)
+					MovementInputSystem->Look(Value);
+			});
+		
+		// Keep other actions bound to PlayerCharacter
 		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Started, this, &APlayerCharacter::Sprint);
 		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Completed, this, &APlayerCharacter::Sprint);
 		EnhancedInputComponent->BindAction(JumpPressedAction, ETriggerEvent::Started, this, &APlayerCharacter::JumpPressed);
@@ -85,53 +121,6 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent *PlayerInputCom
 	}
 }
 
-
-void APlayerCharacter::MoveForward(const FInputActionValue &Value)
-{
-	const float Direction = Value.Get<float>();
-	const FRotator Rotation = Controller ? Controller->GetControlRotation() : FRotator::ZeroRotator;
-	const FRotator YawRotation(0.f, Rotation.Yaw, 0.f);
-	const FVector Forward = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
-
-	if (Direction != 0.0f)
-	{
-		// Update current movement input for dodge system
-		DodgeSystem->SetCurrentMovementInputAxis("X", Direction);
-		DodgeSystem->SetHasMovementInput(true);
-
-		if (!DodgeSystem->IsDodging())
-			AddMovementInput(Forward, Direction);
-	}
-}
-
-void APlayerCharacter::MoveRight(const FInputActionValue &Value)
-{
-	const float Direction = Value.Get<float>();
-	const FRotator Rotation = Controller ? Controller->GetControlRotation() : FRotator::ZeroRotator;
-	const FRotator YawRotation(0.f, Rotation.Yaw, 0.f);
-	const FVector Right = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
-
-	if (Direction != 0.0f)
-	{
-		// Update current movement input for dodge system  
-		DodgeSystem->SetCurrentMovementInputAxis("Y", Direction);
-		DodgeSystem->SetHasMovementInput(true);
-
-		if (!DodgeSystem->IsDodging())
-			AddMovementInput(Right, Direction);
-	}
-}
-
-void APlayerCharacter::Look(const FInputActionValue &Value)
-{
-	const FVector2D LookAxis = Value.Get<FVector2D>();
-	if (Controller)
-	{
-		AddControllerYawInput(LookAxis.X);
-		AddControllerPitchInput(LookAxis.Y);
-	}
-}
-
 void APlayerCharacter::Sprint(const FInputActionValue &Value)
 {
 	const bool SprintValue = Value.Get<bool>();
@@ -146,13 +135,16 @@ void APlayerCharacter::Sprint(const FInputActionValue &Value)
 				return;
 			CrouchSystem->CrouchPressed(Value);
 		}
-		GetCharacterMovement()->MaxWalkSpeed = RunSpeed; // Increase speed when sprinting
+		// Use MovementInputSystem for speed updates
+		if (MovementInputSystem)
+			MovementInputSystem->UpdateMaxWalkSpeed();
 	}
 	else
 	{
 		SprintInterrupted = true;
-		if (CrouchSystem && !CrouchSystem->IsCrouched())
-			GetCharacterMovement()->MaxWalkSpeed = WalkSpeed; // Reset speed when not sprinting
+		// Use MovementInputSystem for speed updates
+		if (MovementInputSystem)
+			MovementInputSystem->UpdateMaxWalkSpeed();
 	}
 }
 
@@ -182,28 +174,9 @@ void APlayerCharacter::ResetLanding()
 
 void APlayerCharacter::UpdateMaxWalkSpeed()
 {
-	float MaxSpeed;
-	
-	// Check dodge system first (highest priority)
-	if (DodgeSystem && DodgeSystem->IsDodging())
+	// Delegate to MovementInputSystem which now handles all movement speed logic
+	if (MovementInputSystem)
 	{
-		MaxSpeed = DodgeSystem->GetDodgeSpeed();
+		MovementInputSystem->UpdateMaxWalkSpeed();
 	}
-	// Then check crouch state
-	else if (CrouchSystem && CrouchSystem->IsCrouched())
-	{
-		MaxSpeed = CrouchSystem->GetCrouchSpeed();
-	}
-	// Then check sprint state
-	else if (!SprintInterrupted)
-	{
-		MaxSpeed = RunSpeed;
-	}
-	// Default to walk speed
-	else
-	{
-		MaxSpeed = WalkSpeed;
-	}
-	
-	GetCharacterMovement()->MaxWalkSpeed = MaxSpeed;
 }

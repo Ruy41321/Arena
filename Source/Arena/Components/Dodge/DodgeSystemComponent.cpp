@@ -35,15 +35,9 @@ void UDodgeSystemComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 	APlayerCharacter* PlayerCharacter = GetValidPlayerCharacter();
 	if (!PlayerCharacter || !PlayerCharacter->GetCharacterMovement())
 		return;
-	// Handle dodge movement
-	const FVector2D Velocity2D = FVector2D(PlayerCharacter->GetCharacterMovement()->Velocity.X, PlayerCharacter->GetCharacterMovement()->Velocity.Y);
 
-	if (Velocity2D.Size() <= 0.0f)
-	{
-		// No movement detected - reset all movement input
-		SetCurrentMovementInput(FVector::ZeroVector);
-		SetHasMovementInput(false);
-	}
+	// Movement input tracking is now handled entirely by MovementInputSystem
+	// No need to duplicate velocity tracking here
 
 	if (IsDodging() && !GetDodgeDirection().IsZero())
 	{
@@ -84,7 +78,9 @@ void UDodgeSystemComponent::StartDodge()
 	}
 
 	bIsDodging = true;
-	PlayerCharacter->UpdateMaxWalkSpeed();
+	// Use MovementInputSystem for speed updates
+	if (PlayerCharacter->MovementInputSystem)
+		PlayerCharacter->MovementInputSystem->UpdateMaxWalkSpeed();
 
 	// If no movement input, set dodge direction to forward
 	if (!UpdateDodgeDirection())
@@ -127,8 +123,9 @@ void UDodgeSystemComponent::ResetDodge()
 	}
 	bWasCrouchingPreDodge = false;
 
-	// Reset speed based on player state
-	PlayerCharacter->UpdateMaxWalkSpeed();
+	// Reset speed based on player state - use MovementInputSystem
+	if (PlayerCharacter->MovementInputSystem)
+		PlayerCharacter->MovementInputSystem->UpdateMaxWalkSpeed();
 
 	// Start cooldown timer to re-enable dodging
 	GetWorld()->GetTimerManager().ClearTimer(DodgeTimerHandle);
@@ -141,10 +138,26 @@ bool UDodgeSystemComponent::UpdateDodgeDirection()
 	if (!PlayerCharacter)
 		return false;
 
+	// Get movement input from MovementInputSystem - this is now the only source of truth
+	bool bHasInput = false;
+	FVector MovementInput = FVector::ZeroVector;
+	
+	if (PlayerCharacter->MovementInputSystem)
+	{
+		bHasInput = PlayerCharacter->MovementInputSystem->HasMovementInput();
+		MovementInput = PlayerCharacter->MovementInputSystem->GetCurrentMovementInput();
+	}
+	else
+	{
+		// No MovementInputSystem available - can't proceed
+		UE_LOG(LogTemp, Warning, TEXT("DodgeSystem: MovementInputSystem not available!"));
+		return false;
+	}
+
 	// If we're not dodging or don't have an initial direction, use original behavior
 	if (!bIsDodging || InitialDodgeDirection.IsZero())
 	{
-		if (!(bHasMovementInput && !CurrentMovementInput.IsNearlyZero()))
+		if (!(bHasInput && !MovementInput.IsNearlyZero()))
 			return false;
 
 		// Player is moving, dodge in the current movement direction
@@ -153,7 +166,7 @@ bool UDodgeSystemComponent::UpdateDodgeDirection()
 		const FVector Forward = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
 		const FVector Right = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
 
-		DodgeDirection = (Forward * CurrentMovementInput.X + Right * CurrentMovementInput.Y).GetSafeNormal();
+		DodgeDirection = (Forward * MovementInput.X + Right * MovementInput.Y).GetSafeNormal();
 		return true;
 	}
 
@@ -161,14 +174,14 @@ bool UDodgeSystemComponent::UpdateDodgeDirection()
 	FVector CurrentInputDirection = FVector::ZeroVector;
 	
 	// Calculate current input direction if player is providing input
-	if (bHasMovementInput && !CurrentMovementInput.IsNearlyZero())
+	if (bHasInput && !MovementInput.IsNearlyZero())
 	{
 		const FRotator Rotation = PlayerCharacter->Controller ? PlayerCharacter->Controller->GetControlRotation() : FRotator::ZeroRotator;
 		const FRotator YawRotation(0.f, Rotation.Yaw, 0.f);
 		const FVector Forward = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
 		const FVector Right = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
 		
-		CurrentInputDirection = (Forward * CurrentMovementInput.X + Right * CurrentMovementInput.Y).GetSafeNormal();
+		CurrentInputDirection = (Forward * MovementInput.X + Right * MovementInput.Y).GetSafeNormal();
 	}
 	
 	// Blend between initial dodge direction and current input direction
@@ -186,14 +199,4 @@ bool UDodgeSystemComponent::UpdateDodgeDirection()
 	}
 	
 	return true;
-}
-
-void UDodgeSystemComponent::SetCurrentMovementInputAxis(FString Axis, float Value)
-{
-	if (Axis == "X")
-		CurrentMovementInput.X = Value;
-	else if (Axis == "Y")
-		CurrentMovementInput.Y = Value;
-	else if (Axis == "Z")
-		CurrentMovementInput.Z = Value;
 }

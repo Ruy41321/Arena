@@ -106,7 +106,9 @@ void UCrouchSystemComponent::Crouch(bool bClientSimulation)
 		return;
 
 	bIsCrouched = true;
-	PlayerCharacter->UpdateMaxWalkSpeed();
+	// Use MovementInputSystem for speed updates
+	if (PlayerCharacter->MovementInputSystem)
+		PlayerCharacter->MovementInputSystem->UpdateMaxWalkSpeed();
 }
 
 void UCrouchSystemComponent::UnCrouch(bool bClientSimulation)
@@ -116,7 +118,9 @@ void UCrouchSystemComponent::UnCrouch(bool bClientSimulation)
 		return;
 
 	bIsCrouched = false;
-	PlayerCharacter->UpdateMaxWalkSpeed();
+	// Use MovementInputSystem for speed updates
+	if (PlayerCharacter->MovementInputSystem)
+		PlayerCharacter->MovementInputSystem->UpdateMaxWalkSpeed();
 }
 
 bool UCrouchSystemComponent::CanUncrouchSafely() const
