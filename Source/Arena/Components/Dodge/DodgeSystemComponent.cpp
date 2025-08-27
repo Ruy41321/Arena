@@ -1,12 +1,12 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "DodgeSystemComponent.h"
-#include "../Player/PlayerCharacter.h"
+#include "../../Player/PlayerCharacter.h"
 
 // Sets default values for this component's properties
 UDodgeSystemComponent::UDodgeSystemComponent()
 {
-	PrimaryComponentTick.bCanEverTick = false;
+	PrimaryComponentTick.bCanEverTick = true;
 }
 
 void UDodgeSystemComponent::BeginPlay()
@@ -25,6 +25,30 @@ void UDodgeSystemComponent::BeginPlay()
 	{
 		UE_LOG(LogTemp, Warning, TEXT("DodgeSystemComponent: Successfully cached PlayerCharacter - %s at address %p"), 
 			*OwnerPlayerCharacter->GetName(), static_cast<void*>(OwnerPlayerCharacter.Get()));
+	}
+}
+
+void UDodgeSystemComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+{
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+
+	APlayerCharacter* PlayerCharacter = GetValidPlayerCharacter();
+	if (!PlayerCharacter || !PlayerCharacter->GetCharacterMovement())
+		return;
+	// Handle dodge movement
+	const FVector2D Velocity2D = FVector2D(PlayerCharacter->GetCharacterMovement()->Velocity.X, PlayerCharacter->GetCharacterMovement()->Velocity.Y);
+
+	if (Velocity2D.Size() <= 0.0f)
+	{
+		// No movement detected - reset all movement input
+		SetCurrentMovementInput(FVector::ZeroVector);
+		SetHasMovementInput(false);
+	}
+
+	if (IsDodging() && !GetDodgeDirection().IsZero())
+	{
+		UpdateDodgeDirection();
+		PlayerCharacter->AddMovementInput(GetDodgeDirection(), 1.0f);
 	}
 }
 
@@ -49,18 +73,29 @@ void UDodgeSystemComponent::StartDodge()
 	if (!bCanDodge || !PlayerCharacter || PlayerCharacter->IsLanding || PlayerCharacter->GetCharacterMovement()->IsFalling())
 		return;
 
-	bWasCrouchingPreDodge = PlayerCharacter->IsCrouched;
-	if (!PlayerCharacter->IsCrouched)
-		PlayerCharacter->CrouchPressed(FInputActionValue());
-	else
-		bWasCrouchingPreDodge = true;
+	// Use CrouchSystem instead of direct PlayerCharacter calls
+	bWasCrouchingPreDodge = PlayerCharacter->CrouchSystem ? PlayerCharacter->CrouchSystem->IsCrouched() : false;
+	if (PlayerCharacter->CrouchSystem)
+	{
+		if (!PlayerCharacter->CrouchSystem->IsCrouched())
+			PlayerCharacter->CrouchSystem->CrouchPressed(FInputActionValue());
+		else
+			bWasCrouchingPreDodge = true;
+	}
 
 	bIsDodging = true;
 	PlayerCharacter->UpdateMaxWalkSpeed();
 
 	// If no movement input, set dodge direction to forward
 	if (!UpdateDodgeDirection())
+	{
 		DodgeDirection = PlayerCharacter->GetActorForwardVector();
+		UE_LOG(LogTemp, Warning, TEXT("DodgeSystem: No movement input, using forward direction: %s"), *DodgeDirection.ToString());
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("DodgeSystem: Using movement input direction: %s"), *DodgeDirection.ToString());
+	}
 	
 	// Store the initial dodge direction for blending
 	InitialDodgeDirection = DodgeDirection;
@@ -68,6 +103,8 @@ void UDodgeSystemComponent::StartDodge()
 	bCanDodge = false;
 	// Set a timer to reset dodge after a short duration as security in case animation notify fails
 	GetWorld()->GetTimerManager().SetTimer(DodgeTimerHandle, this, &UDodgeSystemComponent::ResetDodge, DodgeDuration, false);
+	
+	UE_LOG(LogTemp, Warning, TEXT("DodgeSystem: Dodge started! Direction: %s, Speed: %f"), *DodgeDirection.ToString(), DodgeSpeed);
 }
 
 void UDodgeSystemComponent::ResetDodge()
@@ -82,9 +119,12 @@ void UDodgeSystemComponent::ResetDodge()
 	DodgeDirection = FVector::ZeroVector;
 	InitialDodgeDirection = FVector::ZeroVector;
 
-	// Uncrouch if it was so and its possible
-	if (PlayerCharacter->CanUncrouchSafely() && !bWasCrouchingPreDodge)
-		PlayerCharacter->CrouchPressed(FInputActionValue());
+	// Uncrouch if it was so and its possible - use CrouchSystem
+	if (PlayerCharacter->CrouchSystem)
+	{
+		if (PlayerCharacter->CrouchSystem->CanUncrouchSafely() && !bWasCrouchingPreDodge)
+			PlayerCharacter->CrouchSystem->CrouchPressed(FInputActionValue());
+	}
 	bWasCrouchingPreDodge = false;
 
 	// Reset speed based on player state

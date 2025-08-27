@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "InputActionValue.h"
 #include "DodgeSystemComponent.generated.h"
 
 class APlayerCharacter;
@@ -17,6 +18,7 @@ public:
 	UDodgeSystemComponent();
 
 	virtual void BeginPlay() override;
+	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 	/** Starts dodge in movement direction or forward if stationary */
 	UFUNCTION(BlueprintCallable, Category = "Dodge System", meta = (ToolTip = "Initiates dodge maneuver"))

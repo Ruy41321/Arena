@@ -5,7 +5,8 @@
 #include "CoreMinimal.h"
 #include "InputActionValue.h"
 #include "../Utils/Utils.h"
-#include "../Components/DodgeSystemComponent.h"
+#include "../Components/Dodge/DodgeSystemComponent.h"
+#include "../Components/Crouch/CrouchSystemComponent.h"
 
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
@@ -33,20 +34,12 @@ class ARENA_API APlayerCharacter : public ACharacter
 {
 	GENERATED_BODY()
 
-// Functions section
-
 public:
 	APlayerCharacter();
 
 	virtual void Tick(float DeltaTime) override;
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
-	void CrouchPressed(const FInputActionValue& Value);
-	bool CanUncrouchSafely() const;
 	void UpdateMaxWalkSpeed();
-
-private:
-	void AdjustCapsuleHeight(float DeltaTime, float TargetCapsuleHeight, float TargetMeshHeight);
-	
 
 protected:
 	virtual void BeginPlay() override;
@@ -60,28 +53,20 @@ protected:
 	virtual void Landed(const FHitResult& Hit) override;
 	void ResetLanding();
 
-	virtual void Crouch(bool bClientSimulation = false) override;
-	virtual void UnCrouch(bool bClientSimulation = false) override;
-
-// Properties section
-
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dodge System")
 	TObjectPtr<UDodgeSystemComponent> DodgeSystem;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crouch System")
+	TObjectPtr<UCrouchSystemComponent> CrouchSystem;
+
 	UPROPERTY(BlueprintReadOnly, Category = "Movement")
 	bool IsLanding;
-	UPROPERTY(BlueprintReadOnly, Category = "Movement")
-	bool IsCrouched;
-	UPROPERTY(BlueprintReadOnly, Category = "Movement")
-	bool IsCrouchingInProgress = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
 	float WalkSpeed = 300.0f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
 	float RunSpeed = 600.0f;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
-	float CrouchSpeed = 100.0f;
 	bool SprintInterrupted = true;
 
 private:
@@ -93,7 +78,6 @@ protected:
 	TObjectPtr<UCameraComponent> Camera;
 	UPROPERTY(BlueprintReadWrite, Category = "Camera")
 	TObjectPtr<USpringArmComponent> CameraBoom;
-
 
 	// Input actions and mapping context
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
@@ -112,25 +96,4 @@ protected:
 	TObjectPtr<UInputAction> CrouchPressedAction;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
 	TObjectPtr<UInputAction> DodgeAction;
-
-	// Capsule height adjustment parameters when crouching
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crouching")
-	float CrouchTargetHeight; // Target height when crouching
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crouching")
-	float StandTargetHeight; // Target height when standing
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crouching")
-	float HeightAdjustmentRate; // Speed adjustment factor for crouching
-
-	// Mesh location adjustment parameters when crouching
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crouching")
-	float CrouchMeshHeightOffset; // Offset for the mesh when crouching
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crouching")
-	float StandMeshHeightOffset; // Offset for the mesh when standing
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crouching")
-	float MeshOffsetAdjustmentRate; // Speed adjustment factor for mesh position
-
-	// Collision check parameters for uncrouching
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crouching", meta = (ToolTip = "Extra safety margin (in cm) when checking for obstacles above"))
-	float UncrouchSafetyMargin = 5.0f;
-
 };

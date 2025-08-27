@@ -22,7 +22,9 @@ void UPlayerAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 	IsLanding = PlayerCharacter->IsLanding;
 	IsDodging = PlayerCharacter->DodgeSystem->IsDodging();
 	CanDodge = PlayerCharacter->DodgeSystem->CanDodge();
-	float CrouchingTransitionTarget = PlayerCharacter->IsCrouched ? 100.0f : 0.0f;
+	
+	// Use CrouchSystem instead of direct PlayerCharacter crouch properties
+	float CrouchingTransitionTarget = (PlayerCharacter->CrouchSystem && PlayerCharacter->CrouchSystem->IsCrouched()) ? 100.0f : 0.0f;
 	if (CrouchingTransitionTarget != CrouchingTransitionTime)
 		FUtils::HandleGenericInterpolation(CrouchingTransitionTime, CrouchingTransitionTarget, CrouchingRate, DeltaSeconds, 0.1f);
 }

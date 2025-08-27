@@ -21,16 +21,7 @@ APlayerCharacter::APlayerCharacter()
 	Camera->SetupAttachment(CameraBoom);
 
 	DodgeSystem = CreateDefaultSubobject<UDodgeSystemComponent>(TEXT("Dodge System Component"));
-	
-	CrouchTargetHeight = 65.0f;
-	StandTargetHeight = 90.0f;
-	HeightAdjustmentRate = FMath::Abs(StandTargetHeight - CrouchTargetHeight) * 10.0f; // * 10 = it needs 1/10 of a second to adjust the height
-
-	StandMeshHeightOffset = -90.0f;
-	CrouchMeshHeightOffset = -60.0f;
-	MeshOffsetAdjustmentRate = FMath::Abs(StandMeshHeightOffset - CrouchMeshHeightOffset) * 10.0f; // * 10 = it needs 1/10 of a second to adjust the mesh height
-
-	UncrouchSafetyMargin = 5.0f;
+	CrouchSystem = CreateDefaultSubobject<UCrouchSystemComponent>(TEXT("Crouch System Component"));
 }
 
 // Called when the game starts or when spawned
@@ -51,30 +42,6 @@ void APlayerCharacter::BeginPlay()
 void APlayerCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	if (GetCharacterMovement())
-	{
-		// Handle dodge movement
-		const FVector2D Velocity2D = FVector2D(GetCharacterMovement()->Velocity.X, GetCharacterMovement()->Velocity.Y);
-
-		if (Velocity2D.Size() <= 0.0f)
-		{
-			// No movement detected - reset all movement input
-			DodgeSystem->SetCurrentMovementInput(FVector::ZeroVector);
-			DodgeSystem->SetHasMovementInput(false);
-		}
-
-		if (DodgeSystem->IsDodging() && !DodgeSystem->GetDodgeDirection().IsZero())
-		{
-			DodgeSystem->UpdateDodgeDirection();
-			AddMovementInput(DodgeSystem->GetDodgeDirection(), 1.0f);
-		}
-		
-		// Adjust capsule height based on crouching state
-		float TargetCapsuleHeight = IsCrouched ? CrouchTargetHeight : StandTargetHeight;
-		float TargetMeshHeight = IsCrouched ? CrouchMeshHeightOffset : StandMeshHeightOffset;
-		if (GetCapsuleComponent() && IsCrouchingInProgress)
-			AdjustCapsuleHeight(DeltaTime, TargetCapsuleHeight, TargetMeshHeight);
-	}
 }
 
 // Called to bind functionality to input
@@ -101,7 +68,11 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent *PlayerInputCom
 		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Completed, this, &APlayerCharacter::Sprint);
 		EnhancedInputComponent->BindAction(JumpPressedAction, ETriggerEvent::Started, this, &APlayerCharacter::JumpPressed);
 		EnhancedInputComponent->BindAction(JumpPressedAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
-		EnhancedInputComponent->BindAction(CrouchPressedAction, ETriggerEvent::Started, this, &APlayerCharacter::CrouchPressed);
+		EnhancedInputComponent->BindActionValueLambda(CrouchPressedAction, ETriggerEvent::Started, 
+			[this](const FInputActionValue& Value) {
+				if (CrouchSystem)
+					CrouchSystem->CrouchPressed(Value);
+			});
 		EnhancedInputComponent->BindActionValueLambda(DodgeAction, ETriggerEvent::Started,
 			[this](const FInputActionValue& Value) {
 				if (DodgeSystem)
@@ -169,18 +140,18 @@ void APlayerCharacter::Sprint(const FInputActionValue &Value)
 		SprintInterrupted = false;
 		if (DodgeSystem->IsDodging())
 			return;
-		if (IsCrouched)
+		if (CrouchSystem && CrouchSystem->IsCrouched())
 		{
-			if (!CanUncrouchSafely())
+			if (!CrouchSystem->CanUncrouchSafely())
 				return;
-			CrouchPressed(Value);
+			CrouchSystem->CrouchPressed(Value);
 		}
 		GetCharacterMovement()->MaxWalkSpeed = RunSpeed; // Increase speed when sprinting
 	}
 	else
 	{
 		SprintInterrupted = true;
-		if (!IsCrouched)
+		if (CrouchSystem && !CrouchSystem->IsCrouched())
 			GetCharacterMovement()->MaxWalkSpeed = WalkSpeed; // Reset speed when not sprinting
 	}
 }
@@ -189,10 +160,10 @@ void APlayerCharacter::JumpPressed(const FInputActionValue &Value)
 {
 	if (!IsLanding && !DodgeSystem->IsDodging())
 	{
-		if (!IsCrouched)
+		if (!CrouchSystem || !CrouchSystem->IsCrouched())
 			Jump();
 		else
-			CrouchPressed(Value);
+			CrouchSystem->CrouchPressed(Value);
 	}
 }
 
@@ -209,134 +180,30 @@ void APlayerCharacter::ResetLanding()
 	IsLanding = false;
 }
 
-void APlayerCharacter::CrouchPressed(const FInputActionValue &Value)
-{
-	if (DodgeSystem->IsDodging())
-		return;
-	if (IsCrouched)
-	{
-		if (!CanUncrouchSafely())
-			return;
-		UnCrouch();
-	}
-	else
-		Crouch();
-	IsCrouchingInProgress = true;
-}
-
-void APlayerCharacter::Crouch(bool bClientSimulation)
-{
-	if (GetCharacterMovement()->IsFalling())
-		return;
-	IsCrouched = true;
-	GetCharacterMovement()->MaxWalkSpeed = CrouchSpeed;
-}
-
-void APlayerCharacter::UnCrouch(bool bClientSimulation)
-{
-	IsCrouched = false;
-	GetCharacterMovement()->MaxWalkSpeed = !SprintInterrupted ? RunSpeed : WalkSpeed;
-}
-
-void APlayerCharacter::AdjustCapsuleHeight(float DeltaTime, float TargetCapsuleHeight, float TargetMeshHeight)
-{
-	bool IsFinished = true;
-	const float Tolerance = 0.01f;
-
-	// Adjusting the capsule height
-	if (GetCapsuleComponent())
-	{
-		float CurrentHeight = GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
-
-		if (!FUtils::HandleGenericInterpolation(CurrentHeight, TargetCapsuleHeight, HeightAdjustmentRate, DeltaTime, Tolerance))
-			IsFinished = false;
-		GetCapsuleComponent()->SetCapsuleHalfHeight(CurrentHeight);
-	}
-
-	// Adjusting the mesh position
-	if (GetMesh())
-	{
-		FVector CurrentLocation = GetMesh()->GetRelativeLocation();
-		float CurrentMeshHeight = CurrentLocation.Z;
-
-		if (!FUtils::HandleGenericInterpolation(CurrentMeshHeight, TargetMeshHeight, MeshOffsetAdjustmentRate, DeltaTime, Tolerance))
-			IsFinished = false;
-		CurrentLocation.Z = CurrentMeshHeight; // Update the Z position of the mesh
-		GetMesh()->SetRelativeLocation(CurrentLocation);
-	}
-
-	//UE_LOG(LogTemp, Log, TEXT("AdjustCapsuleHeight: Capsule Height: %f, Mesh Height: %f"),
-	//	   GetCapsuleComponent()->GetScaledCapsuleHalfHeight(), GetMesh()->GetRelativeLocation().Z);
-
-	IsCrouchingInProgress = !IsFinished;
-}
-
-bool APlayerCharacter::CanUncrouchSafely() const
-{
-	if (!GetCapsuleComponent() || !GetWorld() || !IsCrouched)
-	{
-		return false;
-	}
-
-	// Get current capsule properties
-	const float CurrentCapsuleRadius = GetCapsuleComponent()->GetScaledCapsuleRadius();
-	const float CurrentCapsuleHalfHeight = GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
-	
-	// Calculate the target standing height
-	const float TargetCapsuleHalfHeight = StandTargetHeight;
-	const float HeightDifference = TargetCapsuleHalfHeight - CurrentCapsuleHalfHeight;
-	
-	// If we're already at standing height or taller, no need to check
-	if (HeightDifference <= 0.0f)
-	{
-		return true;
-	}
-
-	// Get current location
-	const FVector CurrentLocation = GetActorLocation();
-	
-	// Create a capsule shape for the standing position with safety margin
-	const FCollisionShape CapsuleShape = FCollisionShape::MakeCapsule(
-		CurrentCapsuleRadius, 
-		TargetCapsuleHalfHeight + UncrouchSafetyMargin
-	);
-	
-	// Calculate the position where the capsule would be when standing
-	// The capsule center needs to be adjusted upward by the height difference plus safety margin
-	const FVector TargetLocation = CurrentLocation + FVector(0.0f, 0.0f, HeightDifference + UncrouchSafetyMargin);
-	
-	// Set up collision query parameters
-	FCollisionQueryParams QueryParams;
-	QueryParams.AddIgnoredActor(this); // Ignore self
-	QueryParams.bTraceComplex = false; // Use simple collision for performance
-	
-	// Perform overlap test at the target standing position
-	const bool bHasOverlap = GetWorld()->OverlapBlockingTestByChannel(
-		TargetLocation,
-		FQuat::Identity,
-		ECollisionChannel::ECC_Pawn, // Use pawn collision channel
-		CapsuleShape,
-		QueryParams
-	);
-	
-	// Log for debugging purposes
-	UE_LOG(LogTemp, VeryVerbose, TEXT("CanUncrouchSafely: HeightDiff=%.2f, HasOverlap=%s"), 
-		   HeightDifference, bHasOverlap ? TEXT("true") : TEXT("false"));
-	
-	// If there's no overlap, we can safely uncrouch
-	return !bHasOverlap;
-}
-
 void APlayerCharacter::UpdateMaxWalkSpeed()
 {
 	float MaxSpeed;
-	if (DodgeSystem->IsDodging())
+	
+	// Check dodge system first (highest priority)
+	if (DodgeSystem && DodgeSystem->IsDodging())
+	{
 		MaxSpeed = DodgeSystem->GetDodgeSpeed();
-	else if (IsCrouched)
-		MaxSpeed = CrouchSpeed;
+	}
+	// Then check crouch state
+	else if (CrouchSystem && CrouchSystem->IsCrouched())
+	{
+		MaxSpeed = CrouchSystem->GetCrouchSpeed();
+	}
+	// Then check sprint state
 	else if (!SprintInterrupted)
+	{
 		MaxSpeed = RunSpeed;
+	}
+	// Default to walk speed
 	else
+	{
 		MaxSpeed = WalkSpeed;
+	}
+	
 	GetCharacterMovement()->MaxWalkSpeed = MaxSpeed;
 }
