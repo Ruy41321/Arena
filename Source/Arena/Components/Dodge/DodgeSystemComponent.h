@@ -8,6 +8,8 @@
 #include "DodgeSystemComponent.generated.h"
 
 class APlayerCharacter;
+class UInputAction;
+class UEnhancedInputComponent;
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class ARENA_API UDodgeSystemComponent : public UActorComponent
@@ -19,6 +21,10 @@ public:
 
 	virtual void BeginPlay() override;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+
+	/** Sets up input bindings for this component */
+	UFUNCTION(BlueprintCallable, Category = "Dodge System", meta = (ToolTip = "Sets up dodge input bindings"))
+	void SetupInput(UEnhancedInputComponent* EnhancedInputComponent);
 
 	/** Starts dodge in movement direction or forward if stationary */
 	UFUNCTION(BlueprintCallable, Category = "Dodge System", meta = (ToolTip = "Initiates dodge maneuver"))
@@ -70,6 +76,19 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Dodge System", meta = (ToolTip = "Returns the PlayerCharacter owner"))
 	APlayerCharacter* GetPlayerCharacter() const { return GetValidPlayerCharacter(); }
 
+	/** Gets valid PlayerCharacter with fallback */
+	FORCEINLINE APlayerCharacter* GetValidPlayerCharacter() const
+	{
+		// Simple null check with cached reference for optimal performance
+		if (LIKELY(OwnerPlayerCharacter != nullptr))
+		{
+			return OwnerPlayerCharacter.Get();
+		}
+		
+		// Fallback: re-cache if necessary (should be very rare)
+		return Cast<APlayerCharacter>(GetOwner());
+	}
+
 protected:
 	/** How long dodge action lasts */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dodge System", 
@@ -101,6 +120,11 @@ protected:
 		meta = (ToolTip = "Dodge speed in cm/s", ClampMin = "100.0", ClampMax = "1000.0"))
 	float DodgeSpeed = 650.0f;
 
+public:
+	/** Input action for dodge */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
+	TObjectPtr<UInputAction> DodgeAction;
+
 private:
 	/** Timer for dodge cooldown */
 	FTimerHandle DodgeTimerHandle;
@@ -119,7 +143,4 @@ private:
 
 	/** Cached PlayerCharacter reference */
 	TObjectPtr<APlayerCharacter> OwnerPlayerCharacter;
-
-	/** Gets valid PlayerCharacter with fallback */
-	FORCEINLINE APlayerCharacter* GetValidPlayerCharacter() const;
 };

@@ -19,7 +19,7 @@ void UPlayerAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 	Speed = Velocity.Size2D();
 	IsJumping = PlayerCharacter->GetCharacterMovement()->IsFalling() and Velocity.Z > 0.0f;
 	IsFalling = PlayerCharacter->GetCharacterMovement()->IsFalling() and Velocity.Z <= 0.0f;
-	IsLanding = PlayerCharacter->IsLanding;
+	IsLanding = PlayerCharacter->JumpSystem ? PlayerCharacter->JumpSystem->IsLanding() : false;
 	IsDodging = PlayerCharacter->DodgeSystem->IsDodging();
 	CanDodge = PlayerCharacter->DodgeSystem->CanDodge();
 	

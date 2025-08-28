@@ -2,6 +2,7 @@
 
 #include "DodgeSystemComponent.h"
 #include "../../Player/PlayerCharacter.h"
+#include "EnhancedInputComponent.h"
 
 // Sets default values for this component's properties
 UDodgeSystemComponent::UDodgeSystemComponent()
@@ -28,6 +29,29 @@ void UDodgeSystemComponent::BeginPlay()
 	}
 }
 
+void UDodgeSystemComponent::SetupInput(UEnhancedInputComponent* EnhancedInputComponent)
+{
+	if (!EnhancedInputComponent)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("DodgeSystemComponent: EnhancedInputComponent is null"));
+		return;
+	}
+
+	if (!DodgeAction)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("DodgeSystemComponent: DodgeAction is not set"));
+		return;
+	}
+
+	// Bind dodge input
+	EnhancedInputComponent->BindActionValueLambda(DodgeAction, ETriggerEvent::Started,
+		[this](const FInputActionValue& Value) {
+			StartDodge();
+		});
+	
+	UE_LOG(LogTemp, Log, TEXT("DodgeSystemComponent: Input bindings set up successfully"));
+}
+
 void UDodgeSystemComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
@@ -36,7 +60,7 @@ void UDodgeSystemComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 	if (!PlayerCharacter || !PlayerCharacter->GetCharacterMovement())
 		return;
 
-	// Movement input tracking is now handled entirely by MovementInputSystem
+	// Movement input tracking is now handled entirely by BasicMovementComponent
 	// No need to duplicate velocity tracking here
 
 	if (IsDodging() && !GetDodgeDirection().IsZero())
@@ -46,25 +70,13 @@ void UDodgeSystemComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 	}
 }
 
-// Helper function inline per performance massima
-FORCEINLINE APlayerCharacter* UDodgeSystemComponent::GetValidPlayerCharacter() const
-{
-	// Doppia validazione per massima sicurezza con branch prediction ottimale
-	if (LIKELY(OwnerPlayerCharacter && IsValid(OwnerPlayerCharacter)))
-	{
-		return OwnerPlayerCharacter;
-	}
-	
-	// Fallback: re-cache se necessario (dovrebbe essere rarissimo)
-	// Cast diretto senza modifica del membro const in fallback
-	return Cast<APlayerCharacter>(GetOwner());
-}
-
 void UDodgeSystemComponent::StartDodge()
 {
 	APlayerCharacter* PlayerCharacter = GetValidPlayerCharacter();
 
-	if (!bCanDodge || !PlayerCharacter || PlayerCharacter->IsLanding || PlayerCharacter->GetCharacterMovement()->IsFalling())
+	if (!bCanDodge || !PlayerCharacter || 
+		(PlayerCharacter->JumpSystem && PlayerCharacter->JumpSystem->IsLanding()) || 
+		PlayerCharacter->GetCharacterMovement()->IsFalling())
 		return;
 
 	// Use CrouchSystem instead of direct PlayerCharacter calls
@@ -78,9 +90,9 @@ void UDodgeSystemComponent::StartDodge()
 	}
 
 	bIsDodging = true;
-	// Use MovementInputSystem for speed updates
-	if (PlayerCharacter->MovementInputSystem)
-		PlayerCharacter->MovementInputSystem->UpdateMaxWalkSpeed();
+	// Use BasicMovementComponent for speed updates
+	if (PlayerCharacter->BasicMovementSystem)
+		PlayerCharacter->BasicMovementSystem->UpdateMaxWalkSpeed();
 
 	// If no movement input, set dodge direction to forward
 	if (!UpdateDodgeDirection())
@@ -123,9 +135,9 @@ void UDodgeSystemComponent::ResetDodge()
 	}
 	bWasCrouchingPreDodge = false;
 
-	// Reset speed based on player state - use MovementInputSystem
-	if (PlayerCharacter->MovementInputSystem)
-		PlayerCharacter->MovementInputSystem->UpdateMaxWalkSpeed();
+	// Reset speed based on player state - use BasicMovementComponent
+	if (PlayerCharacter->BasicMovementSystem)
+		PlayerCharacter->BasicMovementSystem->UpdateMaxWalkSpeed();
 
 	// Start cooldown timer to re-enable dodging
 	GetWorld()->GetTimerManager().ClearTimer(DodgeTimerHandle);
@@ -138,19 +150,19 @@ bool UDodgeSystemComponent::UpdateDodgeDirection()
 	if (!PlayerCharacter)
 		return false;
 
-	// Get movement input from MovementInputSystem - this is now the only source of truth
+	// Get movement input from BasicMovementComponent - this is now the only source of truth
 	bool bHasInput = false;
 	FVector MovementInput = FVector::ZeroVector;
-	
-	if (PlayerCharacter->MovementInputSystem)
+
+	if (PlayerCharacter->BasicMovementSystem)
 	{
-		bHasInput = PlayerCharacter->MovementInputSystem->HasMovementInput();
-		MovementInput = PlayerCharacter->MovementInputSystem->GetCurrentMovementInput();
+		bHasInput = PlayerCharacter->BasicMovementSystem->HasMovementInput();
+		MovementInput = PlayerCharacter->BasicMovementSystem->GetCurrentMovementInput();
 	}
 	else
 	{
-		// No MovementInputSystem available - can't proceed
-		UE_LOG(LogTemp, Warning, TEXT("DodgeSystem: MovementInputSystem not available!"));
+		// No BasicMovementComponent available - can't proceed
+		UE_LOG(LogTemp, Warning, TEXT("DodgeSystem: BasicMovementComponent not available!"));
 		return false;
 	}
 

@@ -7,7 +7,9 @@
 #include "../Utils/Utils.h"
 #include "../Components/Dodge/DodgeSystemComponent.h"
 #include "../Components/Crouch/CrouchSystemComponent.h"
-#include "../Components/MovementInput/MovementInputComponent.h"
+#include "../Components/BasicMovement/BasicMovementComponent.h"
+#include "../Components/Jump/JumpSystemComponent.h"
+#include "../Components/Sprint/SprintSystemComponent.h"
 
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
@@ -19,8 +21,6 @@
 
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/Character.h"
-#include "Engine/World.h"
-#include "CollisionQueryParams.h"
 
 // Forward declarations for Enhanced Input
 class UInputMappingContext;
@@ -45,32 +45,25 @@ public:
 protected:
 	virtual void BeginPlay() override;
 
-	void Sprint(const FInputActionValue& Value);
-	void JumpPressed(const FInputActionValue& Value);
 	virtual void Landed(const FHitResult& Hit) override;
-	void ResetLanding();
 
 public:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dodge System")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Dodge System")
 	TObjectPtr<UDodgeSystemComponent> DodgeSystem;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crouch System")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Crouch System")
 	TObjectPtr<UCrouchSystemComponent> CrouchSystem;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement Input")
-	TObjectPtr<UMovementInputComponent> MovementInputSystem;
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Basic Movement")
+	TObjectPtr<UBasicMovementComponent> BasicMovementSystem;
 
-	UPROPERTY(BlueprintReadOnly, Category = "Movement")
-	bool IsLanding;
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Jump System")
+	TObjectPtr<UJumpSystemComponent> JumpSystem;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
-	float WalkSpeed = 300.0f;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
-	float RunSpeed = 600.0f;
-	bool SprintInterrupted = true;
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Sprint System")
+	TObjectPtr<USprintSystemComponent> SprintSystem;
 
 private:
-	FTimerHandle LandingTimerHandle;
 	
 protected:
 	// Camera
@@ -82,18 +75,4 @@ protected:
 	// Input actions and mapping context
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
 	TObjectPtr<UInputMappingContext> DefaultMappingContext;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
-	TObjectPtr<UInputAction> MoveForwardAction;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
-	TObjectPtr<UInputAction> MoveRightAction;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
-	TObjectPtr<UInputAction> LookAction;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
-	TObjectPtr<UInputAction> SprintAction;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
-	TObjectPtr<UInputAction> JumpPressedAction;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
-	TObjectPtr<UInputAction> CrouchPressedAction;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
-	TObjectPtr<UInputAction> DodgeAction;
 };

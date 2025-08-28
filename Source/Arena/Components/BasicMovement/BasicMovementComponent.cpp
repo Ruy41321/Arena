@@ -1,11 +1,12 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
-#include "MovementInputComponent.h"
+#include "BasicMovementComponent.h"
 #include "../../Player/PlayerCharacter.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "EnhancedInputComponent.h"
 
 // Sets default values for this component's properties
-UMovementInputComponent::UMovementInputComponent()
+UBasicMovementComponent::UBasicMovementComponent()
 {
 	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
 	// off to improve performance if you don't need them.
@@ -19,7 +20,7 @@ UMovementInputComponent::UMovementInputComponent()
 
 
 // Called when the game starts
-void UMovementInputComponent::BeginPlay()
+void UBasicMovementComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
@@ -28,19 +29,68 @@ void UMovementInputComponent::BeginPlay()
 	// Validation for safety in development
 	if (!OwnerPlayerCharacter)
 	{
-		UE_LOG(LogTemp, Error, TEXT("MovementInputComponent: Owner is not a PlayerCharacter! Owner class: %s"),
+		UE_LOG(LogTemp, Error, TEXT("BasicMovementComponent: Owner is not a PlayerCharacter! Owner class: %s"),
 			GetOwner() ? *GetOwner()->GetClass()->GetName() : TEXT("NULL"));
 	}
 	else
 	{
-		UE_LOG(LogTemp, Warning, TEXT("MovementInputComponent: Successfully cached PlayerCharacter - %s at address %p"),
+		UE_LOG(LogTemp, Warning, TEXT("BasicMovementComponent: Successfully cached PlayerCharacter - %s at address %p"),
 			*OwnerPlayerCharacter->GetName(), static_cast<void*>(OwnerPlayerCharacter.Get()));
 	}
 }
 
+void UBasicMovementComponent::SetupInput(UEnhancedInputComponent* EnhancedInputComponent)
+{
+	if (!EnhancedInputComponent)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("BasicMovementComponent: EnhancedInputComponent is null"));
+		return;
+	}
+
+	// Check if input actions are set
+	if (!MoveForwardAction)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("BasicMovementComponent: MoveForwardAction is not set"));
+		return;
+	}
+	if (!MoveRightAction)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("BasicMovementComponent: MoveRightAction is not set"));
+		return;
+	}
+	if (!LookAction)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("BasicMovementComponent: LookAction is not set"));
+		return;
+	}
+
+	// Bind movement input using lambdas
+	EnhancedInputComponent->BindActionValueLambda(MoveForwardAction, ETriggerEvent::Triggered, 
+		[this](const FInputActionValue& Value) {
+			MoveForward(Value);
+		});
+	EnhancedInputComponent->BindActionValueLambda(MoveForwardAction, ETriggerEvent::Completed, 
+		[this](const FInputActionValue& Value) {
+			OnMovementInputCompleted("X");
+		});
+	EnhancedInputComponent->BindActionValueLambda(MoveRightAction, ETriggerEvent::Triggered, 
+		[this](const FInputActionValue& Value) {
+			MoveRight(Value);
+		});
+	EnhancedInputComponent->BindActionValueLambda(MoveRightAction, ETriggerEvent::Completed, 
+		[this](const FInputActionValue& Value) {
+			OnMovementInputCompleted("Y");
+		});
+	EnhancedInputComponent->BindActionValueLambda(LookAction, ETriggerEvent::Triggered, 
+		[this](const FInputActionValue& Value) {
+			Look(Value);
+		});
+
+	UE_LOG(LogTemp, Log, TEXT("BasicMovementComponent: Input bindings set up successfully"));
+}
 
 // Called every frame
-void UMovementInputComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+void UBasicMovementComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
@@ -48,20 +98,7 @@ void UMovementInputComponent::TickComponent(float DeltaTime, ELevelTick TickType
 	UpdateMovementVelocity();
 }
 
-
-FORCEINLINE APlayerCharacter* UMovementInputComponent::GetValidPlayerCharacter() const
-{
-	// Double validation for maximum safety with optimal branch prediction
-	if (LIKELY(OwnerPlayerCharacter && IsValid(OwnerPlayerCharacter)))
-	{
-		return OwnerPlayerCharacter;
-	}
-
-	// Fallback: re-cache if necessary (should be very rare)
-	return Cast<APlayerCharacter>(GetOwner());
-}
-
-void UMovementInputComponent::MoveForward(const FInputActionValue& Value)
+void UBasicMovementComponent::MoveForward(const FInputActionValue& Value)
 {
 	APlayerCharacter* PlayerCharacter = GetValidPlayerCharacter();
 	if (!PlayerCharacter)
@@ -84,7 +121,7 @@ void UMovementInputComponent::MoveForward(const FInputActionValue& Value)
 	}
 }
 
-void UMovementInputComponent::MoveRight(const FInputActionValue& Value)
+void UBasicMovementComponent::MoveRight(const FInputActionValue& Value)
 {
 	APlayerCharacter* PlayerCharacter = GetValidPlayerCharacter();
 	if (!PlayerCharacter)
@@ -107,7 +144,7 @@ void UMovementInputComponent::MoveRight(const FInputActionValue& Value)
 	}
 }
 
-void UMovementInputComponent::Look(const FInputActionValue& Value)
+void UBasicMovementComponent::Look(const FInputActionValue& Value)
 {
 	APlayerCharacter* PlayerCharacter = GetValidPlayerCharacter();
 	if (!PlayerCharacter)
@@ -128,12 +165,12 @@ void UMovementInputComponent::Look(const FInputActionValue& Value)
 	}
 }
 
-void UMovementInputComponent::OnMovementInputCompleted(const FString& Axis)
+void UBasicMovementComponent::OnMovementInputCompleted(const FString& Axis)
 {
 	SetCurrentMovementInputAxis(Axis, 0.0f);
 }
 
-void UMovementInputComponent::UpdateMovementVelocity()
+void UBasicMovementComponent::UpdateMovementVelocity()
 {
 	APlayerCharacter* PlayerCharacter = GetValidPlayerCharacter();
 	if (!PlayerCharacter)
@@ -154,7 +191,7 @@ void UMovementInputComponent::UpdateMovementVelocity()
 	}
 }
 
-void UMovementInputComponent::UpdateMaxWalkSpeed()
+void UBasicMovementComponent::UpdateMaxWalkSpeed()
 {
 	APlayerCharacter* PlayerCharacter = GetValidPlayerCharacter();
 	if (!PlayerCharacter)
@@ -177,20 +214,25 @@ void UMovementInputComponent::UpdateMaxWalkSpeed()
 		MaxSpeed = PlayerCharacter->CrouchSystem->GetCrouchSpeed();
 	}
 	// Then check sprint state
-	else if (!PlayerCharacter->SprintInterrupted)
+	else if (PlayerCharacter->SprintSystem && !PlayerCharacter->SprintSystem->IsSprintInterrupted())
 	{
-		MaxSpeed = PlayerCharacter->RunSpeed;
+		MaxSpeed = PlayerCharacter->SprintSystem->GetRunSpeed();
 	}
 	// Default to walk speed
+	else if (PlayerCharacter->SprintSystem)
+	{
+		MaxSpeed = WalkSpeed;
+	}
 	else
 	{
-		MaxSpeed = PlayerCharacter->WalkSpeed;
+		// Fallback if SprintSystem is not available
+		MaxSpeed = 300.0f; // Default walk speed
 	}
 	
 	Movement->MaxWalkSpeed = MaxSpeed;
 }
 
-void UMovementInputComponent::SetCurrentMovementInputAxis(const FString& Axis, float Value)
+void UBasicMovementComponent::SetCurrentMovementInputAxis(const FString& Axis, float Value)
 {
 	if (Axis == "X")
 		CurrentMovementInput.X = Value;

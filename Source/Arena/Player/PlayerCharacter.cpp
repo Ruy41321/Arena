@@ -22,7 +22,9 @@ APlayerCharacter::APlayerCharacter()
 
 	DodgeSystem = CreateDefaultSubobject<UDodgeSystemComponent>(TEXT("Dodge System Component"));
 	CrouchSystem = CreateDefaultSubobject<UCrouchSystemComponent>(TEXT("Crouch System Component"));
-	MovementInputSystem = CreateDefaultSubobject<UMovementInputComponent>(TEXT("Movement Input Component"));
+	BasicMovementSystem = CreateDefaultSubobject<UBasicMovementComponent>(TEXT("Basic Movement Component"));
+	JumpSystem = CreateDefaultSubobject<UJumpSystemComponent>(TEXT("Jump System Component"));
+	SprintSystem = CreateDefaultSubobject<USprintSystemComponent>(TEXT("Sprint System Component"));
 }
 
 // Called when the game starts or when spawned
@@ -44,23 +46,6 @@ void APlayerCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 	
-	//if (GetCharacterMovement())
-	//{
-	//	// Handle dodge movement
-	//	if (DodgeSystem && DodgeSystem->IsDodging() && !DodgeSystem->GetDodgeDirection().IsZero())
-	//	{
-	//		DodgeSystem->UpdateDodgeDirection();
-	//		AddMovementInput(DodgeSystem->GetDodgeDirection(), 1.0f);
-	//	}
-	//	
-	//	// Handle crouch height adjustment
-	//	if (CrouchSystem && CrouchSystem->IsCrouchingInProgress())
-	//	{
-	//		float TargetCapsuleHeight = CrouchSystem->IsCrouched() ? CrouchSystem->GetCrouchTargetHeight() : CrouchSystem->GetStandTargetHeight();
-	//		float TargetMeshHeight = CrouchSystem->IsCrouched() ? CrouchSystem->GetCrouchMeshHeightOffset() : CrouchSystem->GetStandMeshHeightOffset();
-	//		CrouchSystem->AdjustCapsuleHeight(DeltaTime, TargetCapsuleHeight, TargetMeshHeight);
-	//	}
-	//}
 }
 
 // Called to bind functionality to input
@@ -70,50 +55,27 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent *PlayerInputCom
 
 	if (UEnhancedInputComponent *EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent))
 	{
-		// Bind movement input to MovementInputSystem using lambdas
-		EnhancedInputComponent->BindActionValueLambda(MoveForwardAction, ETriggerEvent::Triggered, 
-			[this](const FInputActionValue& Value) {
-				if (MovementInputSystem)
-					MovementInputSystem->MoveForward(Value);
-			});
-		EnhancedInputComponent->BindActionValueLambda(MoveForwardAction, ETriggerEvent::Completed, 
-			[this](const FInputActionValue& Value) 
-			{
-				if (MovementInputSystem)
-					MovementInputSystem->OnMovementInputCompleted("X");
-			});
-		EnhancedInputComponent->BindActionValueLambda(MoveRightAction, ETriggerEvent::Triggered, 
-			[this](const FInputActionValue& Value) {
-				if (MovementInputSystem)
-					MovementInputSystem->MoveRight(Value);
-			});
-		EnhancedInputComponent->BindActionValueLambda(MoveRightAction, ETriggerEvent::Completed, 
-			[this](const FInputActionValue& Value) 
-			{
-				if (MovementInputSystem)
-					MovementInputSystem->OnMovementInputCompleted("Y");
-			});
-		EnhancedInputComponent->BindActionValueLambda(LookAction, ETriggerEvent::Triggered, 
-			[this](const FInputActionValue& Value) {
-				if (MovementInputSystem)
-					MovementInputSystem->Look(Value);
-			});
-		
-		// Keep other actions bound to PlayerCharacter
-		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Started, this, &APlayerCharacter::Sprint);
-		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Completed, this, &APlayerCharacter::Sprint);
-		EnhancedInputComponent->BindAction(JumpPressedAction, ETriggerEvent::Started, this, &APlayerCharacter::JumpPressed);
-		EnhancedInputComponent->BindAction(JumpPressedAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
-		EnhancedInputComponent->BindActionValueLambda(CrouchPressedAction, ETriggerEvent::Started, 
-			[this](const FInputActionValue& Value) {
-				if (CrouchSystem)
-					CrouchSystem->CrouchPressed(Value);
-			});
-		EnhancedInputComponent->BindActionValueLambda(DodgeAction, ETriggerEvent::Started,
-			[this](const FInputActionValue& Value) {
-				if (DodgeSystem)
-					DodgeSystem->StartDodge();
-			});
+		// Delegate input setup to each component
+		if (BasicMovementSystem)
+		{
+			BasicMovementSystem->SetupInput(EnhancedInputComponent);
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("PlayerCharacter: BasicMovementComponent is null, cannot setup movement input"));
+		}
+
+		if (SprintSystem)
+			SprintSystem->SetupInput(EnhancedInputComponent);
+
+		if (JumpSystem)
+			JumpSystem->SetupInput(EnhancedInputComponent);
+
+		if (CrouchSystem)
+			CrouchSystem->SetupInput(EnhancedInputComponent);
+
+		if (DodgeSystem)
+			DodgeSystem->SetupInput(EnhancedInputComponent);
 	}
 	else
 	{
@@ -121,62 +83,22 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent *PlayerInputCom
 	}
 }
 
-void APlayerCharacter::Sprint(const FInputActionValue &Value)
-{
-	const bool SprintValue = Value.Get<bool>();
-	if (SprintValue)
-	{
-		SprintInterrupted = false;
-		if (DodgeSystem->IsDodging())
-			return;
-		if (CrouchSystem && CrouchSystem->IsCrouched())
-		{
-			if (!CrouchSystem->CanUncrouchSafely())
-				return;
-			CrouchSystem->CrouchPressed(Value);
-		}
-		// Use MovementInputSystem for speed updates
-		if (MovementInputSystem)
-			MovementInputSystem->UpdateMaxWalkSpeed();
-	}
-	else
-	{
-		SprintInterrupted = true;
-		// Use MovementInputSystem for speed updates
-		if (MovementInputSystem)
-			MovementInputSystem->UpdateMaxWalkSpeed();
-	}
-}
-
-void APlayerCharacter::JumpPressed(const FInputActionValue &Value)
-{
-	if (!IsLanding && !DodgeSystem->IsDodging())
-	{
-		if (!CrouchSystem || !CrouchSystem->IsCrouched())
-			Jump();
-		else
-			CrouchSystem->CrouchPressed(Value);
-	}
-}
-
 void APlayerCharacter::Landed(const FHitResult &Hit)
 {
 	Super::Landed(Hit);
-	IsLanding = true;
-	// set a timer of x seconds to reset IsLanding
-	GetWorld()->GetTimerManager().SetTimer(LandingTimerHandle, this, &APlayerCharacter::ResetLanding, 0.1f, false);
-}
-
-void APlayerCharacter::ResetLanding()
-{
-	IsLanding = false;
+	
+	// Delegate landing logic to JumpSystemComponent
+	if (JumpSystem)
+	{
+		JumpSystem->OnLanded(Hit);
+	}
 }
 
 void APlayerCharacter::UpdateMaxWalkSpeed()
 {
-	// Delegate to MovementInputSystem which now handles all movement speed logic
-	if (MovementInputSystem)
+	// Delegate to BasicMovementComponent which now handles all movement speed logic
+	if (BasicMovementSystem)
 	{
-		MovementInputSystem->UpdateMaxWalkSpeed();
+		BasicMovementSystem->UpdateMaxWalkSpeed();
 	}
 }

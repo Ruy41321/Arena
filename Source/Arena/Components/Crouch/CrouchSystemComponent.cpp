@@ -7,6 +7,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Engine/World.h"
 #include "CollisionQueryParams.h"
+#include "EnhancedInputComponent.h"
 
 UCrouchSystemComponent::UCrouchSystemComponent()
 {
@@ -44,6 +45,29 @@ void UCrouchSystemComponent::BeginPlay()
 	}
 }
 
+void UCrouchSystemComponent::SetupInput(UEnhancedInputComponent* EnhancedInputComponent)
+{
+	if (!EnhancedInputComponent)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("CrouchSystemComponent: EnhancedInputComponent is null"));
+		return;
+	}
+
+	if (!CrouchPressedAction)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("CrouchSystemComponent: CrouchPressedAction is not set"));
+		return;
+	}
+
+	// Bind crouch input
+	EnhancedInputComponent->BindActionValueLambda(CrouchPressedAction, ETriggerEvent::Started, 
+		[this](const FInputActionValue& Value) {
+			CrouchPressed(Value);
+		});
+
+	UE_LOG(LogTemp, Log, TEXT("CrouchSystemComponent: Input bindings set up successfully"));
+}
+
 void UCrouchSystemComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
@@ -59,18 +83,6 @@ void UCrouchSystemComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 		float TargetMeshHeight = IsCrouched() ? GetCrouchMeshHeightOffset() : GetStandMeshHeightOffset();
 		AdjustCapsuleHeight(DeltaTime, TargetCapsuleHeight, TargetMeshHeight);
 	}
-}
-
-FORCEINLINE APlayerCharacter* UCrouchSystemComponent::GetValidPlayerCharacter() const
-{
-	// Double validation for maximum safety with optimal branch prediction
-	if (LIKELY(OwnerPlayerCharacter && IsValid(OwnerPlayerCharacter)))
-	{
-		return OwnerPlayerCharacter;
-	}
-	
-	// Fallback: re-cache if necessary (should be very rare)
-	return Cast<APlayerCharacter>(GetOwner());
 }
 
 void UCrouchSystemComponent::CrouchPressed(const FInputActionValue& Value)
@@ -106,9 +118,9 @@ void UCrouchSystemComponent::Crouch(bool bClientSimulation)
 		return;
 
 	bIsCrouched = true;
-	// Use MovementInputSystem for speed updates
-	if (PlayerCharacter->MovementInputSystem)
-		PlayerCharacter->MovementInputSystem->UpdateMaxWalkSpeed();
+	// Use BasicMovementComponent for speed updates
+	if (PlayerCharacter->BasicMovementSystem)
+		PlayerCharacter->BasicMovementSystem->UpdateMaxWalkSpeed();
 }
 
 void UCrouchSystemComponent::UnCrouch(bool bClientSimulation)
@@ -118,9 +130,9 @@ void UCrouchSystemComponent::UnCrouch(bool bClientSimulation)
 		return;
 
 	bIsCrouched = false;
-	// Use MovementInputSystem for speed updates
-	if (PlayerCharacter->MovementInputSystem)
-		PlayerCharacter->MovementInputSystem->UpdateMaxWalkSpeed();
+	// Use BasicMovementComponent for speed updates
+	if (PlayerCharacter->BasicMovementSystem)
+		PlayerCharacter->BasicMovementSystem->UpdateMaxWalkSpeed();
 }
 
 bool UCrouchSystemComponent::CanUncrouchSafely() const
@@ -206,7 +218,7 @@ void UCrouchSystemComponent::AdjustCapsuleHeight(float DeltaTime, float TargetCa
 
 	// Adjusting the mesh position
 	USkeletalMeshComponent* Mesh = PlayerCharacter->GetMesh();
-	if (Mesh)
+		if (Mesh)
 	{
 		FVector CurrentLocation = Mesh->GetRelativeLocation();
 		float CurrentMeshHeight = CurrentLocation.Z;

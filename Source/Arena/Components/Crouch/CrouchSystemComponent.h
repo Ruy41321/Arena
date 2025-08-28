@@ -8,6 +8,8 @@
 #include "CrouchSystemComponent.generated.h"
 
 class APlayerCharacter;
+class UInputAction;
+class UEnhancedInputComponent;
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class ARENA_API UCrouchSystemComponent : public UActorComponent
@@ -19,6 +21,10 @@ public:
 
 	virtual void BeginPlay() override;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+
+	/** Sets up input bindings for this component */
+	UFUNCTION(BlueprintCallable, Category = "Crouch System", meta = (ToolTip = "Sets up crouch input bindings"))
+	void SetupInput(UEnhancedInputComponent* EnhancedInputComponent);
 
 	/** Handles crouch input - toggles between crouch and uncrouch */
 	UFUNCTION(BlueprintCallable, Category = "Crouch System", meta = (ToolTip = "Toggles crouch state"))
@@ -76,7 +82,30 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Crouch System", meta = (ToolTip = "Returns the PlayerCharacter owner"))
 	APlayerCharacter* GetPlayerCharacter() const { return GetValidPlayerCharacter(); }
 
-public:
+	/** Gets valid PlayerCharacter with fallback */
+	FORCEINLINE APlayerCharacter* GetValidPlayerCharacter() const
+	{
+		// Simple null check with cached reference for optimal performance
+		if (LIKELY(OwnerPlayerCharacter != nullptr))
+		{
+			return OwnerPlayerCharacter.Get();
+		}
+		
+		// Fallback: re-cache if necessary (should be very rare)
+		return Cast<APlayerCharacter>(GetOwner());
+	}
+
+protected:
+	/** Whether currently crouched */
+	UPROPERTY(BlueprintReadOnly, Category = "Crouch System", 
+		meta = (ToolTip = "True if player is crouched"))
+	bool bIsCrouched = false;
+
+	/** Whether crouch transition is in progress */
+	UPROPERTY(BlueprintReadOnly, Category = "Crouch System", 
+		meta = (ToolTip = "True while crouch transition is active"))
+	bool bIsCrouchingInProgress = false;
+
 	/** Movement speed during crouch */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crouch System", 
 		meta = (ToolTip = "Crouch speed in cm/s", ClampMin = "50.0", ClampMax = "500.0"))
@@ -117,21 +146,12 @@ public:
 		meta = (ToolTip = "Extra safety margin (in cm) when checking for obstacles above", ClampMin = "0.0", ClampMax = "20.0"))
 	float UncrouchSafetyMargin = 5.0f;
 
-protected:
-	/** Whether currently crouched */
-	UPROPERTY(BlueprintReadOnly, Category = "Crouch System", 
-		meta = (ToolTip = "True if player is crouched"))
-	bool bIsCrouched = false;
-
-	/** Whether crouch transition is in progress */
-	UPROPERTY(BlueprintReadOnly, Category = "Crouch System", 
-		meta = (ToolTip = "True while crouch transition is active"))
-	bool bIsCrouchingInProgress = false;
+public:
+	/** Input action for crouch */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
+	TObjectPtr<UInputAction> CrouchPressedAction;
 
 private:
 	/** Cached PlayerCharacter reference */
 	TObjectPtr<APlayerCharacter> OwnerPlayerCharacter;
-
-	/** Gets valid PlayerCharacter with fallback */
-	FORCEINLINE APlayerCharacter* GetValidPlayerCharacter() const;
 };
