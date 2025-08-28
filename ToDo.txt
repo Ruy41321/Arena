@@ -1,0 +1,10 @@
+Refactoring:
+ - Component Based Design
+ - State Machine Design
+ - Observer Pattern
+
+Combat
+
+Enemies
+
+Arena Map

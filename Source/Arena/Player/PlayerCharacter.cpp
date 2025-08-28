@@ -44,23 +44,23 @@ void APlayerCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 	
-	if (GetCharacterMovement())
-	{
-		// Handle dodge movement
-		if (DodgeSystem && DodgeSystem->IsDodging() && !DodgeSystem->GetDodgeDirection().IsZero())
-		{
-			DodgeSystem->UpdateDodgeDirection();
-			AddMovementInput(DodgeSystem->GetDodgeDirection(), 1.0f);
-		}
-		
-		// Handle crouch height adjustment
-		if (CrouchSystem && CrouchSystem->IsCrouchingInProgress())
-		{
-			float TargetCapsuleHeight = CrouchSystem->IsCrouched() ? CrouchSystem->GetCrouchTargetHeight() : CrouchSystem->GetStandTargetHeight();
-			float TargetMeshHeight = CrouchSystem->IsCrouched() ? CrouchSystem->GetCrouchMeshHeightOffset() : CrouchSystem->GetStandMeshHeightOffset();
-			CrouchSystem->AdjustCapsuleHeight(DeltaTime, TargetCapsuleHeight, TargetMeshHeight);
-		}
-	}
+	//if (GetCharacterMovement())
+	//{
+	//	// Handle dodge movement
+	//	if (DodgeSystem && DodgeSystem->IsDodging() && !DodgeSystem->GetDodgeDirection().IsZero())
+	//	{
+	//		DodgeSystem->UpdateDodgeDirection();
+	//		AddMovementInput(DodgeSystem->GetDodgeDirection(), 1.0f);
+	//	}
+	//	
+	//	// Handle crouch height adjustment
+	//	if (CrouchSystem && CrouchSystem->IsCrouchingInProgress())
+	//	{
+	//		float TargetCapsuleHeight = CrouchSystem->IsCrouched() ? CrouchSystem->GetCrouchTargetHeight() : CrouchSystem->GetStandTargetHeight();
+	//		float TargetMeshHeight = CrouchSystem->IsCrouched() ? CrouchSystem->GetCrouchMeshHeightOffset() : CrouchSystem->GetStandMeshHeightOffset();
+	//		CrouchSystem->AdjustCapsuleHeight(DeltaTime, TargetCapsuleHeight, TargetMeshHeight);
+	//	}
+	//}
 }
 
 // Called to bind functionality to input
