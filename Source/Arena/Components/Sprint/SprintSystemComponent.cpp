@@ -5,33 +5,23 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "EnhancedInputComponent.h"
 
-// Sets default values for this component's properties
 USprintSystemComponent::USprintSystemComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
-
-	// Initialize default values
 	bSprintInterrupted = true;
 	bIsSprinting = false;
 }
 
-// Called when the game starts
 void USprintSystemComponent::BeginPlay()
 {
 	Super::BeginPlay();
 	
 	OwnerPlayerCharacter = Cast<APlayerCharacter>(GetOwner());
 	
-	// Validation for safety in development
 	if (!OwnerPlayerCharacter)
 	{
 		UE_LOG(LogTemp, Error, TEXT("SprintSystemComponent: Owner is not a PlayerCharacter! Owner class: %s"),
 			GetOwner() ? *GetOwner()->GetClass()->GetName() : TEXT("NULL"));
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("SprintSystemComponent: Successfully cached PlayerCharacter - %s at address %p"), 
-			*OwnerPlayerCharacter->GetName(), static_cast<void*>(OwnerPlayerCharacter.Get()));
 	}
 }
 
@@ -59,10 +49,9 @@ void USprintSystemComponent::SetupInput(UEnhancedInputComponent* EnhancedInputCo
 			SprintPressed(Value);
 		});
 
-	UE_LOG(LogTemp, Log, TEXT("SprintSystemComponent: Input bindings set up successfully"));
+
 }
 
-// Called every frame
 void USprintSystemComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
@@ -78,7 +67,6 @@ void USprintSystemComponent::SprintPressed(const FInputActionValue& Value)
 	
 	if (bSprintValue)
 	{
-		// Starting sprint
 		bSprintInterrupted = false;
 		bIsSprinting = true;
 		
@@ -103,15 +91,11 @@ void USprintSystemComponent::SprintPressed(const FInputActionValue& Value)
 				PlayerCharacter->CrouchSystem->CrouchPressed(Value);
 			}
 		}
-		UE_LOG(LogTemp, Verbose, TEXT("SprintSystem: Sprint started"));
 	}
 	else
 	{
-		// Stopping sprint
 		bSprintInterrupted = true;
 		bIsSprinting = false;
-		
-		UE_LOG(LogTemp, Verbose, TEXT("SprintSystem: Sprint stopped"));
 	}
 }
 

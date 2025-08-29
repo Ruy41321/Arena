@@ -5,13 +5,12 @@
 
 APlayerCharacter::APlayerCharacter()
 {
-	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 
 	UCharacterMovementComponent *const mov = GetCharacterMovement();
 	if (mov)
-		mov->bOrientRotationToMovement = true; // Character will rotate to movement direction
-	bUseControllerRotationYaw = false;		   // Disable controller rotation yaw to allow character movement direction to control rotation
+		mov->bOrientRotationToMovement = true;
+	bUseControllerRotationYaw = false;
 
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("Camera Boom"));
 	CameraBoom->SetupAttachment(RootComponent);
@@ -28,7 +27,6 @@ APlayerCharacter::APlayerCharacter()
 	MovementStateMachine = CreateDefaultSubobject<UMovementStateMachine>(TEXT("Movement State Machine"));
 }
 
-// Called when the game starts or when spawned
 void APlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
@@ -42,13 +40,11 @@ void APlayerCharacter::BeginPlay()
 	}
 }
 
-// Called every frame
 void APlayerCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 }
 
-// Called to bind functionality to input
 void APlayerCharacter::SetupPlayerInputComponent(UInputComponent *PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);

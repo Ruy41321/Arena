@@ -59,11 +59,6 @@ void UPlayerAnimInstance::OnMovementStateChanged(EMovementState OldState, EMovem
 			Speed *= 0.0f;
 		}
 	}
-	
-	UE_LOG(LogTemp, Verbose, TEXT("PlayerAnimInstance: Movement state changed from %s to %s, Speed set to %f"), 
-		*UMovementStateTypes::MovementStateToString(OldState),
-		*UMovementStateTypes::MovementStateToString(NewState),
-		Speed);
 }
 
 void UPlayerAnimInstance::SubscribeToMovementStateChanges()
@@ -71,16 +66,11 @@ void UPlayerAnimInstance::SubscribeToMovementStateChanges()
 	if (!PlayerCharacter || !PlayerCharacter->MovementStateMachine || bIsSubscribedToStateChanges)
 		return;
 	
-	// Bind to the movement state machine's OnStateChanged delegate
 	PlayerCharacter->MovementStateMachine->OnStateChanged.AddDynamic(this, &UPlayerAnimInstance::OnMovementStateChanged);
 	bIsSubscribedToStateChanges = true;
 	
-	// Initialize current state values
 	CurrentMovementState = PlayerCharacter->MovementStateMachine->GetCurrentState();
 	PreviousMovementState = PlayerCharacter->MovementStateMachine->GetPreviousState();
-	
-	UE_LOG(LogTemp, Log, TEXT("PlayerAnimInstance: Subscribed to movement state changes. Current state: %s"), 
-		*UMovementStateTypes::MovementStateToString(CurrentMovementState));
 }
 
 void UPlayerAnimInstance::UnsubscribeFromMovementStateChanges()
@@ -88,11 +78,8 @@ void UPlayerAnimInstance::UnsubscribeFromMovementStateChanges()
 	if (!bIsSubscribedToStateChanges || !PlayerCharacter || !PlayerCharacter->MovementStateMachine)
 		return;
 	
-	// Unbind from the movement state machine's OnStateChanged delegate
 	PlayerCharacter->MovementStateMachine->OnStateChanged.RemoveDynamic(this, &UPlayerAnimInstance::OnMovementStateChanged);
 	bIsSubscribedToStateChanges = false;
-	
-	UE_LOG(LogTemp, Log, TEXT("PlayerAnimInstance: Unsubscribed from movement state changes"));
 }
 
 bool UPlayerAnimInstance::IsMovementStateDataValid() const

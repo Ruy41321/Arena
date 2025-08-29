@@ -8,7 +8,6 @@
 #include "GameFramework/Character.h"
 #include "EnhancedInputComponent.h"
 
-// Sets default values for this component's properties
 UJumpSystemComponent::UJumpSystemComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
@@ -25,11 +24,6 @@ void UJumpSystemComponent::BeginPlay()
 	{
 		UE_LOG(LogTemp, Error, TEXT("JumpSystemComponent: Owner is not a PlayerCharacter! Owner class: %s"),
 			GetOwner() ? *GetOwner()->GetClass()->GetName() : TEXT("NULL"));
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("JumpSystemComponent: Successfully cached PlayerCharacter - %s at address %p"), 
-			*OwnerPlayerCharacter->GetName(), static_cast<void*>(OwnerPlayerCharacter.Get()));
 	}
 }
 
@@ -83,7 +77,6 @@ void UJumpSystemComponent::OnLanded(const FHitResult& Hit)
 void UJumpSystemComponent::ResetLanding()
 {
 	bIsLanding = false;
-	UE_LOG(LogTemp, Verbose, TEXT("JumpSystem: Landing state reset"));
 }
 
 void UJumpSystemComponent::SetupInput(UEnhancedInputComponent* EnhancedInputComponent)
@@ -114,6 +107,6 @@ void UJumpSystemComponent::SetupInput(UEnhancedInputComponent* EnhancedInputComp
 		});
 	EnhancedInputComponent->BindAction(JumpPressedAction, ETriggerEvent::Completed, PlayerCharacter, &ACharacter::StopJumping);
 
-	UE_LOG(LogTemp, Log, TEXT("JumpSystemComponent: Input bindings set up successfully"));
+
 }
 
