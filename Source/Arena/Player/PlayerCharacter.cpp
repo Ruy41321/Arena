@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright (c) 2025 Luigi Pennisi. All rights reserved.
 
 #include "PlayerCharacter.h"
 #include "../PlayerAnimation/PlayerAnimInstance.h"
@@ -25,6 +25,7 @@ APlayerCharacter::APlayerCharacter()
 	BasicMovementSystem = CreateDefaultSubobject<UBasicMovementComponent>(TEXT("Basic Movement Component"));
 	JumpSystem = CreateDefaultSubobject<UJumpSystemComponent>(TEXT("Jump System Component"));
 	SprintSystem = CreateDefaultSubobject<USprintSystemComponent>(TEXT("Sprint System Component"));
+	MovementStateMachine = CreateDefaultSubobject<UMovementStateMachine>(TEXT("Movement State Machine"));
 }
 
 // Called when the game starts or when spawned
@@ -96,9 +97,56 @@ void APlayerCharacter::Landed(const FHitResult &Hit)
 
 void APlayerCharacter::UpdateMaxWalkSpeed()
 {
-	// Delegate to BasicMovementComponent which now handles all movement speed logic
 	if (BasicMovementSystem)
 	{
 		BasicMovementSystem->UpdateMaxWalkSpeed();
+	}
+}
+
+EMovementState APlayerCharacter::GetCurrentMovementState() const
+{
+	if (MovementStateMachine)
+	{
+		return MovementStateMachine->GetCurrentState();
+	}
+	return EMovementState::None;
+}
+
+EMovementState APlayerCharacter::GetPreviousMovementState() const
+{
+	if (MovementStateMachine)
+	{
+		return MovementStateMachine->GetPreviousState();
+	}
+	return EMovementState::None;
+}
+
+bool APlayerCharacter::TransitionToMovementState(EMovementState NewState, bool bForceTransition)
+{
+	if (MovementStateMachine)
+	{
+		return MovementStateMachine->TransitionToState(NewState, bForceTransition);
+	}
+	return false;
+}
+
+FString APlayerCharacter::GetCurrentMovementStateAsString() const
+{
+	return UMovementStateTypes::MovementStateToString(GetCurrentMovementState());
+}
+
+void APlayerCharacter::SubscribeToMovementStateChanges(UObject* Subscriber, const FString& FunctionName)
+{
+	if (MovementStateMachine)
+	{
+		MovementStateMachine->SubscribeToStateChanges(Subscriber, FunctionName);
+	}
+}
+
+void APlayerCharacter::UnsubscribeFromMovementStateChanges(UObject* Subscriber)
+{
+	if (MovementStateMachine)
+	{
+		MovementStateMachine->UnsubscribeFromStateChanges(Subscriber);
 	}
 }

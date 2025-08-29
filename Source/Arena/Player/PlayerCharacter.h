@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright (c) 2025 Luigi Pennisi. All rights reserved.
 
 #pragma once
 
@@ -10,6 +10,8 @@
 #include "../Components/BasicMovement/BasicMovementComponent.h"
 #include "../Components/Jump/JumpSystemComponent.h"
 #include "../Components/Sprint/SprintSystemComponent.h"
+#include "MovementStateMachine/MovementStateMachine.h"
+#include "MovementStateMachine/MovementStateTypes.h"
 
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
@@ -42,6 +44,31 @@ public:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	void UpdateMaxWalkSpeed();
 
+	// Movement State Machine helper functions
+	UFUNCTION(BlueprintPure, Category = "Movement State Machine")
+	EMovementState GetCurrentMovementState() const;
+
+	UFUNCTION(BlueprintPure, Category = "Movement State Machine")
+	EMovementState GetPreviousMovementState() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Movement State Machine")
+	bool TransitionToMovementState(EMovementState NewState, bool bForceTransition = false);
+
+	UFUNCTION(BlueprintPure, Category = "Movement State Machine")
+	FString GetCurrentMovementStateAsString() const;
+
+	/** Get the movement state machine component */
+	UFUNCTION(BlueprintPure, Category = "Movement State Machine")
+	UMovementStateMachine* GetMovementStateMachine() const { return MovementStateMachine.Get(); }
+
+	/** Subscribe to movement state change events using Blueprint delegate */
+	UFUNCTION(BlueprintCallable, Category = "Movement State Machine")
+	void SubscribeToMovementStateChanges(UObject* Subscriber, const FString& FunctionName);
+
+	/** Unsubscribe from movement state change events */
+	UFUNCTION(BlueprintCallable, Category = "Movement State Machine")
+	void UnsubscribeFromMovementStateChanges(UObject* Subscriber);
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -62,6 +89,9 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Sprint System")
 	TObjectPtr<USprintSystemComponent> SprintSystem;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Movement State Machine")
+	TObjectPtr<UMovementStateMachine> MovementStateMachine;
 
 private:
 	
