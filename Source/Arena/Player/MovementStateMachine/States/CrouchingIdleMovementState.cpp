@@ -14,7 +14,7 @@ EMovementState UCrouchingIdleMovementState::GetDesiredTransition_Implementation(
 	if (!Player || !Player->GetCharacterMovement())
 		return EMovementState::None;
 
-	// Check for dodging - priorità alta
+	// Check for dodging - high priority
 	if (Player->DodgeSystem && Player->DodgeSystem->IsDodging())
 		return EMovementState::Dodging;
 
