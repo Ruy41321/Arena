@@ -32,16 +32,10 @@ void UCrouchSystemComponent::BeginPlay()
 	
 	OwnerPlayerCharacter = Cast<APlayerCharacter>(GetOwner());
 	
-	// Validation for safety in development
 	if (!OwnerPlayerCharacter)
 	{
 		UE_LOG(LogTemp, Error, TEXT("CrouchSystemComponent: Owner is not a PlayerCharacter! Owner class: %s"),
 			GetOwner() ? *GetOwner()->GetClass()->GetName() : TEXT("NULL"));
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("CrouchSystemComponent: Successfully cached PlayerCharacter - %s at address %p"), 
-			*OwnerPlayerCharacter->GetName(), static_cast<void*>(OwnerPlayerCharacter.Get()));
 	}
 }
 
@@ -65,7 +59,7 @@ void UCrouchSystemComponent::SetupInput(UEnhancedInputComponent* EnhancedInputCo
 			CrouchPressed(Value);
 		});
 
-	UE_LOG(LogTemp, Log, TEXT("CrouchSystemComponent: Input bindings set up successfully"));
+
 }
 
 void UCrouchSystemComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
@@ -185,10 +179,6 @@ bool UCrouchSystemComponent::CanUncrouchSafely() const
 		CapsuleShape,
 		QueryParams
 	);
-	
-	// Log for debugging purposes
-	UE_LOG(LogTemp, VeryVerbose, TEXT("CanUncrouchSafely: HeightDiff=%.2f, HasOverlap=%s"), 
-		   HeightDifference, bHasOverlap ? TEXT("true") : TEXT("false"));
 	
 	return !bHasOverlap;
 }
