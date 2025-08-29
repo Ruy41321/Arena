@@ -19,7 +19,7 @@ UBasicMovementComponent::UBasicMovementComponent()
 }
 
 
-// Called when the game starts
+ // Called when the game starts
 void UBasicMovementComponent::BeginPlay()
 {
 	Super::BeginPlay();
@@ -116,8 +116,12 @@ void UBasicMovementComponent::MoveForward(const FInputActionValue& Value)
 		SetHasMovementInput(true);
 
 		// Only add movement input if not dodging
-		if (PlayerCharacter->DodgeSystem && !PlayerCharacter->DodgeSystem->IsDodging())
-			PlayerCharacter->AddMovementInput(Forward, Direction);
+		if (PlayerCharacter->MovementStateMachine)
+		{
+			EMovementState CurrentState = PlayerCharacter->MovementStateMachine->GetCurrentState();
+			if (CurrentState != EMovementState::Dodging)
+				PlayerCharacter->AddMovementInput(Forward, Direction);
+		}
 	}
 }
 
@@ -139,8 +143,12 @@ void UBasicMovementComponent::MoveRight(const FInputActionValue& Value)
 		SetHasMovementInput(true);
 
 		// Only add movement input if not dodging
-		if (PlayerCharacter->DodgeSystem && !PlayerCharacter->DodgeSystem->IsDodging())
-			PlayerCharacter->AddMovementInput(Right, Direction);
+		if (PlayerCharacter->MovementStateMachine)
+		{
+			EMovementState CurrentState = PlayerCharacter->MovementStateMachine->GetCurrentState();
+			if (CurrentState != EMovementState::Dodging)
+				PlayerCharacter->AddMovementInput(Right, Direction);
+		}
 	}
 }
 
@@ -189,47 +197,6 @@ void UBasicMovementComponent::UpdateMovementVelocity()
 			bHasMovementInput = false;
 		}
 	}
-}
-
-void UBasicMovementComponent::UpdateMaxWalkSpeed()
-{
-	APlayerCharacter* PlayerCharacter = GetValidPlayerCharacter();
-	if (!PlayerCharacter)
-		return;
-
-	UCharacterMovementComponent* Movement = PlayerCharacter->GetCharacterMovement();
-	if (!Movement)
-		return;
-
-	float MaxSpeed;
-	
-	// Check dodge system first (highest priority)
-	if (PlayerCharacter->DodgeSystem && PlayerCharacter->DodgeSystem->IsDodging())
-	{
-		MaxSpeed = PlayerCharacter->DodgeSystem->GetDodgeSpeed();
-	}
-	// Then check crouch state
-	else if (PlayerCharacter->CrouchSystem && PlayerCharacter->CrouchSystem->IsCrouched())
-	{
-		MaxSpeed = PlayerCharacter->CrouchSystem->GetCrouchSpeed();
-	}
-	// Then check sprint state
-	else if (PlayerCharacter->SprintSystem && !PlayerCharacter->SprintSystem->IsSprintInterrupted())
-	{
-		MaxSpeed = PlayerCharacter->SprintSystem->GetRunSpeed();
-	}
-	// Default to walk speed
-	else if (PlayerCharacter->SprintSystem)
-	{
-		MaxSpeed = WalkSpeed;
-	}
-	else
-	{
-		// Fallback if SprintSystem is not available
-		MaxSpeed = 300.0f; // Default walk speed
-	}
-	
-	Movement->MaxWalkSpeed = MaxSpeed;
 }
 
 void UBasicMovementComponent::SetCurrentMovementInputAxis(const FString& Axis, float Value)

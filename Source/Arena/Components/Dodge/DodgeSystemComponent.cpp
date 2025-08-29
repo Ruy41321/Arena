@@ -74,25 +74,22 @@ void UDodgeSystemComponent::StartDodge()
 {
 	APlayerCharacter* PlayerCharacter = GetValidPlayerCharacter();
 
-	if (!bCanDodge || !PlayerCharacter || 
-		(PlayerCharacter->JumpSystem && PlayerCharacter->JumpSystem->IsLanding()) || 
-		PlayerCharacter->GetCharacterMovement()->IsFalling())
-		return;
-
-	// Use CrouchSystem instead of direct PlayerCharacter calls
-	bWasCrouchingPreDodge = PlayerCharacter->CrouchSystem ? PlayerCharacter->CrouchSystem->IsCrouched() : false;
-	if (PlayerCharacter->CrouchSystem)
+	if (PlayerCharacter->MovementStateMachine)
 	{
-		if (!PlayerCharacter->CrouchSystem->IsCrouched())
-			PlayerCharacter->CrouchSystem->CrouchPressed(FInputActionValue());
-		else
-			bWasCrouchingPreDodge = true;
-	}
+		EMovementState CurrentState = PlayerCharacter->MovementStateMachine->GetCurrentState();
 
+		if (!bCanDodge || !IsInDodgeableState(CurrentState))
+			return;
+
+		// Use CrouchSystem instead of direct PlayerCharacter calls
+		bWasCrouchingPreDodge = (CurrentState == EMovementState::CrouchingIdle || CurrentState == EMovementState::CrouchingMoving);
+		if (PlayerCharacter->CrouchSystem && !bWasCrouchingPreDodge)
+		{
+			PlayerCharacter->CrouchSystem->CrouchPressed(FInputActionValue());
+		}
+	}
 	bIsDodging = true;
-	// Use BasicMovementComponent for speed updates
-	if (PlayerCharacter->BasicMovementSystem)
-		PlayerCharacter->BasicMovementSystem->UpdateMaxWalkSpeed();
+	// Speed is now automatically set by the Movement State Machine when entering Dodging state
 
 	// If no movement input, set dodge direction to forward
 	if (!UpdateDodgeDirection())
@@ -128,16 +125,11 @@ void UDodgeSystemComponent::ResetDodge()
 	InitialDodgeDirection = FVector::ZeroVector;
 
 	// Uncrouch if it was so and its possible - use CrouchSystem
-	if (PlayerCharacter->CrouchSystem)
+	if (!bWasCrouchingPreDodge && PlayerCharacter->CrouchSystem && PlayerCharacter->CrouchSystem->CanUncrouchSafely())
 	{
-		if (PlayerCharacter->CrouchSystem->CanUncrouchSafely() && !bWasCrouchingPreDodge)
-			PlayerCharacter->CrouchSystem->CrouchPressed(FInputActionValue());
+		PlayerCharacter->CrouchSystem->CrouchPressed(FInputActionValue());
+		bWasCrouchingPreDodge = false;
 	}
-	bWasCrouchingPreDodge = false;
-
-	// Reset speed based on player state - use BasicMovementComponent
-	if (PlayerCharacter->BasicMovementSystem)
-		PlayerCharacter->BasicMovementSystem->UpdateMaxWalkSpeed();
 
 	// Start cooldown timer to re-enable dodging
 	GetWorld()->GetTimerManager().ClearTimer(DodgeTimerHandle);
@@ -211,4 +203,20 @@ bool UDodgeSystemComponent::UpdateDodgeDirection()
 	}
 	
 	return true;
+}
+
+bool UDodgeSystemComponent::IsInDodgeableState(EMovementState CurrentState) const
+{
+	// Define states where dodging is not allowed
+	switch (CurrentState)
+	{
+	case EMovementState::Idle:
+	case EMovementState::CrouchingIdle:
+	case EMovementState::CrouchingMoving:
+	case EMovementState::Walking:
+	case EMovementState::Sprinting:
+		return true; // Dodgeable states
+	default:
+		return false; // Not dodgeable states
+	}
 }

@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "InputActionValue.h"
+#include "../../Player/MovementStateMachine/MovementStateTypes.h"
 #include "BasicMovementComponent.generated.h"
 
 class APlayerCharacter;
@@ -44,10 +45,6 @@ public:
 
 	/** Updates movement velocity tracking */
 	void UpdateMovementVelocity();
-
-	/** Updates the character's maximum walk speed based on current movement state */
-	UFUNCTION(BlueprintCallable, Category = "Basic Movement", meta = (ToolTip = "Updates max walk speed based on dodge, crouch, and sprint states"))
-	void UpdateMaxWalkSpeed();
 
 	/** Returns true if player has movement input */
 	UFUNCTION(BlueprintPure, Category = "Basic Movement", meta = (ToolTip = "Check if player is providing movement input"))

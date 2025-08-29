@@ -3,6 +3,14 @@
 #include "PlayerAnimInstance.h"
 #include "GameFramework/CharacterMovementComponent.h"
 
+void UPlayerAnimInstance::NativeUninitializeAnimation()
+{
+	// Unsubscribe from movement state changes
+	UnsubscribeFromMovementStateChanges();
+
+	Super::NativeUninitializeAnimation();
+}
+
 void UPlayerAnimInstance::NativeBeginPlay()
 {
 	Super::NativeBeginPlay();
@@ -14,14 +22,6 @@ void UPlayerAnimInstance::NativeBeginPlay()
 	
 	// Subscribe to movement state changes
 	SubscribeToMovementStateChanges();
-}
-
-void UPlayerAnimInstance::NativeUninitializeAnimation()
-{
-	// Unsubscribe from movement state changes
-	UnsubscribeFromMovementStateChanges();
-	
-	Super::NativeUninitializeAnimation();
 }
 
 void UPlayerAnimInstance::NativeUpdateAnimation(float DeltaSeconds)

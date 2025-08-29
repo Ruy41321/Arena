@@ -91,7 +91,7 @@ void UCrouchSystemComponent::CrouchPressed(const FInputActionValue& Value)
 	if (!PlayerCharacter)
 		return;
 
-	// Don't allow crouch changes during dodge
+	// Don't allow crouch changes during dodge (not using the state check because its called right after the dodge and the state could be still not updated)
 	if (PlayerCharacter->DodgeSystem && PlayerCharacter->DodgeSystem->IsDodging())
 		return;
 
@@ -113,14 +113,14 @@ void UCrouchSystemComponent::Crouch(bool bClientSimulation)
 	if (!PlayerCharacter)
 		return;
 
-	UCharacterMovementComponent* Movement = PlayerCharacter->GetCharacterMovement();
-	if (!Movement || Movement->IsFalling())
-		return;
+	if (PlayerCharacter->MovementStateMachine)
+	{
+		EMovementState CurrentState = PlayerCharacter->MovementStateMachine->GetCurrentState();
 
+		if (CurrentState == EMovementState::Falling || CurrentState == EMovementState::Jumping)
+			return;
+	}
 	bIsCrouched = true;
-	// Use BasicMovementComponent for speed updates
-	if (PlayerCharacter->BasicMovementSystem)
-		PlayerCharacter->BasicMovementSystem->UpdateMaxWalkSpeed();
 }
 
 void UCrouchSystemComponent::UnCrouch(bool bClientSimulation)
@@ -130,9 +130,6 @@ void UCrouchSystemComponent::UnCrouch(bool bClientSimulation)
 		return;
 
 	bIsCrouched = false;
-	// Use BasicMovementComponent for speed updates
-	if (PlayerCharacter->BasicMovementSystem)
-		PlayerCharacter->BasicMovementSystem->UpdateMaxWalkSpeed();
 }
 
 bool UCrouchSystemComponent::CanUncrouchSafely() const

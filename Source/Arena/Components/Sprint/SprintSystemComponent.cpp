@@ -8,7 +8,7 @@
 // Sets default values for this component's properties
 USprintSystemComponent::USprintSystemComponent()
 {
-	PrimaryComponentTick.bCanEverTick = true;
+	PrimaryComponentTick.bCanEverTick = false;
 
 	// Initialize default values
 	bSprintInterrupted = true;
@@ -66,9 +66,6 @@ void USprintSystemComponent::SetupInput(UEnhancedInputComponent* EnhancedInputCo
 void USprintSystemComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-
-	// Sprint system doesn't need constant tick updates
-	// All logic is event-driven through input callbacks
 }
 
 void USprintSystemComponent::SprintPressed(const FInputActionValue& Value)
@@ -86,27 +83,26 @@ void USprintSystemComponent::SprintPressed(const FInputActionValue& Value)
 		bIsSprinting = true;
 		
 		// Don't sprint if dodging
-		if (PlayerCharacter->DodgeSystem && PlayerCharacter->DodgeSystem->IsDodging())
+		if (PlayerCharacter->MovementStateMachine)
 		{
-			bIsSprinting = false;
-			return;
-		}
-		
-		// If crouched, try to uncrouch first
-		if (PlayerCharacter->CrouchSystem && PlayerCharacter->CrouchSystem->IsCrouched())
-		{
-			if (!PlayerCharacter->CrouchSystem->CanUncrouchSafely())
+			EMovementState CurrentState = PlayerCharacter->MovementStateMachine->GetCurrentState();
+			if (CurrentState == EMovementState::Dodging)
 			{
 				bIsSprinting = false;
 				return;
 			}
-			PlayerCharacter->CrouchSystem->CrouchPressed(Value);
-		}
-		
-		// Update movement speed
-		if (PlayerCharacter->BasicMovementSystem)
-			PlayerCharacter->BasicMovementSystem->UpdateMaxWalkSpeed();
 
+			// If crouched, try to uncrouch first
+			if (CurrentState == EMovementState::CrouchingIdle || CurrentState == EMovementState::CrouchingMoving)
+			{
+				if (!PlayerCharacter->CrouchSystem->CanUncrouchSafely())
+				{
+					bIsSprinting = false;
+					return;
+				}
+				PlayerCharacter->CrouchSystem->CrouchPressed(Value);
+			}
+		}
 		UE_LOG(LogTemp, Verbose, TEXT("SprintSystem: Sprint started"));
 	}
 	else
@@ -115,10 +111,6 @@ void USprintSystemComponent::SprintPressed(const FInputActionValue& Value)
 		bSprintInterrupted = true;
 		bIsSprinting = false;
 		
-		// Update movement speed
-		if (PlayerCharacter->BasicMovementSystem)
-			PlayerCharacter->BasicMovementSystem->UpdateMaxWalkSpeed();
-
 		UE_LOG(LogTemp, Verbose, TEXT("SprintSystem: Sprint stopped"));
 	}
 }

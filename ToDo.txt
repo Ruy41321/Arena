@@ -1,7 +1,7 @@
 Refactoring:
  - Component Based Design - Fatto
- - State Machine Design
- - Observer Pattern
+ - State Machine Design - Fatto
+ - Observer Pattern - Fatto
 
 Combat
 

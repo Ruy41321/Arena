@@ -42,7 +42,10 @@ public:
 
 	virtual void Tick(float DeltaTime) override;
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
-	void UpdateMaxWalkSpeed();
+	
+	/** Sets the character's maximum walk speed */
+	UFUNCTION(BlueprintCallable, Category = "Movement")
+	void SetMaxWalkSpeed(float NewSpeed);
 
 	// Movement State Machine helper functions
 	UFUNCTION(BlueprintPure, Category = "Movement State Machine")
@@ -92,9 +95,7 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Movement State Machine")
 	TObjectPtr<UMovementStateMachine> MovementStateMachine;
-
-private:
-	
+		
 protected:
 	// Camera
 	UPROPERTY(BlueprintReadWrite, category = "Camera")

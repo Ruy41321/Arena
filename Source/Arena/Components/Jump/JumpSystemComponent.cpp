@@ -11,7 +11,7 @@
 // Sets default values for this component's properties
 UJumpSystemComponent::UJumpSystemComponent()
 {
-	PrimaryComponentTick.bCanEverTick = true;
+	PrimaryComponentTick.bCanEverTick = false;
 }
 
 void UJumpSystemComponent::BeginPlay()
@@ -47,18 +47,21 @@ void UJumpSystemComponent::JumpPressed(const FInputActionValue& Value)
 	if (!PlayerCharacter)
 		return;
 
-	// Don't jump if landing, dodging, or falling
-	if (bIsLanding || 
-		(PlayerCharacter->DodgeSystem && PlayerCharacter->DodgeSystem->IsDodging()))
-		return;
-
-	// If crouched, uncrouch instead of jumping
-	if (PlayerCharacter->CrouchSystem && PlayerCharacter->CrouchSystem->IsCrouched())
+	if (PlayerCharacter->MovementStateMachine)
 	{
-		PlayerCharacter->CrouchSystem->CrouchPressed(Value);
-		return;
-	}
+		EMovementState CurrentState = PlayerCharacter->MovementStateMachine->GetCurrentState();
+				
+		if (bIsLanding || CurrentState == EMovementState::Dodging)
+			return;
 
+		// If crouched, uncrouch instead of jumping
+		if ((CurrentState == EMovementState::CrouchingIdle || CurrentState == EMovementState::CrouchingMoving) 
+			&& PlayerCharacter->CrouchSystem)
+		{
+			PlayerCharacter->CrouchSystem->CrouchPressed(Value);
+			return;
+		}
+	}
 	// Perform the jump
 	PlayerCharacter->Jump();
 }

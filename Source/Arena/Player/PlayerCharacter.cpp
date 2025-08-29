@@ -46,7 +46,6 @@ void APlayerCharacter::BeginPlay()
 void APlayerCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	
 }
 
 // Called to bind functionality to input
@@ -58,13 +57,7 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent *PlayerInputCom
 	{
 		// Delegate input setup to each component
 		if (BasicMovementSystem)
-		{
 			BasicMovementSystem->SetupInput(EnhancedInputComponent);
-		}
-		else
-		{
-			UE_LOG(LogTemp, Warning, TEXT("PlayerCharacter: BasicMovementComponent is null, cannot setup movement input"));
-		}
 
 		if (SprintSystem)
 			SprintSystem->SetupInput(EnhancedInputComponent);
@@ -95,11 +88,13 @@ void APlayerCharacter::Landed(const FHitResult &Hit)
 	}
 }
 
-void APlayerCharacter::UpdateMaxWalkSpeed()
+void APlayerCharacter::SetMaxWalkSpeed(float NewSpeed)
 {
-	if (BasicMovementSystem)
+	UCharacterMovementComponent* Movement = GetCharacterMovement();
+	if (Movement)
 	{
-		BasicMovementSystem->UpdateMaxWalkSpeed();
+		Movement->MaxWalkSpeed = NewSpeed;
+		UE_LOG(LogTemp, Verbose, TEXT("PlayerCharacter: MaxWalkSpeed set to %f"), NewSpeed);
 	}
 }
 
