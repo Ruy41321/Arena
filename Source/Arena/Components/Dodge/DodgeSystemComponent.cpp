@@ -4,7 +4,6 @@
 #include "../../Player/PlayerCharacter.h"
 #include "EnhancedInputComponent.h"
 
-// Sets default values for this component's properties
 UDodgeSystemComponent::UDodgeSystemComponent()
 {
 	PrimaryComponentTick.bCanEverTick = true;
@@ -16,16 +15,10 @@ void UDodgeSystemComponent::BeginPlay()
 	
 	OwnerPlayerCharacter = Cast<APlayerCharacter>(GetOwner());
 	
-	// Validation per sicurezza in development
 	if (!OwnerPlayerCharacter)
 	{
 		UE_LOG(LogTemp, Error, TEXT("DodgeSystemComponent: Owner is not a PlayerCharacter! Owner class: %s"),
 			GetOwner() ? *GetOwner()->GetClass()->GetName() : TEXT("NULL"));
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("DodgeSystemComponent: Successfully cached PlayerCharacter - %s at address %p"), 
-			*OwnerPlayerCharacter->GetName(), static_cast<void*>(OwnerPlayerCharacter.Get()));
 	}
 }
 
@@ -49,7 +42,7 @@ void UDodgeSystemComponent::SetupInput(UEnhancedInputComponent* EnhancedInputCom
 			StartDodge();
 		});
 	
-	UE_LOG(LogTemp, Log, TEXT("DodgeSystemComponent: Input bindings set up successfully"));
+
 }
 
 void UDodgeSystemComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
@@ -95,11 +88,6 @@ void UDodgeSystemComponent::StartDodge()
 	if (!UpdateDodgeDirection())
 	{
 		DodgeDirection = PlayerCharacter->GetActorForwardVector();
-		UE_LOG(LogTemp, Warning, TEXT("DodgeSystem: No movement input, using forward direction: %s"), *DodgeDirection.ToString());
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("DodgeSystem: Using movement input direction: %s"), *DodgeDirection.ToString());
 	}
 	
 	// Store the initial dodge direction for blending
@@ -108,8 +96,6 @@ void UDodgeSystemComponent::StartDodge()
 	bCanDodge = false;
 	// Set a timer to reset dodge after a short duration as security in case animation notify fails
 	GetWorld()->GetTimerManager().SetTimer(DodgeTimerHandle, this, &UDodgeSystemComponent::ResetDodge, DodgeDuration, false);
-	
-	UE_LOG(LogTemp, Warning, TEXT("DodgeSystem: Dodge started! Direction: %s, Speed: %f"), *DodgeDirection.ToString(), DodgeSpeed);
 }
 
 void UDodgeSystemComponent::ResetDodge()
@@ -153,8 +139,6 @@ bool UDodgeSystemComponent::UpdateDodgeDirection()
 	}
 	else
 	{
-		// No BasicMovementComponent available - can't proceed
-		UE_LOG(LogTemp, Warning, TEXT("DodgeSystem: BasicMovementComponent not available!"));
 		return false;
 	}
 

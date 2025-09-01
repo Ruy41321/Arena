@@ -8,11 +8,7 @@
 // Sets default values for this component's properties
 UBasicMovementComponent::UBasicMovementComponent()
 {
-	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
-	// off to improve performance if you don't need them.
 	PrimaryComponentTick.bCanEverTick = true;
-
-	// Initialize default values
 	MouseSensitivity = 1.0f;
 	bInvertYAxis = false;
 	MovementSmoothing = 0.1f;
@@ -31,11 +27,6 @@ void UBasicMovementComponent::BeginPlay()
 	{
 		UE_LOG(LogTemp, Error, TEXT("BasicMovementComponent: Owner is not a PlayerCharacter! Owner class: %s"),
 			GetOwner() ? *GetOwner()->GetClass()->GetName() : TEXT("NULL"));
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("BasicMovementComponent: Successfully cached PlayerCharacter - %s at address %p"),
-			*OwnerPlayerCharacter->GetName(), static_cast<void*>(OwnerPlayerCharacter.Get()));
 	}
 }
 
@@ -86,10 +77,9 @@ void UBasicMovementComponent::SetupInput(UEnhancedInputComponent* EnhancedInputC
 			Look(Value);
 		});
 
-	UE_LOG(LogTemp, Log, TEXT("BasicMovementComponent: Input bindings set up successfully"));
+
 }
 
-// Called every frame
 void UBasicMovementComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
