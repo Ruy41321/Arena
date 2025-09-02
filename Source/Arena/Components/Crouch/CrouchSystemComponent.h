@@ -33,11 +33,11 @@ public:
 	void CrouchPressed(const FInputActionValue& Value);
 
 	/** Start crouching */
-	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "Crouch System", meta = (ToolTip = "Initiates crouch"))
+	UFUNCTION(BlueprintCallable, Category = "Crouch System", meta = (ToolTip = "Initiates crouch"))
 	void Crouch();
 
 	/** Stop crouching */
-	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "Crouch System", meta = (ToolTip = "Stops crouch"))
+	UFUNCTION(BlueprintCallable, Category = "Crouch System", meta = (ToolTip = "Stops crouch"))
 	void UnCrouch();
 
 	/** Checks if it's safe to uncrouch (no obstacles above) */
@@ -98,12 +98,10 @@ public:
 	}
 
 private:
-	UFUNCTION()
-	void OnRep_IsCrouched();
 
 protected:
 	/** Whether currently crouched */
-	UPROPERTY(ReplicatedUsing = OnRep_IsCrouched, BlueprintReadOnly, Category = "Crouch System",
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Crouch System",
 		meta = (ToolTip = "True if player is crouched"))
 	bool bIsCrouched = false;
 

@@ -111,18 +111,7 @@ void UCrouchSystemComponent::CrouchPressed(const FInputActionValue& Value)
 	
 }
 
-void UCrouchSystemComponent::OnRep_IsCrouched()
-{
-	APlayerCharacter* PlayerCharacter = GetValidPlayerCharacter();
-	if (!PlayerCharacter)
-		return;
-	if (bIsCrouched)
-		PlayerCharacter->Crouch();
-	else
-		PlayerCharacter->UnCrouch();
-}
-
-void UCrouchSystemComponent::Crouch_Implementation()
+void UCrouchSystemComponent::Crouch()
 {
 	APlayerCharacter* PlayerCharacter = GetValidPlayerCharacter();
 	if (!PlayerCharacter)
@@ -140,7 +129,7 @@ void UCrouchSystemComponent::Crouch_Implementation()
 	PlayerCharacter->Crouch();
 }
 
-void UCrouchSystemComponent::UnCrouch_Implementation()
+void UCrouchSystemComponent::UnCrouch()
 {
 	APlayerCharacter* PlayerCharacter = GetValidPlayerCharacter();
 	if (!PlayerCharacter)
