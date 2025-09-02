@@ -57,7 +57,7 @@ void UPlayerAnimInstance::OnMovementStateChanged(EMovementState OldState, EMovem
 		Speed = PlayerCharacter->GetCharacterMovement()->MaxWalkSpeed;
 		if (NewState == EMovementState::Idle || NewState == EMovementState::CrouchingIdle)
 		{
-			Speed *= 0.0f;
+			Speed = 0.0f;
 		}
 	}
 }

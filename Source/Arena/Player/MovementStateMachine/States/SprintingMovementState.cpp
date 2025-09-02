@@ -39,14 +39,14 @@ EMovementState USprintingMovementState::GetDesiredTransition_Implementation() co
 	}
 
 	// Check if still sprinting
-	if (!Player->SprintSystem || !Player->SprintSystem->IsSprinting())
+	if (Player->SprintSystem)
 	{
 		// Check movement speed to determine if walking or idle
 		float Speed = Player->GetCharacterMovement()->Velocity.Size2D();
-		if (Speed > 10.0f)
-			return EMovementState::Walking;
-		else
+		if (Speed == 0.0f)
 			return EMovementState::Idle;
+		else if (!Player->SprintSystem->IsSprinting())
+			return EMovementState::Walking;
 	}
 
 	// Stay in sprinting state

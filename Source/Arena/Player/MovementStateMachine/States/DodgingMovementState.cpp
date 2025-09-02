@@ -28,7 +28,7 @@ EMovementState UDodgingMovementState::GetDesiredTransition_Implementation() cons
 		}
 
 		// Determine ground state based on crouching and velocity
-		if (Player->CrouchSystem && Player->CrouchSystem->IsCrouched())
+		if (Player->CrouchSystem && Player->CrouchSystem->IsCrouched() && !(!Player->SprintSystem->IsSprintInterrupted() && Player->CrouchSystem->CanUncrouchSafely()))
 		{
 			float HorizontalSpeed = Player->GetCharacterMovement()->Velocity.Size2D();
 			if (HorizontalSpeed > 0.1f)
@@ -40,8 +40,13 @@ EMovementState UDodgingMovementState::GetDesiredTransition_Implementation() cons
 		float Speed = Player->GetCharacterMovement()->Velocity.Size2D();
 		if (Speed > 10.0f)
 		{
-			if (Player->SprintSystem && Player->SprintSystem->IsSprinting())
+			if (Player->SprintSystem && !Player->SprintSystem->IsSprintInterrupted())
+			{
+				Player->SprintSystem->SetIsSprinting(true);
+				if (Player->CrouchSystem && Player->CrouchSystem->IsCrouched())
+					Player->CrouchSystem->CrouchPressed(NULL);
 				return EMovementState::Sprinting;
+			}
 			else
 				return EMovementState::Walking;
 		}
