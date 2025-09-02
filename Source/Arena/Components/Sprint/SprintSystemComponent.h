@@ -19,6 +19,8 @@ class ARENA_API USprintSystemComponent : public UActorComponent
 public:	
 	USprintSystemComponent();
 
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
 	virtual void BeginPlay() override;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
@@ -71,7 +73,7 @@ protected:
 	float RunSpeed = 600.0f;
 
 	/** Whether character is currently sprinting */
-	UPROPERTY(BlueprintReadOnly, Category = "Sprint System", 
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Sprint System", 
 		meta = (ToolTip = "True if character is sprinting"))
 	bool bIsSprinting = false;
 

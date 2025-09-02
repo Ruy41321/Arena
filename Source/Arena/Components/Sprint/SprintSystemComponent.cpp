@@ -4,12 +4,21 @@
 #include "../../Player/PlayerCharacter.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "EnhancedInputComponent.h"
+#include "Net/UnrealNetwork.h"
 
 USprintSystemComponent::USprintSystemComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
 	bSprintInterrupted = true;
 	bIsSprinting = false;
+
+	SetIsReplicatedByDefault(true);
+}
+
+void USprintSystemComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(USprintSystemComponent, bIsSprinting);
 }
 
 void USprintSystemComponent::BeginPlay()
