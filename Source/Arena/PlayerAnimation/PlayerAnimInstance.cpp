@@ -27,15 +27,15 @@ void UPlayerAnimInstance::NativeBeginPlay()
 void UPlayerAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 {
 	Super::NativeUpdateAnimation(DeltaSeconds);
-	if (!PlayerCharacter)
-		return;
-		
+	//if (!PlayerCharacter)
+	//	return;
+	//	
 	// Only smooth interpolation for crouching animations - no more velocity polling!
 	// CrouchingTransitionTarget is updated in OnMovementStateChanged when needed
-	if (FMath::Abs(CrouchingTransitionTarget - CrouchingTransitionTime) > 0.1f)
-	{
-		FUtils::HandleGenericInterpolation(CrouchingTransitionTime, CrouchingTransitionTarget, CrouchingRate, DeltaSeconds, 0.1f);
-	}
+	//if (FMath::Abs(CrouchingTransitionTarget - CrouchingTransitionTime) > 0.1f)
+	//{
+	//	FUtils::HandleGenericInterpolation(CrouchingTransitionTime, CrouchingTransitionTarget, CrouchingRate, DeltaSeconds, 0.1f);
+	//}
 }
 
 void UPlayerAnimInstance::OnMovementStateChanged(EMovementState OldState, EMovementState NewState)
@@ -48,6 +48,7 @@ void UPlayerAnimInstance::OnMovementStateChanged(EMovementState OldState, EMovem
 	if (PlayerCharacter && PlayerCharacter->CrouchSystem)
 	{
 		CrouchingTransitionTarget = PlayerCharacter->CrouchSystem->IsCrouched() ? 100.0f : 0.0f;
+		CrouchingTransitionTime = CrouchingTransitionTarget; // Snap immediately to target for instant transitions
 	}
 	
 	// Update Speed based on current movement state and MaxWalkSpeed for Blend Space locomotion

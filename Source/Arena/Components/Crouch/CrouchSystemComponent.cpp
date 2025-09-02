@@ -8,11 +8,14 @@
 #include "Engine/World.h"
 #include "CollisionQueryParams.h"
 #include "EnhancedInputComponent.h"
+#include "Net/UnrealNetwork.h"
 
 UCrouchSystemComponent::UCrouchSystemComponent()
 {
 	PrimaryComponentTick.bCanEverTick = true;
 	
+	SetIsReplicatedByDefault(true);
+
 	// Initialize default values similar to PlayerCharacter constructor
 	CrouchTargetHeight = 65.0f;
 	StandTargetHeight = 90.0f;
@@ -24,6 +27,13 @@ UCrouchSystemComponent::UCrouchSystemComponent()
 
 	UncrouchSafetyMargin = 5.0f;
 	CrouchSpeed = 100.0f;
+}
+
+void UCrouchSystemComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(UCrouchSystemComponent, bIsCrouched);
 }
 
 void UCrouchSystemComponent::BeginPlay()
@@ -66,17 +76,18 @@ void UCrouchSystemComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	APlayerCharacter* PlayerCharacter = GetValidPlayerCharacter();
-	if (!PlayerCharacter)
-		return;
+	//APlayerCharacter* PlayerCharacter = GetValidPlayerCharacter();
+	//if (!PlayerCharacter)
+	//	return;
 
 	// Handle crouch height adjustment
-	if (IsCrouchingInProgress())
-	{
-		float TargetCapsuleHeight = IsCrouched() ? GetCrouchTargetHeight() : GetStandTargetHeight();
-		float TargetMeshHeight = IsCrouched() ? GetCrouchMeshHeightOffset() : GetStandMeshHeightOffset();
-		AdjustCapsuleHeight(DeltaTime, TargetCapsuleHeight, TargetMeshHeight);
-	}
+	//if (IsCrouchingInProgress())
+	//{
+	//	UE_LOG(LogTemp, Warning, TEXT("CrouchSystemComponent: Adjusting crouch height..."));
+	//	float TargetCapsuleHeight = IsCrouched() ? GetCrouchTargetHeight() : GetStandTargetHeight();
+	//	float TargetMeshHeight = IsCrouched() ? GetCrouchMeshHeightOffset() : GetStandMeshHeightOffset();
+	//	AdjustCapsuleHeight(DeltaTime, TargetCapsuleHeight, TargetMeshHeight);
+	//}
 }
 
 void UCrouchSystemComponent::CrouchPressed(const FInputActionValue& Value)
@@ -98,10 +109,20 @@ void UCrouchSystemComponent::CrouchPressed(const FInputActionValue& Value)
 	else
 		Crouch();
 	
-	bIsCrouchingInProgress = true;
 }
 
-void UCrouchSystemComponent::Crouch(bool bClientSimulation)
+void UCrouchSystemComponent::OnRep_IsCrouched()
+{
+	APlayerCharacter* PlayerCharacter = GetValidPlayerCharacter();
+	if (!PlayerCharacter)
+		return;
+	if (bIsCrouched)
+		PlayerCharacter->Crouch();
+	else
+		PlayerCharacter->UnCrouch();
+}
+
+void UCrouchSystemComponent::Crouch_Implementation()
 {
 	APlayerCharacter* PlayerCharacter = GetValidPlayerCharacter();
 	if (!PlayerCharacter)
@@ -115,15 +136,19 @@ void UCrouchSystemComponent::Crouch(bool bClientSimulation)
 			return;
 	}
 	bIsCrouched = true;
+	//bIsCrouchingInProgress = true;
+	PlayerCharacter->Crouch();
 }
 
-void UCrouchSystemComponent::UnCrouch(bool bClientSimulation)
+void UCrouchSystemComponent::UnCrouch_Implementation()
 {
 	APlayerCharacter* PlayerCharacter = GetValidPlayerCharacter();
 	if (!PlayerCharacter)
 		return;
 
 	bIsCrouched = false;
+	//bIsCrouchingInProgress = true;
+	PlayerCharacter->UnCrouch();
 }
 
 bool UCrouchSystemComponent::CanUncrouchSafely() const
@@ -183,38 +208,38 @@ bool UCrouchSystemComponent::CanUncrouchSafely() const
 	return !bHasOverlap;
 }
 
-void UCrouchSystemComponent::AdjustCapsuleHeight(float DeltaTime, float TargetCapsuleHeight, float TargetMeshHeight)
-{
-	APlayerCharacter* PlayerCharacter = GetValidPlayerCharacter();
-	if (!PlayerCharacter)
-		return;
-
-	bool IsFinished = true;
-	const float Tolerance = 0.01f;
-
-	// Adjusting the capsule height
-	UCapsuleComponent* CapsuleComponent = PlayerCharacter->GetCapsuleComponent();
-	if (CapsuleComponent)
-	{
-		float CurrentHeight = CapsuleComponent->GetScaledCapsuleHalfHeight();
-
-		if (!FUtils::HandleGenericInterpolation(CurrentHeight, TargetCapsuleHeight, HeightAdjustmentRate, DeltaTime, Tolerance))
-			IsFinished = false;
-		CapsuleComponent->SetCapsuleHalfHeight(CurrentHeight);
-	}
-
-	// Adjusting the mesh position
-	USkeletalMeshComponent* Mesh = PlayerCharacter->GetMesh();
-		if (Mesh)
-	{
-		FVector CurrentLocation = Mesh->GetRelativeLocation();
-		float CurrentMeshHeight = CurrentLocation.Z;
-
-		if (!FUtils::HandleGenericInterpolation(CurrentMeshHeight, TargetMeshHeight, MeshOffsetAdjustmentRate, DeltaTime, Tolerance))
-			IsFinished = false;
-		CurrentLocation.Z = CurrentMeshHeight;
-		Mesh->SetRelativeLocation(CurrentLocation);
-	}
-
-	bIsCrouchingInProgress = !IsFinished;
-}
+//void UCrouchSystemComponent::AdjustCapsuleHeight(float DeltaTime, float TargetCapsuleHeight, float TargetMeshHeight)
+//{
+//	APlayerCharacter* PlayerCharacter = GetValidPlayerCharacter();
+//	if (!PlayerCharacter)
+//		return;
+//
+//	bool IsFinished = true;
+//	const float Tolerance = 0.01f;
+//
+//	// Adjusting the capsule height
+//	UCapsuleComponent* CapsuleComponent = PlayerCharacter->GetCapsuleComponent();
+//	if (CapsuleComponent)
+//	{
+//		float CurrentHeight = CapsuleComponent->GetScaledCapsuleHalfHeight();
+//
+//		if (!FUtils::HandleGenericInterpolation(CurrentHeight, TargetCapsuleHeight, HeightAdjustmentRate, DeltaTime, Tolerance))
+//			IsFinished = false;
+//		CapsuleComponent->SetCapsuleHalfHeight(CurrentHeight);
+//	}
+//
+//	// Adjusting the mesh position
+//	USkeletalMeshComponent* Mesh = PlayerCharacter->GetMesh();
+//	if (Mesh)
+//	{
+//		FVector CurrentLocation = Mesh->GetRelativeLocation();
+//		float CurrentMeshHeight = CurrentLocation.Z;
+//
+//		if (!FUtils::HandleGenericInterpolation(CurrentMeshHeight, TargetMeshHeight, MeshOffsetAdjustmentRate, DeltaTime, Tolerance))
+//			IsFinished = false;
+//		CurrentLocation.Z = CurrentMeshHeight;
+//		Mesh->SetRelativeLocation(CurrentLocation);
+//	}
+//
+//	bIsCrouchingInProgress = !IsFinished;
+//}

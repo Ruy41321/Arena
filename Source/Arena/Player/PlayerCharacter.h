@@ -98,9 +98,9 @@ public:
 		
 protected:
 	// Camera
-	UPROPERTY(BlueprintReadWrite, category = "Camera")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, category = "Camera")
 	TObjectPtr<UCameraComponent> Camera;
-	UPROPERTY(BlueprintReadWrite, Category = "Camera")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Camera")
 	TObjectPtr<USpringArmComponent> CameraBoom;
 
 	// Input actions and mapping context

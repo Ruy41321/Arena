@@ -19,6 +19,8 @@ class ARENA_API UCrouchSystemComponent : public UActorComponent
 public:	
 	UCrouchSystemComponent();
 
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
 	virtual void BeginPlay() override;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
@@ -31,12 +33,12 @@ public:
 	void CrouchPressed(const FInputActionValue& Value);
 
 	/** Start crouching */
-	UFUNCTION(BlueprintCallable, Category = "Crouch System", meta = (ToolTip = "Initiates crouch"))
-	void Crouch(bool bClientSimulation = false);
+	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "Crouch System", meta = (ToolTip = "Initiates crouch"))
+	void Crouch();
 
 	/** Stop crouching */
-	UFUNCTION(BlueprintCallable, Category = "Crouch System", meta = (ToolTip = "Stops crouch"))
-	void UnCrouch(bool bClientSimulation = false);
+	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "Crouch System", meta = (ToolTip = "Stops crouch"))
+	void UnCrouch();
 
 	/** Checks if it's safe to uncrouch (no obstacles above) */
 	UFUNCTION(BlueprintPure, Category = "Crouch System", meta = (ToolTip = "Check if uncrouch is safe"))
@@ -50,8 +52,8 @@ public:
 	bool IsCrouched() const { return bIsCrouched; }
 
 	/** Returns true if crouch transition is in progress */
-	UFUNCTION(BlueprintPure, Category = "Crouch System", meta = (ToolTip = "Check if crouch transition is active"))
-	bool IsCrouchingInProgress() const { return bIsCrouchingInProgress; }
+	//UFUNCTION(BlueprintPure, Category = "Crouch System", meta = (ToolTip = "Check if crouch transition is active"))
+	//bool IsCrouchingInProgress() const { return bIsCrouchingInProgress; }
 
 	/** Gets crouch movement speed */
 	UFUNCTION(BlueprintPure, Category = "Crouch System", meta = (ToolTip = "Returns crouch speed in cm/s"))
@@ -75,7 +77,7 @@ public:
 
 	// Setters for external access
 	void SetIsCrouched(bool NewIsCrouched) { bIsCrouched = NewIsCrouched; }
-	void SetIsCrouchingInProgress(bool NewIsCrouchingInProgress) { bIsCrouchingInProgress = NewIsCrouchingInProgress; }
+	//void SetIsCrouchingInProgress(bool NewIsCrouchingInProgress) { bIsCrouchingInProgress = NewIsCrouchingInProgress; }
 	void SetCrouchSpeed(float NewCrouchSpeed) { CrouchSpeed = NewCrouchSpeed; }
 
 	/** Gets the owning PlayerCharacter */
@@ -97,14 +99,17 @@ public:
 
 protected:
 	/** Whether currently crouched */
-	UPROPERTY(BlueprintReadOnly, Category = "Crouch System", 
+	UPROPERTY(ReplicatedUsing = OnRep_IsCrouched, BlueprintReadOnly, Category = "Crouch System",
 		meta = (ToolTip = "True if player is crouched"))
 	bool bIsCrouched = false;
 
+	UFUNCTION()
+	void OnRep_IsCrouched();
+
 	/** Whether crouch transition is in progress */
-	UPROPERTY(BlueprintReadOnly, Category = "Crouch System", 
-		meta = (ToolTip = "True while crouch transition is active"))
-	bool bIsCrouchingInProgress = false;
+	//UPROPERTY(BlueprintReadOnly, Category = "Crouch System", 
+	//	meta = (ToolTip = "True while crouch transition is active"))
+	//bool bIsCrouchingInProgress = false;
 
 	/** Movement speed during crouch */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crouch System", 
