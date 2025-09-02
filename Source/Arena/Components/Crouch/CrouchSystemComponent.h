@@ -45,7 +45,7 @@ public:
 	bool CanUncrouchSafely() const;
 
 	/** Adjusts capsule height and mesh position during crouch transition */
-	void AdjustCapsuleHeight(float DeltaTime, float TargetCapsuleHeight, float TargetMeshHeight);
+	//void AdjustCapsuleHeight(float DeltaTime, float TargetCapsuleHeight, float TargetMeshHeight);
 
 	/** Returns true if currently crouched */
 	UFUNCTION(BlueprintPure, Category = "Crouch System", meta = (ToolTip = "Check if player is crouched"))
@@ -97,14 +97,15 @@ public:
 		return Cast<APlayerCharacter>(GetOwner());
 	}
 
+private:
+	UFUNCTION()
+	void OnRep_IsCrouched();
+
 protected:
 	/** Whether currently crouched */
 	UPROPERTY(ReplicatedUsing = OnRep_IsCrouched, BlueprintReadOnly, Category = "Crouch System",
 		meta = (ToolTip = "True if player is crouched"))
 	bool bIsCrouched = false;
-
-	UFUNCTION()
-	void OnRep_IsCrouched();
 
 	/** Whether crouch transition is in progress */
 	//UPROPERTY(BlueprintReadOnly, Category = "Crouch System", 

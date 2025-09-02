@@ -3,10 +3,19 @@
 #include "DodgeSystemComponent.h"
 #include "../../Player/PlayerCharacter.h"
 #include "EnhancedInputComponent.h"
+#include "Net/UnrealNetwork.h"
 
 UDodgeSystemComponent::UDodgeSystemComponent()
 {
 	PrimaryComponentTick.bCanEverTick = true;
+	SetIsReplicatedByDefault(true);
+}
+
+void UDodgeSystemComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(UDodgeSystemComponent, bIsDodging);
 }
 
 void UDodgeSystemComponent::BeginPlay()
@@ -63,9 +72,11 @@ void UDodgeSystemComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 	}
 }
 
-void UDodgeSystemComponent::StartDodge()
+void UDodgeSystemComponent::StartDodge_Implementation()
 {
 	APlayerCharacter* PlayerCharacter = GetValidPlayerCharacter();
+	if (!PlayerCharacter)
+		return;
 
 	if (PlayerCharacter->MovementStateMachine)
 	{
@@ -202,5 +213,16 @@ bool UDodgeSystemComponent::IsInDodgeableState(EMovementState CurrentState) cons
 		return true; // Dodgeable states
 	default:
 		return false; // Not dodgeable states
+	}
+}
+
+void UDodgeSystemComponent::OnRep_bWasCrouchingPreDodge()
+{
+	APlayerCharacter* PlayerCharacter = GetValidPlayerCharacter();
+	if (!PlayerCharacter)
+		return;
+	if (PlayerCharacter->CrouchSystem && !bWasCrouchingPreDodge)
+	{
+		PlayerCharacter->CrouchSystem->CrouchPressed(FInputActionValue());
 	}
 }

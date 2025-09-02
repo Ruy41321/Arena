@@ -90,6 +90,7 @@ void APlayerCharacter::SetMaxWalkSpeed(float NewSpeed)
 	if (Movement)
 	{
 		Movement->MaxWalkSpeed = NewSpeed;
+		Movement->MaxWalkSpeedCrouched = NewSpeed;
 		UE_LOG(LogTemp, Verbose, TEXT("PlayerCharacter: MaxWalkSpeed set to %f"), NewSpeed);
 	}
 }

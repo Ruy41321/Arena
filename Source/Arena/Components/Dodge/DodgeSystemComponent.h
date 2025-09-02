@@ -19,6 +19,8 @@ class ARENA_API UDodgeSystemComponent : public UActorComponent
 public:	
 	UDodgeSystemComponent();
 
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
 	virtual void BeginPlay() override;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
@@ -27,7 +29,7 @@ public:
 	void SetupInput(UEnhancedInputComponent* EnhancedInputComponent);
 
 	/** Starts dodge in movement direction or forward if stationary */
-	UFUNCTION(BlueprintCallable, Category = "Dodge System", meta = (ToolTip = "Initiates dodge maneuver"))
+	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "Dodge System", meta = (ToolTip = "Initiates dodge maneuver"))
 	void StartDodge();
 
 	/** Ends dodge and starts cooldown timer */
@@ -93,6 +95,10 @@ public:
 		return Cast<APlayerCharacter>(GetOwner());
 	}
 
+private:
+	UFUNCTION()
+	void OnRep_bWasCrouchingPreDodge();
+
 protected:
 	/** How long dodge action lasts */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dodge System", 
@@ -110,12 +116,12 @@ protected:
 	float InputInfluenceFactor = 0.49f;
 
 	/** Whether dodge is available */
-	UPROPERTY(BlueprintReadOnly, Category = "Dodge System", 
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Dodge System",
 		meta = (ToolTip = "True if dodge is off cooldown"))
 	bool bCanDodge = true;
 
 	/** Whether currently executing dodge */
-	UPROPERTY(BlueprintReadOnly, Category = "Dodge System", 
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Dodge System", 
 		meta = (ToolTip = "True while dodging"))
 	bool bIsDodging = false;
 
@@ -134,12 +140,15 @@ private:
 	FTimerHandle DodgeTimerHandle;
 
 	/** World space dodge direction */
+	UPROPERTY(Replicated)
 	FVector DodgeDirection = FVector::ZeroVector;
 
 	/** Initial dodge direction when dodge started (used as base for blending) */
+	UPROPERTY(Replicated)
 	FVector InitialDodgeDirection = FVector::ZeroVector;
 
 	/** Crouch state before dodge started */
+	UPROPERTY(ReplicatedUsing=OnRep_bWasCrouchingPreDodge)
 	bool bWasCrouchingPreDodge = false;
 
 	/** Timer for initialization retry */
