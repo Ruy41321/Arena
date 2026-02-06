@@ -127,14 +127,6 @@ FString APlayerCharacter::GetCurrentMovementStateAsString() const
 	return UMovementStateTypes::MovementStateToString(GetCurrentMovementState());
 }
 
-void APlayerCharacter::SubscribeToMovementStateChanges(UObject* Subscriber, const FString& FunctionName)
-{
-	if (MovementStateMachine)
-	{
-		MovementStateMachine->SubscribeToStateChanges(Subscriber, FunctionName);
-	}
-}
-
 void APlayerCharacter::UnsubscribeFromMovementStateChanges(UObject* Subscriber)
 {
 	if (MovementStateMachine)

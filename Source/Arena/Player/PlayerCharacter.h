@@ -64,10 +64,6 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Movement State Machine")
 	UMovementStateMachine* GetMovementStateMachine() const { return MovementStateMachine.Get(); }
 
-	/** Subscribe to movement state change events using Blueprint delegate */
-	UFUNCTION(BlueprintCallable, Category = "Movement State Machine")
-	void SubscribeToMovementStateChanges(UObject* Subscriber, const FString& FunctionName);
-
 	/** Unsubscribe from movement state change events */
 	UFUNCTION(BlueprintCallable, Category = "Movement State Machine")
 	void UnsubscribeFromMovementStateChanges(UObject* Subscriber);

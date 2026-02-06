@@ -199,14 +199,6 @@ void UMovementStateMachine::PerformStateTransition(EMovementState NewState)
 		*UMovementStateTypes::MovementStateToString(NewState));
 }
 
-void UMovementStateMachine::SubscribeToStateChanges(UObject* Subscriber, const FString& FunctionName)
-{
-	// For now, just log that this functionality is not implemented
-	// The subscription to the state changes is actually done in the subscriber side
-	// This can be expanded later with proper blueprint binding support
-	UE_LOG(LogTemp, Warning, TEXT("MovementStateMachine: Dynamic subscription not yet implemented"));
-}
-
 void UMovementStateMachine::UnsubscribeFromStateChanges(UObject* Subscriber)
 {
 	if (!Subscriber)

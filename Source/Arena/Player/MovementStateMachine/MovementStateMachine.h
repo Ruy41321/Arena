@@ -56,10 +56,6 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "Movement State Machine")
 	FOnMovementStateChanged OnStateChanged;
 
-	/** Subscribe to state change events and return a handle for safe unsubscription */
-	UFUNCTION(BlueprintCallable, Category = "Movement State Machine")
-	void SubscribeToStateChanges(UObject* Subscriber, const FString& FunctionName);
-
 	/** Unsubscribe from state change events using the subscriber object */
 	UFUNCTION(BlueprintCallable, Category = "Movement State Machine")
 	void UnsubscribeFromStateChanges(UObject* Subscriber);
