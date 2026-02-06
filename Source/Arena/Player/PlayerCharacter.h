@@ -30,6 +30,9 @@ class UInputAction;
 class UCameraComponent;
 class USpringArmComponent;
 
+class URPGAbilitySystemComponent;
+class URPGAttributeSet;
+
 #include "PlayerCharacter.generated.h"
 
 UCLASS()
@@ -68,6 +71,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Movement State Machine")
 	void UnsubscribeFromMovementStateChanges(UObject* Subscriber);
 
+	virtual void PossessedBy(AController* NewController) override;
+	virtual void OnRep_PlayerState() override;
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -102,4 +108,18 @@ protected:
 	// Input actions and mapping context
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
 	TObjectPtr<UInputMappingContext> DefaultMappingContext;
+
+private:
+
+	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = true))
+	TObjectPtr<URPGAbilitySystemComponent> RPGAbilitySystemComponent;
+
+	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = true))
+	TObjectPtr<URPGAttributeSet> RPGAttributeSet;
+
+	UPROPERTY(EditAnywhere, Category = "Custom Values | Character Info")
+	FGameplayTag CharacterTag;
+
+	void InitAbilityActorInfo();
+	void InitClassDefaults();
 };

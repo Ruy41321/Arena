@@ -2,6 +2,10 @@
 
 #include "PlayerCharacter.h"
 #include "../PlayerAnimation/PlayerAnimInstance.h"
+#include "PlayerState/RPGPlayerState.h"
+#include "AbilitySystem/RPGAbilitySystemComponent.h"
+#include "Libraries/RPGAbilitySystemLibrary.h"
+#include "Data/CharacterClassInfo.h"
 
 APlayerCharacter::APlayerCharacter()
 {
@@ -132,5 +136,60 @@ void APlayerCharacter::UnsubscribeFromMovementStateChanges(UObject* Subscriber)
 	if (MovementStateMachine)
 	{
 		MovementStateMachine->UnsubscribeFromStateChanges(Subscriber);
+	}
+}
+
+void APlayerCharacter::PossessedBy(AController* NewController)
+{
+	Super::PossessedBy(NewController);
+
+	if (HasAuthority())
+	{
+		InitAbilityActorInfo();
+	}
+}
+
+void APlayerCharacter::OnRep_PlayerState()
+{
+	Super::OnRep_PlayerState();
+	InitAbilityActorInfo();
+}
+
+void APlayerCharacter::InitAbilityActorInfo()
+{
+	if (ARPGPlayerState* RPGPlayerState = GetPlayerState<ARPGPlayerState>())
+	{
+		RPGAbilitySystemComponent = RPGPlayerState->GetRPGAbilitySystemComponent();
+		RPGAttributeSet = RPGPlayerState->GetRPGAttributeSet();
+
+		if (IsValid(RPGAbilitySystemComponent))
+		{
+			RPGAbilitySystemComponent->InitAbilityActorInfo(RPGPlayerState, this);
+			
+			if (HasAuthority())
+			{
+				InitClassDefaults();
+			}
+		}
+	}
+}
+
+void APlayerCharacter::InitClassDefaults()
+{
+	if (!CharacterTag.IsValid())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("No CharacterTag Selected In This Character %s"), *GetNameSafe(this));
+	}
+	else if (UCharacterClassInfo* ClassInfo = URPGAbilitySystemLibrary::GetCharacterClassDefaultInfo(this))
+	{
+		if (FCharacterClassDefaultInfo* SelectorClassInfo = ClassInfo->ClassDefaultInfoMap.Find(CharacterTag))
+		{
+			if (IsValid(RPGAbilitySystemComponent))
+			{
+				RPGAbilitySystemComponent->AddCharacterAbilities(SelectorClassInfo->StartingAbilities);
+				RPGAbilitySystemComponent->AddCharacterPassiveAbilities(SelectorClassInfo->StartingPassives);
+				RPGAbilitySystemComponent->initializeDefaultAttributes(SelectorClassInfo->DefaultAttributes);
+			}
+		}
 	}
 }
