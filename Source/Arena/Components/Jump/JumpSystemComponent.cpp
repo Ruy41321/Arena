@@ -7,10 +7,19 @@
 #include "../../Player/PlayerCharacter.h"
 #include "GameFramework/Character.h"
 #include "EnhancedInputComponent.h"
+#include "Net/UnrealNetwork.h"
 
 UJumpSystemComponent::UJumpSystemComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
+
+	SetIsReplicatedByDefault(true);
+}
+
+void UJumpSystemComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(UJumpSystemComponent, bIsLanding);
 }
 
 void UJumpSystemComponent::BeginPlay()
@@ -65,6 +74,15 @@ void UJumpSystemComponent::OnLanded(const FHitResult& Hit)
 	APlayerCharacter* PlayerCharacter = GetValidPlayerCharacter();
 	if (!PlayerCharacter)
 		return;
+
+	if (PlayerCharacter->HasAuthority())
+	{
+		UE_LOG(LogTemp, Log, TEXT("Server: PlayerCharacter->bIsLanding"));
+	}
+	else
+	{
+		UE_LOG(LogTemp, Log, TEXT("Client: PlayerCharacter->bIsLanding"));
+	}
 
 	bIsLanding = true;
 	

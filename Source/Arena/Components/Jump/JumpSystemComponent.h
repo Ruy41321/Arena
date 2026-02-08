@@ -25,6 +25,7 @@ public:
 
 	virtual void BeginPlay() override;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	/** Sets up input bindings for this component */
 	UFUNCTION(BlueprintCallable, Category = "Jump System", meta = (ToolTip = "Sets up jump input bindings"))
@@ -61,7 +62,7 @@ protected:
 	float LandingResetTime = 0.1f;
 
 	/** Whether character is currently in landing state */
-	UPROPERTY(BlueprintReadOnly, Category = "Jump System", 
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Jump System", 
 		meta = (ToolTip = "True while character is landing"))
 	bool bIsLanding = false;
 

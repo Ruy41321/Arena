@@ -193,7 +193,18 @@ void UMovementStateMachine::PerformStateTransition(EMovementState NewState)
 
 	// Broadcast state change
 	OnStateChanged.Broadcast(OldState, NewState);
-
+	// stampa server: jumpcomponent->bIsLanding o client: playercharacter->bIsLanding
+	APlayerCharacter* PlayerCharacter = GetValidPlayerCharacter();
+	if (!PlayerCharacter)
+		return;
+	if (PlayerCharacter->HasAuthority())
+	{
+		UE_LOG(LogTemp, Log, TEXT("Server: PlayerCharacter->bIsLanding = %s"), PlayerCharacter->JumpSystem->IsLanding() ? TEXT("true") : TEXT("false"));
+	}
+	else
+	{
+		UE_LOG(LogTemp, Log, TEXT("Client: PlayerCharacter->bIsLanding = %s"), PlayerCharacter->JumpSystem->IsLanding() ? TEXT("true") : TEXT("false"));
+	}
 	UE_LOG(LogTemp, Log, TEXT("MovementStateMachine: Transitioned from %s to %s"), 
 		*UMovementStateTypes::MovementStateToString(OldState),
 		*UMovementStateTypes::MovementStateToString(NewState));

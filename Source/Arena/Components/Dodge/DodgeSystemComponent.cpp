@@ -48,7 +48,7 @@ void UDodgeSystemComponent::SetupInput(UEnhancedInputComponent* EnhancedInputCom
 	// Bind dodge input
 	EnhancedInputComponent->BindActionValueLambda(DodgeAction, ETriggerEvent::Started,
 		[this](const FInputActionValue& Value) {
-			ServerStartDodge();
+			StartDodge();
 		});
 	
 

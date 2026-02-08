@@ -17,37 +17,12 @@ EMovementState UFallingMovementState::GetDesiredTransition_Implementation() cons
 	// Check if we've landed
 	if (!Player->GetCharacterMovement()->IsFalling())
 	{
-		// We've landed, check for landing state
-		if (Player->JumpSystem && Player->JumpSystem->IsLanding())
-		{
-			// Decide between LandingInPlace and LandingMoving based on horizontal velocity
-			float HorizontalSpeed = Player->GetCharacterMovement()->Velocity.Size2D();
-			if (HorizontalSpeed > 0.1f) // Small threshold to avoid floating-point precision issues
-				return EMovementState::LandingMoving;
-			else
-				return EMovementState::LandingInPlace;
-		}
-		
-		// Determine ground state based on other conditions - decide between crouching states based on velocity
-		if (Player->CrouchSystem && Player->CrouchSystem->IsCrouched())
-		{
-			float HorizontalSpeed = Player->GetCharacterMovement()->Velocity.Size2D();
-			if (HorizontalSpeed > 0.1f)
-				return EMovementState::CrouchingMoving;
-			else
-				return EMovementState::CrouchingIdle;
-		}
-		
-		float Speed = Player->GetCharacterMovement()->Velocity.Size2D();
-		if (Speed > 10.0f)
-		{
-			if (Player->SprintSystem && Player->SprintSystem->IsSprinting())
-				return EMovementState::Sprinting;
-			else
-				return EMovementState::Walking;
-		}
+		// Decide between LandingInPlace and LandingMoving based on horizontal velocity
+		float HorizontalSpeed = Player->GetCharacterMovement()->Velocity.Size2D();
+		if (HorizontalSpeed > 0.1f) // Small threshold to avoid floating-point precision issues
+			return EMovementState::LandingMoving;
 		else
-			return EMovementState::Idle;
+			return EMovementState::LandingInPlace;
 	}
 
 	return EMovementState::None;
