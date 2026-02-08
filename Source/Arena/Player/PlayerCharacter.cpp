@@ -4,6 +4,7 @@
 #include "../PlayerAnimation/PlayerAnimInstance.h"
 #include "PlayerState/RPGPlayerState.h"
 #include "AbilitySystem/RPGAbilitySystemComponent.h"
+#include "AbilitySystem/Attributes/RPGAttributeSet.h"
 #include "Libraries/RPGAbilitySystemLibrary.h"
 #include "Data/CharacterClassInfo.h"
 
@@ -155,6 +156,11 @@ void APlayerCharacter::OnRep_PlayerState()
 	InitAbilityActorInfo();
 }
 
+UAbilitySystemComponent* APlayerCharacter::GetAbilitySystemComponent() const
+{
+	return RPGAbilitySystemComponent;
+}
+
 void APlayerCharacter::InitAbilityActorInfo()
 {
 	if (ARPGPlayerState* RPGPlayerState = GetPlayerState<ARPGPlayerState>())
@@ -165,7 +171,8 @@ void APlayerCharacter::InitAbilityActorInfo()
 		if (IsValid(RPGAbilitySystemComponent))
 		{
 			RPGAbilitySystemComponent->InitAbilityActorInfo(RPGPlayerState, this);
-			
+			BindCallbacksToDependencies();
+
 			if (HasAuthority())
 			{
 				InitClassDefaults();
@@ -191,5 +198,33 @@ void APlayerCharacter::InitClassDefaults()
 				RPGAbilitySystemComponent->initializeDefaultAttributes(SelectorClassInfo->DefaultAttributes);
 			}
 		}
+	}
+}
+
+void APlayerCharacter::BindCallbacksToDependencies()
+{
+	if (IsValid(RPGAbilitySystemComponent) && IsValid(RPGAttributeSet))
+	{
+		//Health
+		RPGAbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(URPGAttributeSet::GetHealthAttribute()).AddLambda(
+			[this](const FOnAttributeChangeData& Data)
+			{
+				OnHealthChanged(Data.NewValue, RPGAttributeSet->GetMaxHealth());
+			});
+		//Mana
+		RPGAbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(URPGAttributeSet::GetManaAttribute()).AddLambda(
+			[this](const FOnAttributeChangeData& Data)
+			{
+				OnManaChanged(Data.NewValue, RPGAttributeSet->GetMaxMana());
+			});
+	}
+}
+
+void APlayerCharacter::BroadcastInitialValues()
+{
+	if (IsValid(RPGAttributeSet))
+	{
+		OnHealthChanged(RPGAttributeSet->GetHealth(), RPGAttributeSet->GetMaxHealth());
+		OnManaChanged(RPGAttributeSet->GetMana(), RPGAttributeSet->GetMaxMana());
 	}
 }

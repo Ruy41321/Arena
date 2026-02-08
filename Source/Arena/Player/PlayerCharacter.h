@@ -16,6 +16,8 @@
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 
+#include "AbilitySystemInterface.h"
+
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "Components/InputComponent.h"
@@ -36,7 +38,7 @@ class URPGAttributeSet;
 #include "PlayerCharacter.generated.h"
 
 UCLASS()
-class ARENA_API APlayerCharacter : public ACharacter
+class ARENA_API APlayerCharacter : public ACharacter, public IAbilitySystemInterface
 {
 	GENERATED_BODY()
 
@@ -73,6 +75,14 @@ public:
 
 	virtual void PossessedBy(AController* NewController) override;
 	virtual void OnRep_PlayerState() override;
+
+	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
+
+	UFUNCTION(BlueprintImplementableEvent)
+	void OnHealthChanged(float CurrentHealth, float MaxHealth);
+
+	UFUNCTION(BlueprintImplementableEvent)
+	void OnManaChanged(float CurrentMana, float MaxMana);
 
 protected:
 	virtual void BeginPlay() override;
@@ -122,4 +132,8 @@ private:
 
 	void InitAbilityActorInfo();
 	void InitClassDefaults();
+	void BindCallbacksToDependencies();
+
+	UFUNCTION(BlueprintCallable)
+	void BroadcastInitialValues();
 };
