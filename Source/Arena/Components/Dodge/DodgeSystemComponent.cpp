@@ -48,7 +48,7 @@ void UDodgeSystemComponent::SetupInput(UEnhancedInputComponent* EnhancedInputCom
 	// Bind dodge input
 	EnhancedInputComponent->BindActionValueLambda(DodgeAction, ETriggerEvent::Started,
 		[this](const FInputActionValue& Value) {
-			StartDodge();
+			ServerStartDodge();
 		});
 	
 
@@ -72,11 +72,16 @@ void UDodgeSystemComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 	}
 }
 
-void UDodgeSystemComponent::StartDodge_Implementation()
+void UDodgeSystemComponent::StartDodge()
 {
 	APlayerCharacter* PlayerCharacter = GetValidPlayerCharacter();
 	if (!PlayerCharacter)
 		return;
+
+	if (!PlayerCharacter->HasAuthority())
+	{
+		ServerStartDodge();
+	}
 
 	if (PlayerCharacter->MovementStateMachine)
 	{
@@ -100,13 +105,18 @@ void UDodgeSystemComponent::StartDodge_Implementation()
 	{
 		DodgeDirection = PlayerCharacter->GetActorForwardVector();
 	}
-	
+
 	// Store the initial dodge direction for blending
 	InitialDodgeDirection = DodgeDirection;
-	
+
 	bCanDodge = false;
 	// Set a timer to reset dodge after a short duration as security in case animation notify fails
 	GetWorld()->GetTimerManager().SetTimer(DodgeTimerHandle, this, &UDodgeSystemComponent::ResetDodge, DodgeDuration, false);
+}
+
+void UDodgeSystemComponent::ServerStartDodge_Implementation()
+{
+	StartDodge();
 }
 
 void UDodgeSystemComponent::ResetDodge()

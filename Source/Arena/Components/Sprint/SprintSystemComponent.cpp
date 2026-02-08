@@ -66,19 +66,23 @@ void USprintSystemComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 }
 
-void USprintSystemComponent::SprintPressed(const FInputActionValue& Value)
+void USprintSystemComponent::SprintPressed(const FInputActionValue& Value, const bool bOverrideSprint, const bool bValueToOverride)
 {
 	APlayerCharacter* PlayerCharacter = GetValidPlayerCharacter();
 	if (!PlayerCharacter)
 		return;
 
-	const bool bSprintValue = Value.Get<bool>();
-	
+	const bool bSprintValue = bOverrideSprint ? bValueToOverride : Value.Get<bool>();
+
+	if (!PlayerCharacter->HasAuthority())
+		ServerSprintPressed(Value, true, bSprintValue);
+
 	if (bSprintValue)
 	{
 		bSprintInterrupted = false;
 		bIsSprinting = true;
-		
+		if (PlayerCharacter->HasAuthority())
+			UE_LOG(LogTemp, Log, TEXT("Sprint started on server"));
 		// Don't sprint if dodging
 		if (PlayerCharacter->MovementStateMachine)
 		{
@@ -106,5 +110,11 @@ void USprintSystemComponent::SprintPressed(const FInputActionValue& Value)
 		bSprintInterrupted = true;
 		bIsSprinting = false;
 	}
+}
+
+void USprintSystemComponent::ServerSprintPressed_Implementation(const FInputActionValue& Value, const bool bOverrideSprint, const bool bValueToOverride)
+{
+	UE_LOG(LogTemp, Log, TEXT("aaaa"));
+	SprintPressed(Value, bOverrideSprint, bValueToOverride);
 }
 

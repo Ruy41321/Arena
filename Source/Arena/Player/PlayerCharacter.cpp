@@ -14,8 +14,28 @@ APlayerCharacter::APlayerCharacter()
 
 	UCharacterMovementComponent *const mov = GetCharacterMovement();
 	if (mov)
+	{
 		mov->bOrientRotationToMovement = true;
+		
+		//// Network smoothing configuration to eliminate stuttering
+		//mov->NetworkSimulatedSmoothLocationTime = 0.1f;
+		//mov->NetworkSimulatedSmoothRotationTime = 0.05f;
+		//mov->ListenServerNetworkSimulatedSmoothLocationTime = 0.05f;
+		//mov->ListenServerNetworkSimulatedSmoothRotationTime = 0.025f;
+		//
+		//// Improved network update rates
+		//mov->NetworkMaxSmoothUpdateDistance = 256.0f;
+		//mov->NetworkNoSmoothUpdateDistance = 512.0f;
+		//
+		//// Enable mesh smoothing on simulated proxies
+		//mov->bNetworkSmoothingComplete = false;
+	}
 	bUseControllerRotationYaw = false;
+	
+	//// Configure network settings for smoother replication
+	//NetUpdateFrequency = 100.0f;
+	//MinNetUpdateFrequency = 33.0f;
+	//NetPriority = 3.0f;
 
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("Camera Boom"));
 	CameraBoom->SetupAttachment(RootComponent);
@@ -42,6 +62,11 @@ void APlayerCharacter::BeginPlay()
 		{
 			Subsystem->AddMappingContext(DefaultMappingContext, 0);
 		}
+	}
+	// Ensure mesh replicates smoothly on clients
+	if (GetMesh())
+	{
+		GetMesh()->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
 	}
 }
 

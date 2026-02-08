@@ -28,9 +28,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Dodge System", meta = (ToolTip = "Sets up dodge input bindings"))
 	void SetupInput(UEnhancedInputComponent* EnhancedInputComponent);
 
-	/** Starts dodge in movement direction or forward if stationary */
-	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "Dodge System", meta = (ToolTip = "Initiates dodge maneuver"))
+	UFUNCTION(BlueprintCallable, Category = "Dodge System", meta = (ToolTip = "Initiates dodge maneuver"))
 	void StartDodge();
+
+	/** Starts dodge in movement direction or forward if stationary */
+	UFUNCTION(Server, Reliable)
+	void ServerStartDodge();
 
 	/** Ends dodge and starts cooldown timer */
 	UFUNCTION(BlueprintCallable, Category = "Dodge System", meta = (ToolTip = "Resets dodge state and begins cooldown"))

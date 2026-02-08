@@ -124,9 +124,20 @@ void UCrouchSystemComponent::Crouch()
 		if (CurrentState == EMovementState::Falling || CurrentState == EMovementState::Jumping)
 			return;
 	}
+	
+	// Call server RPC to execute on server
+	if (!PlayerCharacter->HasAuthority())
+	{
+		ServerCrouch();
+	}
+	
 	bIsCrouched = true;
-	//bIsCrouchingInProgress = true;
 	PlayerCharacter->Crouch();
+}
+
+void UCrouchSystemComponent::ServerCrouch_Implementation()
+{
+	this->Crouch();
 }
 
 void UCrouchSystemComponent::UnCrouch()
@@ -135,9 +146,19 @@ void UCrouchSystemComponent::UnCrouch()
 	if (!PlayerCharacter)
 		return;
 
+	// Call server RPC to execute on server
+	if (!PlayerCharacter->HasAuthority())
+	{
+		ServerUnCrouch();
+	}
+	
 	bIsCrouched = false;
-	//bIsCrouchingInProgress = true;
 	PlayerCharacter->UnCrouch();
+}
+
+void UCrouchSystemComponent::ServerUnCrouch_Implementation()
+{
+	this->UnCrouch();
 }
 
 bool UCrouchSystemComponent::CanUncrouchSafely() const

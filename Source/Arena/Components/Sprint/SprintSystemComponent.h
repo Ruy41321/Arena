@@ -30,7 +30,10 @@ public:
 
 	/** Handles sprint input - starts/stops sprinting */
 	UFUNCTION(BlueprintCallable, Category = "Sprint System", meta = (ToolTip = "Handles sprint input and conditions"))
-	void SprintPressed(const FInputActionValue& Value);
+	void SprintPressed(const FInputActionValue& Value, const bool bOverrideSprint = false, const bool bValueToOverride = false);
+
+	UFUNCTION(Server, Reliable)
+	void ServerSprintPressed(const FInputActionValue& Value, const bool bOverrideSprint, const bool bValueToOverride);
 
 	/** Returns true if character is currently sprinting */
 	UFUNCTION(BlueprintPure, Category = "Sprint System", meta = (ToolTip = "Check if character is sprinting"))

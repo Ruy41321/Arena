@@ -91,7 +91,7 @@ float UMovementState::GetSpeedForState(EMovementState StateType) const
 		// Get run speed from SprintSystem
 		if (Player->SprintSystem)
 			return Player->SprintSystem->GetRunSpeed();
-		return 450.0f; // Fallback sprint speed
+		return 600.0f; // Fallback sprint speed
 		
 	case EMovementState::Idle:
 	case EMovementState::Walking:

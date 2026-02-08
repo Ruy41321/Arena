@@ -36,9 +36,17 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Crouch System", meta = (ToolTip = "Initiates crouch"))
 	void Crouch();
 
+	/** Server RPC for crouch */
+	UFUNCTION(Server, Reliable)
+	void ServerCrouch();
+
 	/** Stop crouching */
 	UFUNCTION(BlueprintCallable, Category = "Crouch System", meta = (ToolTip = "Stops crouch"))
 	void UnCrouch();
+
+	/** Server RPC for uncrouch */
+	UFUNCTION(Server, Reliable)
+	void ServerUnCrouch();
 
 	/** Checks if it's safe to uncrouch (no obstacles above) */
 	UFUNCTION(BlueprintPure, Category = "Crouch System", meta = (ToolTip = "Check if uncrouch is safe"))
