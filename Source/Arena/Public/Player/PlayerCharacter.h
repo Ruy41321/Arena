@@ -1,0 +1,139 @@
+// Copyright (c) 2025 Luigi Pennisi. All rights reserved.
+
+#pragma once
+
+#include "CoreMinimal.h"
+#include "InputActionValue.h"
+#include "Utils/Utils.h"
+#include "Player/Components/Dodge/DodgeSystemComponent.h"
+#include "Player/Components/Crouch/CrouchSystemComponent.h"
+#include "Player/Components/BasicMovement/BasicMovementComponent.h"
+#include "Player/Components/Jump/JumpSystemComponent.h"
+#include "Player/Components/Sprint/SprintSystemComponent.h"
+#include "Player/MovementStateMachine/MovementStateMachine.h"
+#include "Player/MovementStateMachine/MovementStateTypes.h"
+
+#include "Camera/CameraComponent.h"
+#include "GameFramework/SpringArmComponent.h"
+
+#include "AbilitySystemInterface.h"
+
+#include "EnhancedInputComponent.h"
+#include "EnhancedInputSubsystems.h"
+#include "Components/InputComponent.h"
+#include "Components/CapsuleComponent.h"
+
+#include "GameFramework/CharacterMovementComponent.h"
+#include "GameFramework/Character.h"
+
+// Forward declarations for Enhanced Input
+class UInputMappingContext;
+class UInputAction;
+class UCameraComponent;
+class USpringArmComponent;
+
+class URPGAbilitySystemComponent;
+class URPGAttributeSet;
+
+#include "PlayerCharacter.generated.h"
+
+UCLASS()
+class ARENA_API APlayerCharacter : public ACharacter, public IAbilitySystemInterface
+{
+	GENERATED_BODY()
+
+public:
+	APlayerCharacter();
+
+	virtual void Tick(float DeltaTime) override;
+	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+	
+	/** Sets the character's maximum walk speed */
+	UFUNCTION(BlueprintCallable, Category = "Movement")
+	void SetMaxWalkSpeed(float NewSpeed);
+
+	// Movement State Machine helper functions
+	UFUNCTION(BlueprintPure, Category = "Movement State Machine")
+	EMovementState GetCurrentMovementState() const;
+
+	UFUNCTION(BlueprintPure, Category = "Movement State Machine")
+	EMovementState GetPreviousMovementState() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Movement State Machine")
+	bool TransitionToMovementState(EMovementState NewState, bool bForceTransition = false);
+
+	UFUNCTION(BlueprintPure, Category = "Movement State Machine")
+	FString GetCurrentMovementStateAsString() const;
+
+	/** Get the movement state machine component */
+	UFUNCTION(BlueprintPure, Category = "Movement State Machine")
+	UMovementStateMachine* GetMovementStateMachine() const { return MovementStateMachine.Get(); }
+
+	/** Unsubscribe from movement state change events */
+	UFUNCTION(BlueprintCallable, Category = "Movement State Machine")
+	void UnsubscribeFromMovementStateChanges(UObject* Subscriber);
+
+	virtual void PossessedBy(AController* NewController) override;
+	virtual void OnRep_PlayerState() override;
+
+	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
+
+	UFUNCTION(BlueprintImplementableEvent)
+	void OnHealthChanged(float CurrentHealth, float MaxHealth);
+
+	UFUNCTION(BlueprintImplementableEvent)
+	void OnManaChanged(float CurrentMana, float MaxMana);
+
+protected:
+	virtual void BeginPlay() override;
+
+	virtual void Landed(const FHitResult& Hit) override;
+
+public:
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Dodge System")
+	TObjectPtr<UDodgeSystemComponent> DodgeSystem;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Crouch System")
+	TObjectPtr<UCrouchSystemComponent> CrouchSystem;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Basic Movement")
+	TObjectPtr<UBasicMovementComponent> BasicMovementSystem;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Jump System")
+	TObjectPtr<UJumpSystemComponent> JumpSystem;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Sprint System")
+	TObjectPtr<USprintSystemComponent> SprintSystem;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Movement State Machine")
+	TObjectPtr<UMovementStateMachine> MovementStateMachine;
+		
+protected:
+	// Camera
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, category = "Camera")
+	TObjectPtr<UCameraComponent> Camera;
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Camera")
+	TObjectPtr<USpringArmComponent> CameraBoom;
+
+	// Input actions and mapping context
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
+	TObjectPtr<UInputMappingContext> DefaultMappingContext;
+
+private:
+
+	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = true))
+	TObjectPtr<URPGAbilitySystemComponent> RPGAbilitySystemComponent;
+
+	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = true))
+	TObjectPtr<URPGAttributeSet> RPGAttributeSet;
+
+	UPROPERTY(EditAnywhere, Category = "Custom Values | Character Info")
+	FGameplayTag CharacterTag;
+
+	void InitAbilityActorInfo();
+	void InitClassDefaults();
+	void BindCallbacksToDependencies();
+
+	UFUNCTION(BlueprintCallable)
+	void BroadcastInitialValues();
+};
