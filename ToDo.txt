@@ -1,7 +1,7 @@
-Refactoring:
- - Component Based Design - Fatto
- - State Machine Design - Fatto
- - Observer Pattern - Fatto
+GAS Implementation:
+	-Capire perche non ricostruisce l inventario quando chiama il server
+	-Capire come funziona NetSerialize
+	-continua tutorial
 
 Combat
 
