@@ -120,3 +120,13 @@ void USprintSystemComponent::ServerSprintPressed_Implementation(const FInputActi
 	SprintPressed(Value, bOverrideSprint, bValueToOverride);
 }
 
+APlayerCharacter* USprintSystemComponent::GetValidPlayerCharacter() const
+{
+	if (LIKELY(OwnerPlayerCharacter != nullptr))
+	{
+		return OwnerPlayerCharacter.Get();
+	}
+
+	// Fallback: re-cache if necessary (should be very rare)
+	return Cast<APlayerCharacter>(GetOwner());
+}

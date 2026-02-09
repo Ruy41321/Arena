@@ -56,17 +56,7 @@ public:
 	void SetRunSpeed(float NewRunSpeed) { RunSpeed = NewRunSpeed; }
 
 	/** Gets valid PlayerCharacter with fallback */
-	FORCEINLINE APlayerCharacter* GetValidPlayerCharacter() const
-	{
-		// Simple null check with cached reference for optimal performance
-		if (LIKELY(OwnerPlayerCharacter != nullptr))
-		{
-			return OwnerPlayerCharacter.Get();
-		}
-		
-		// Fallback: re-cache if necessary (should be very rare)
-		return Cast<APlayerCharacter>(GetOwner());
-	}
+	APlayerCharacter* GetValidPlayerCharacter() const;
 
 protected:
 	/** Run/Sprint speed */

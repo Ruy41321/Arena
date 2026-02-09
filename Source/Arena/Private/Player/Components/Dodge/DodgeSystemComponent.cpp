@@ -240,3 +240,14 @@ void UDodgeSystemComponent::OnRep_bWasCrouchingPreDodge()
 		PlayerCharacter->CrouchSystem->CrouchPressed(FInputActionValue());
 	}
 }
+
+APlayerCharacter* UDodgeSystemComponent::GetValidPlayerCharacter() const
+{
+	if (LIKELY(OwnerPlayerCharacter != nullptr))
+	{
+		return OwnerPlayerCharacter.Get();
+	}
+
+	// Fallback: re-cache if necessary (should be very rare)
+	return Cast<APlayerCharacter>(GetOwner());
+}

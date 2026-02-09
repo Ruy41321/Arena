@@ -122,3 +122,13 @@ void UJumpSystemComponent::SetupInput(UEnhancedInputComponent* EnhancedInputComp
 
 }
 
+APlayerCharacter* UJumpSystemComponent::GetValidPlayerCharacter() const
+{
+	if (LIKELY(OwnerPlayerCharacter != nullptr))
+	{
+		return OwnerPlayerCharacter.Get();
+	}
+
+	// Fallback: re-cache if necessary (should be very rare)
+	return Cast<APlayerCharacter>(GetOwner());
+}

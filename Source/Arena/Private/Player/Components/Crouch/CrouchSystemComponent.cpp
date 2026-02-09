@@ -221,6 +221,17 @@ bool UCrouchSystemComponent::CanUncrouchSafely() const
 	return !bHasOverlap;
 }
 
+APlayerCharacter* UCrouchSystemComponent::GetValidPlayerCharacter() const
+{
+	if (LIKELY(OwnerPlayerCharacter != nullptr))
+	{
+		return OwnerPlayerCharacter.Get();
+	}
+
+	// Fallback: re-cache if necessary (should be very rare)
+	return Cast<APlayerCharacter>(GetOwner());
+}
+
 //void UCrouchSystemComponent::AdjustCapsuleHeight(float DeltaTime, float TargetCapsuleHeight, float TargetMeshHeight)
 //{
 //	APlayerCharacter* PlayerCharacter = GetValidPlayerCharacter();

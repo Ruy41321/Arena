@@ -201,3 +201,13 @@ void UBasicMovementComponent::SetCurrentMovementInputAxis(const FString& Axis, f
 		CurrentMovementInput.Z = Value;
 }
 
+APlayerCharacter *UBasicMovementComponent::GetValidPlayerCharacter() const
+{
+	if (LIKELY(OwnerPlayerCharacter != nullptr))
+	{
+		return OwnerPlayerCharacter.Get();
+	}
+
+	// Fallback: re-cache if necessary (should be very rare)
+	return Cast<APlayerCharacter>(GetOwner());
+}

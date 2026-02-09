@@ -85,17 +85,7 @@ public:
 	APlayerCharacter* GetPlayerCharacter() const { return GetValidPlayerCharacter(); }
 
 	/** Gets valid PlayerCharacter with fallback */
-	FORCEINLINE APlayerCharacter* GetValidPlayerCharacter() const
-	{
-		// Simple null check with cached reference for optimal performance
-		if (LIKELY(OwnerPlayerCharacter != nullptr))
-		{
-			return OwnerPlayerCharacter.Get();
-		}
-		
-		// Fallback: re-cache if necessary (should be very rare)
-		return Cast<APlayerCharacter>(GetOwner());
-	}
+	APlayerCharacter* GetValidPlayerCharacter() const;
 
 private:
 	UFUNCTION()
