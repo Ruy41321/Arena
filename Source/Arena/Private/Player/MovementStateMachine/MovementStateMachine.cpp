@@ -2,6 +2,7 @@
 
 #include "Player/MovementStateMachine/MovementStateMachine.h"
 #include "Player/PlayerCharacter.h"
+#include "Player/MovementStateMachine/MovementState.h"
 #include "Player/MovementStateMachine/States/IdleMovementState.h"
 #include "Player/MovementStateMachine/States/WalkingMovementState.h"
 #include "Player/MovementStateMachine/States/SprintingMovementState.h"

@@ -1,9 +1,12 @@
 // Copyright (c) 2025 Luigi Pennisi. All rights reserved.
 
 #include "Player/Components/Sprint/SprintSystemComponent.h"
+#include "Player/MovementStateMachine/MovementStateMachine.h"
+#include "Player/Components/Crouch/CrouchSystemComponent.h"
 #include "Player/PlayerCharacter.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "EnhancedInputComponent.h"
+#include "InputActionValue.h"
 #include "Net/UnrealNetwork.h"
 
 USprintSystemComponent::USprintSystemComponent()
@@ -84,9 +87,9 @@ void USprintSystemComponent::SprintPressed(const FInputActionValue& Value, const
 		if (PlayerCharacter->HasAuthority())
 			UE_LOG(LogTemp, Log, TEXT("Sprint started on server"));
 		// Don't sprint if dodging
-		if (PlayerCharacter->MovementStateMachine)
+		if (PlayerCharacter->GetMovementStateMachine())
 		{
-			EMovementState CurrentState = PlayerCharacter->MovementStateMachine->GetCurrentState();
+			EMovementState CurrentState = PlayerCharacter->GetMovementStateMachine()->GetCurrentState();
 			if (CurrentState == EMovementState::Dodging)
 			{
 				bIsSprinting = false;

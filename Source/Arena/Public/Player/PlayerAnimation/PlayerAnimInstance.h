@@ -4,10 +4,10 @@
 
 #include "CoreMinimal.h"
 #include "Animation/AnimInstance.h"
-#include "Player/PlayerCharacter.h"
 #include "Player/MovementStateMachine/MovementStateTypes.h"
-#include "Utils/Utils.h"
 #include "PlayerAnimInstance.generated.h"
+
+class APlayerCharacter;
 
 UCLASS()
 class ARENA_API UPlayerAnimInstance : public UAnimInstance

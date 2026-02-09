@@ -4,7 +4,6 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
-#include "InputActionValue.h"
 #include "CrouchSystemComponent.generated.h"
 
 class APlayerCharacter;

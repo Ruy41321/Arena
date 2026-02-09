@@ -4,7 +4,6 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
-#include "InputActionValue.h"
 #include "SprintSystemComponent.generated.h"
 
 class APlayerCharacter;

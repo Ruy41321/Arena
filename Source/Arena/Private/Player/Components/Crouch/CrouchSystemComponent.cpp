@@ -1,9 +1,12 @@
 // Copyright (c) 2025 Luigi Pennisi. All rights reserved.
 
 #include "Player/Components/Crouch/CrouchSystemComponent.h"
+#include "Player/MovementStateMachine/MovementStateMachine.h"
+#include "Player/Components/Dodge/DodgeSystemComponent.h"
 #include "Player/PlayerCharacter.h"
 #include "Utils/Utils.h"
 #include "Components/CapsuleComponent.h"
+#include "InputActionValue.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Engine/World.h"
 #include "CollisionQueryParams.h"
@@ -117,9 +120,9 @@ void UCrouchSystemComponent::Crouch()
 	if (!PlayerCharacter)
 		return;
 
-	if (PlayerCharacter->MovementStateMachine)
+	if (PlayerCharacter->GetMovementStateMachine())
 	{
-		EMovementState CurrentState = PlayerCharacter->MovementStateMachine->GetCurrentState();
+		EMovementState CurrentState = PlayerCharacter->GetMovementStateMachine()->GetCurrentState();
 
 		if (CurrentState == EMovementState::Falling || CurrentState == EMovementState::Jumping)
 			return;

@@ -4,12 +4,12 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
-#include "MovementStateTypes.h"
-#include "MovementState.h"
+#include "Player/MovementStateMachine/MovementStateTypes.h"
 #include "MovementStateMachine.generated.h"
 
 // Forward declarations
 class APlayerCharacter;
+class UMovementState;
 
 /**
  * Component that manages movement states for the player character

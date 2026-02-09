@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "UObject/NoExportTypes.h"
-#include "MovementStateTypes.h"
+#include "Player/MovementStateMachine/MovementStateTypes.h"
 #include "MovementState.generated.h"
 
 // Forward declarations

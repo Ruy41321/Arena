@@ -1,7 +1,11 @@
 // Copyright (c) 2025 Luigi Pennisi. All rights reserved.
 
 #include "Player/MovementStateMachine/States/DodgingMovementState.h"
+#include "Player/Components/Dodge/DodgeSystemComponent.h"
+#include "Player/Components/Sprint/SprintSystemComponent.h"
+#include "Player/Components/Crouch/CrouchSystemComponent.h"
 #include "Player/PlayerCharacter.h"
+#include "InputActionValue.h"
 #include "GameFramework/CharacterMovementComponent.h"
 
 UDodgingMovementState::UDodgingMovementState()
@@ -44,7 +48,7 @@ EMovementState UDodgingMovementState::GetDesiredTransition_Implementation() cons
 			{
 				Player->SprintSystem->SetIsSprinting(true);
 				if (Player->CrouchSystem && Player->CrouchSystem->IsCrouched())
-					Player->CrouchSystem->CrouchPressed(NULL);
+					Player->CrouchSystem->CrouchPressed(FInputActionValue());
 				return EMovementState::Sprinting;
 			}
 			else

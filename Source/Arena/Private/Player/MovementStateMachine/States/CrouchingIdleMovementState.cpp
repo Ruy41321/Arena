@@ -1,6 +1,8 @@
 // Copyright (c) 2025 Luigi Pennisi. All rights reserved.
 
 #include "Player/MovementStateMachine/States/CrouchingIdleMovementState.h"
+#include "Player/Components/Dodge/DodgeSystemComponent.h"
+#include "Player/Components/Crouch/CrouchSystemComponent.h"
 #include "Player/PlayerCharacter.h"
 #include "GameFramework/CharacterMovementComponent.h"
 

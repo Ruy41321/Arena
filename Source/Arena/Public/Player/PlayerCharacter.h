@@ -3,28 +3,14 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "InputActionValue.h"
-#include "Utils/Utils.h"
-#include "Player/Components/Dodge/DodgeSystemComponent.h"
-#include "Player/Components/Crouch/CrouchSystemComponent.h"
-#include "Player/Components/BasicMovement/BasicMovementComponent.h"
-#include "Player/Components/Jump/JumpSystemComponent.h"
-#include "Player/Components/Sprint/SprintSystemComponent.h"
-#include "Player/MovementStateMachine/MovementStateMachine.h"
+
 #include "Player/MovementStateMachine/MovementStateTypes.h"
 
-#include "Camera/CameraComponent.h"
-#include "GameFramework/SpringArmComponent.h"
-
+#include "GameplayTagContainer.h"
 #include "AbilitySystemInterface.h"
 
-#include "EnhancedInputComponent.h"
-#include "EnhancedInputSubsystems.h"
-#include "Components/InputComponent.h"
-#include "Components/CapsuleComponent.h"
-
-#include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/Character.h"
+#include "PlayerCharacter.generated.h"
 
 // Forward declarations for Enhanced Input
 class UInputMappingContext;
@@ -35,7 +21,13 @@ class USpringArmComponent;
 class URPGAbilitySystemComponent;
 class URPGAttributeSet;
 
-#include "PlayerCharacter.generated.h"
+class UDodgeSystemComponent;
+class UCrouchSystemComponent;
+class UBasicMovementComponent;
+class UJumpSystemComponent;
+class USprintSystemComponent;
+class UMovementStateMachine;
+
 
 UCLASS()
 class ARENA_API APlayerCharacter : public ACharacter, public IAbilitySystemInterface

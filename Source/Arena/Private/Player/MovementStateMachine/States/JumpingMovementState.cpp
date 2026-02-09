@@ -1,6 +1,9 @@
 // Copyright (c) 2025 Luigi Pennisi. All rights reserved.
 
 #include "Player/MovementStateMachine/States/JumpingMovementState.h"
+#include "Player/Components/Jump/JumpSystemComponent.h"
+#include "Player/Components/Sprint/SprintSystemComponent.h"
+#include "Player/Components/Crouch/CrouchSystemComponent.h"
 #include "Player/PlayerCharacter.h"
 #include "GameFramework/CharacterMovementComponent.h"
 

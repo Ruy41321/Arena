@@ -4,10 +4,6 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
-#include "Engine/Engine.h"
-#include "TimerManager.h"
-#include "InputActionValue.h"
-#include "Engine/HitResult.h"
 #include "JumpSystemComponent.generated.h"
 
 // Forward declaration

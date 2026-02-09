@@ -1,9 +1,12 @@
 // Copyright (c) 2025 Luigi Pennisi. All rights reserved.
 
 #include "Player/Components/Jump/JumpSystemComponent.h"
+#include "Player/MovementStateMachine/MovementStateMachine.h"
+#include "Player/Components/Crouch/CrouchSystemComponent.h"
 #include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "TimerManager.h"
+#include "InputActionValue.h"
 #include "Player/PlayerCharacter.h"
 #include "GameFramework/Character.h"
 #include "EnhancedInputComponent.h"
@@ -50,9 +53,9 @@ void UJumpSystemComponent::JumpPressed(const FInputActionValue& Value)
 	if (!PlayerCharacter)
 		return;
 
-	if (PlayerCharacter->MovementStateMachine)
+	if (PlayerCharacter->GetMovementStateMachine())
 	{
-		EMovementState CurrentState = PlayerCharacter->MovementStateMachine->GetCurrentState();
+		EMovementState CurrentState = PlayerCharacter->GetMovementStateMachine()->GetCurrentState();
 				
 		if (bIsLanding || CurrentState == EMovementState::Dodging)
 			return;

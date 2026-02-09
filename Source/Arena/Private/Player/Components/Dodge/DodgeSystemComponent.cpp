@@ -1,8 +1,12 @@
 // Copyright (c) 2025 Luigi Pennisi. All rights reserved.
 
 #include "Player/Components/Dodge/DodgeSystemComponent.h"
+#include "Player/MovementStateMachine/MovementStateMachine.h"
+#include "Player/Components/Crouch/CrouchSystemComponent.h"
+#include "Player/Components/BasicMovement/BasicMovementComponent.h"
 #include "Player/PlayerCharacter.h"
 #include "EnhancedInputComponent.h"
+#include "InputActionValue.h"
 #include "Net/UnrealNetwork.h"
 
 UDodgeSystemComponent::UDodgeSystemComponent()
@@ -83,9 +87,9 @@ void UDodgeSystemComponent::StartDodge()
 		ServerStartDodge();
 	}
 
-	if (PlayerCharacter->MovementStateMachine)
+	if (PlayerCharacter->GetMovementStateMachine())
 	{
-		EMovementState CurrentState = PlayerCharacter->MovementStateMachine->GetCurrentState();
+		EMovementState CurrentState = PlayerCharacter->GetMovementStateMachine()->GetCurrentState();
 
 		if (!bCanDodge || !IsInDodgeableState(CurrentState))
 			return;

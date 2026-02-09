@@ -2,8 +2,10 @@
 
 #include "Player/Components/BasicMovement/BasicMovementComponent.h"
 #include "Player/PlayerCharacter.h"
+#include "Player/MovementStateMachine/MovementStateMachine.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "EnhancedInputComponent.h"
+#include "InputActionValue.h"
 
 // Sets default values for this component's properties
 UBasicMovementComponent::UBasicMovementComponent()
@@ -108,7 +110,7 @@ void UBasicMovementComponent::MoveForward(const FInputActionValue& Value)
 		// Only add movement input if not dodging
 		if (PlayerCharacter->MovementStateMachine)
 		{
-			EMovementState CurrentState = PlayerCharacter->MovementStateMachine->GetCurrentState();
+			EMovementState CurrentState = PlayerCharacter->GetMovementStateMachine()->GetCurrentState();
 			if (CurrentState != EMovementState::Dodging)
 				PlayerCharacter->AddMovementInput(Forward, Direction);
 		}
@@ -135,7 +137,7 @@ void UBasicMovementComponent::MoveRight(const FInputActionValue& Value)
 		// Only add movement input if not dodging
 		if (PlayerCharacter->MovementStateMachine)
 		{
-			EMovementState CurrentState = PlayerCharacter->MovementStateMachine->GetCurrentState();
+			EMovementState CurrentState = PlayerCharacter->GetMovementStateMachine()->GetCurrentState();
 			if (CurrentState != EMovementState::Dodging)
 				PlayerCharacter->AddMovementInput(Right, Direction);
 		}

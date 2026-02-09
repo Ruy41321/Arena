@@ -1,6 +1,10 @@
 // Copyright (c) 2025 Luigi Pennisi. All rights reserved.
 
 #include "Player/PlayerAnimation/PlayerAnimInstance.h"
+#include "Player/MovementStateMachine/MovementStateMachine.h"
+#include "Player/Components/Crouch/CrouchSystemComponent.h"
+#include "Player/PlayerCharacter.h"
+#include "Utils/Utils.h"
 #include "GameFramework/CharacterMovementComponent.h"
 
 void UPlayerAnimInstance::NativeUninitializeAnimation()
@@ -64,22 +68,22 @@ void UPlayerAnimInstance::OnMovementStateChanged(EMovementState OldState, EMovem
 
 void UPlayerAnimInstance::SubscribeToMovementStateChanges()
 {
-	if (!PlayerCharacter || !PlayerCharacter->MovementStateMachine || bIsSubscribedToStateChanges)
+	if (!PlayerCharacter || !PlayerCharacter->GetMovementStateMachine() || bIsSubscribedToStateChanges)
 		return;
 	
-	PlayerCharacter->MovementStateMachine->OnStateChanged.AddDynamic(this, &UPlayerAnimInstance::OnMovementStateChanged);
+	PlayerCharacter->GetMovementStateMachine()->OnStateChanged.AddDynamic(this, &UPlayerAnimInstance::OnMovementStateChanged);
 	bIsSubscribedToStateChanges = true;
 	
-	CurrentMovementState = PlayerCharacter->MovementStateMachine->GetCurrentState();
-	PreviousMovementState = PlayerCharacter->MovementStateMachine->GetPreviousState();
+	CurrentMovementState = PlayerCharacter->GetMovementStateMachine()->GetCurrentState();
+	PreviousMovementState = PlayerCharacter->GetMovementStateMachine()->GetPreviousState();
 }
 
 void UPlayerAnimInstance::UnsubscribeFromMovementStateChanges()
 {
-	if (!bIsSubscribedToStateChanges || !PlayerCharacter || !PlayerCharacter->MovementStateMachine)
+	if (!bIsSubscribedToStateChanges || !PlayerCharacter || !PlayerCharacter->GetMovementStateMachine())
 		return;
 	
-	PlayerCharacter->MovementStateMachine->OnStateChanged.RemoveDynamic(this, &UPlayerAnimInstance::OnMovementStateChanged);
+	PlayerCharacter->GetMovementStateMachine()->OnStateChanged.RemoveDynamic(this, &UPlayerAnimInstance::OnMovementStateChanged);
 	bIsSubscribedToStateChanges = false;
 }
 
@@ -87,7 +91,7 @@ bool UPlayerAnimInstance::IsMovementStateDataValid() const
 {
 	return CurrentMovementState != EMovementState::None && 
 		   PlayerCharacter != nullptr && 
-		   PlayerCharacter->MovementStateMachine != nullptr &&
+		   PlayerCharacter->GetMovementStateMachine() != nullptr &&
 		   bIsSubscribedToStateChanges;
 }
 

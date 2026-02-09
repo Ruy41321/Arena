@@ -1,7 +1,25 @@
 // Copyright (c) 2025 Luigi Pennisi. All rights reserved.
 
 #include "Player/PlayerCharacter.h"
+
+#include "Camera/CameraComponent.h"
+#include "GameFramework/SpringArmComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
+#include "InputActionValue.h"
+#include "EnhancedInputComponent.h"
+#include "EnhancedInputSubsystems.h"
+#include "Components/InputComponent.h"
+#include "Components/CapsuleComponent.h"
+
+#include "Utils/Utils.h"
 #include "Player/PlayerAnimation/PlayerAnimInstance.h"
+#include "Player/Components/Dodge/DodgeSystemComponent.h"
+#include "Player/Components/Crouch/CrouchSystemComponent.h"
+#include "Player/Components/BasicMovement/BasicMovementComponent.h"
+#include "Player/Components/Jump/JumpSystemComponent.h"
+#include "Player/Components/Sprint/SprintSystemComponent.h"
+#include "Player/MovementStateMachine/MovementStateMachine.h"
+
 #include "Player/PlayerState/RPGPlayerState.h"
 #include "AbilitySystem/RPGAbilitySystemComponent.h"
 #include "AbilitySystem/Attributes/RPGAttributeSet.h"
