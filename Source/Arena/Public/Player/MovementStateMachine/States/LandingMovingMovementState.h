@@ -13,7 +13,7 @@ class ARENA_API ULandingMovingMovementState : public UMovementState
 
 public:
 	ULandingMovingMovementState();
-	virtual EMovementState GetStateType() const override { return EMovementState::LandingMoving; }
-	virtual EMovementState GetDesiredTransition_Implementation() const override;
-	virtual bool CanTransitionTo_Implementation(EMovementState NewState) const override;
+	virtual EMovementStateValue GetStateType() const override { return EMovementStateValue::LandingMoving; }
+	virtual EMovementStateValue GetDesiredTransition_Implementation() const override;
+	virtual bool CanTransitionTo_Implementation(EMovementStateValue NewState) const override;
 };

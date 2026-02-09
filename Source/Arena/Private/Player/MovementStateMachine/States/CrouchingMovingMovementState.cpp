@@ -11,24 +11,24 @@ UCrouchingMovingMovementState::UCrouchingMovingMovementState()
 {
 }
 
-EMovementState UCrouchingMovingMovementState::GetDesiredTransition_Implementation() const
+EMovementStateValue UCrouchingMovingMovementState::GetDesiredTransition_Implementation() const
 {
 	APlayerCharacter* Player = GetPlayerCharacter();
 	if (!Player || !Player->GetCharacterMovement())
-		return EMovementState::None;
+		return EMovementStateValue::None;
 
 	// Check for dodging - high priority
 	if (Player->DodgeSystem && Player->DodgeSystem->IsDodging())
-		return EMovementState::Dodging;
+		return EMovementStateValue::Dodging;
 
 	// Check for falling
 	if (Player->GetCharacterMovement()->IsFalling())
 	{
 		FVector Velocity = Player->GetCharacterMovement()->Velocity;
 		if (Velocity.Z > 0.0f)
-			return EMovementState::Jumping;
+			return EMovementStateValue::Jumping;
 		else
-			return EMovementState::Falling;
+			return EMovementStateValue::Falling;
 	}
 
 	// Check if no longer crouching
@@ -38,48 +38,48 @@ EMovementState UCrouchingMovingMovementState::GetDesiredTransition_Implementatio
 		if (Speed > 10.0f)
 		{
 			if (Player->SprintSystem && Player->SprintSystem->IsSprinting())
-				return EMovementState::Sprinting;
+				return EMovementStateValue::Sprinting;
 			else
-				return EMovementState::Walking;
+				return EMovementStateValue::Walking;
 		}
 		else
-			return EMovementState::Idle;
+			return EMovementStateValue::Idle;
 	}
 
 	// Check if stopped moving while crouched
 	float HorizontalSpeed = Player->GetCharacterMovement()->Velocity.Size2D();
 	if (HorizontalSpeed <= 0.1f) // Small threshold to avoid floating-point precision issues
 	{
-		return EMovementState::CrouchingIdle;
+		return EMovementStateValue::CrouchingIdle;
 	}
 
-	return EMovementState::None;
+	return EMovementStateValue::None;
 }
 
-bool UCrouchingMovingMovementState::CanTransitionTo_Implementation(EMovementState NewState) const
+bool UCrouchingMovingMovementState::CanTransitionTo_Implementation(EMovementStateValue NewState) const
 {
 	// Crouching Moving can transition to various states
 	switch (NewState)
 	{
-	case EMovementState::CrouchingIdle:
+	case EMovementStateValue::CrouchingIdle:
 		// Can stop while crouched
 		return true;
-	case EMovementState::Dodging:
+	case EMovementStateValue::Dodging:
 		// Can dodge while crouched moving
 		return true;
-	case EMovementState::Jumping:
-	case EMovementState::Falling:
+	case EMovementStateValue::Jumping:
+	case EMovementStateValue::Falling:
 		// Air movement always allowed
 		return true;
-	case EMovementState::Walking:
-	case EMovementState::Sprinting:
+	case EMovementStateValue::Walking:
+	case EMovementStateValue::Sprinting:
 		// Stand up and continue moving
 		return true;
-	case EMovementState::Idle:
+	case EMovementStateValue::Idle:
 		// Stand up and stop
 		return true;
-	case EMovementState::LandingInPlace:
-	case EMovementState::LandingMoving:
+	case EMovementStateValue::LandingInPlace:
+	case EMovementStateValue::LandingMoving:
 		// Landing states can be reached from air
 		return true;
 	default:

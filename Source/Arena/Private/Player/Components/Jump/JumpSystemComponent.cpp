@@ -55,13 +55,13 @@ void UJumpSystemComponent::JumpPressed(const FInputActionValue& Value)
 
 	if (PlayerCharacter->GetMovementStateMachine())
 	{
-		EMovementState CurrentState = PlayerCharacter->GetMovementStateMachine()->GetCurrentState();
+		EMovementStateValue CurrentState = PlayerCharacter->GetMovementStateMachine()->GetCurrentState();
 				
-		if (bIsLanding || CurrentState == EMovementState::Dodging)
+		if (bIsLanding || CurrentState == EMovementStateValue::Dodging)
 			return;
 
 		// If crouched, uncrouch instead of jumping
-		if ((CurrentState == EMovementState::CrouchingIdle || CurrentState == EMovementState::CrouchingMoving) 
+		if ((CurrentState == EMovementStateValue::CrouchingIdle || CurrentState == EMovementStateValue::CrouchingMoving) 
 			&& PlayerCharacter->CrouchSystem)
 		{
 			PlayerCharacter->CrouchSystem->CrouchPressed(Value);

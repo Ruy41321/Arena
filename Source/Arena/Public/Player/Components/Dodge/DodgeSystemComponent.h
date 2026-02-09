@@ -44,7 +44,7 @@ public:
 
 	/** Returns true if player is in a valid state to dodge */
 	UFUNCTION(BlueprintPure, Category = "Dodge System", meta = (ToolTip = "Check if player is in a valid state to dodge"))
-	bool IsInDodgeableState(EMovementState CurrentState) const;
+	bool IsInDodgeableState(EMovementStateValue CurrentState) const;
 
 	/** Returns true if dodge is available */
 	UFUNCTION(BlueprintPure, Category = "Dodge System", meta = (ToolTip = "Check if dodge is off cooldown"))

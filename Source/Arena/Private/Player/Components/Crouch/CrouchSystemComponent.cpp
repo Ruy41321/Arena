@@ -122,9 +122,9 @@ void UCrouchSystemComponent::Crouch()
 
 	if (PlayerCharacter->GetMovementStateMachine())
 	{
-		EMovementState CurrentState = PlayerCharacter->GetMovementStateMachine()->GetCurrentState();
+		EMovementStateValue CurrentState = PlayerCharacter->GetMovementStateMachine()->GetCurrentState();
 
-		if (CurrentState == EMovementState::Falling || CurrentState == EMovementState::Jumping)
+		if (CurrentState == EMovementStateValue::Falling || CurrentState == EMovementStateValue::Jumping)
 			return;
 	}
 	

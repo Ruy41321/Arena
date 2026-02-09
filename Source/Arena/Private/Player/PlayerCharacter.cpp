@@ -125,25 +125,25 @@ void APlayerCharacter::SetMaxWalkSpeed(float NewSpeed)
 	}
 }
 
-EMovementState APlayerCharacter::GetCurrentMovementState() const
+EMovementStateValue APlayerCharacter::GetCurrentMovementState() const
 {
 	if (MovementStateMachine)
 	{
 		return MovementStateMachine->GetCurrentState();
 	}
-	return EMovementState::None;
+	return EMovementStateValue::None;
 }
 
-EMovementState APlayerCharacter::GetPreviousMovementState() const
+EMovementStateValue APlayerCharacter::GetPreviousMovementState() const
 {
 	if (MovementStateMachine)
 	{
 		return MovementStateMachine->GetPreviousState();
 	}
-	return EMovementState::None;
+	return EMovementStateValue::None;
 }
 
-bool APlayerCharacter::TransitionToMovementState(EMovementState NewState, bool bForceTransition)
+bool APlayerCharacter::TransitionToMovementState(EMovementStateValue NewState, bool bForceTransition)
 {
 	if (MovementStateMachine)
 	{

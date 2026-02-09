@@ -110,8 +110,8 @@ void UBasicMovementComponent::MoveForward(const FInputActionValue& Value)
 		// Only add movement input if not dodging
 		if (PlayerCharacter->MovementStateMachine)
 		{
-			EMovementState CurrentState = PlayerCharacter->GetMovementStateMachine()->GetCurrentState();
-			if (CurrentState != EMovementState::Dodging)
+			EMovementStateValue CurrentState = PlayerCharacter->GetMovementStateMachine()->GetCurrentState();
+			if (CurrentState != EMovementStateValue::Dodging)
 				PlayerCharacter->AddMovementInput(Forward, Direction);
 		}
 	}
@@ -137,8 +137,8 @@ void UBasicMovementComponent::MoveRight(const FInputActionValue& Value)
 		// Only add movement input if not dodging
 		if (PlayerCharacter->MovementStateMachine)
 		{
-			EMovementState CurrentState = PlayerCharacter->GetMovementStateMachine()->GetCurrentState();
-			if (CurrentState != EMovementState::Dodging)
+			EMovementStateValue CurrentState = PlayerCharacter->GetMovementStateMachine()->GetCurrentState();
+			if (CurrentState != EMovementStateValue::Dodging)
 				PlayerCharacter->AddMovementInput(Right, Direction);
 		}
 	}

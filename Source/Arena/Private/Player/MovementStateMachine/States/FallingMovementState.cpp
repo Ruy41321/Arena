@@ -8,11 +8,11 @@ UFallingMovementState::UFallingMovementState()
 {
 }
 
-EMovementState UFallingMovementState::GetDesiredTransition_Implementation() const
+EMovementStateValue UFallingMovementState::GetDesiredTransition_Implementation() const
 {
 	APlayerCharacter* Player = GetPlayerCharacter();
 	if (!Player || !Player->GetCharacterMovement())
-		return EMovementState::None;
+		return EMovementStateValue::None;
 
 	// Check if we've landed
 	if (!Player->GetCharacterMovement()->IsFalling())
@@ -20,10 +20,10 @@ EMovementState UFallingMovementState::GetDesiredTransition_Implementation() cons
 		// Decide between LandingInPlace and LandingMoving based on horizontal velocity
 		float HorizontalSpeed = Player->GetCharacterMovement()->Velocity.Size2D();
 		if (HorizontalSpeed > 0.1f) // Small threshold to avoid floating-point precision issues
-			return EMovementState::LandingMoving;
+			return EMovementStateValue::LandingMoving;
 		else
-			return EMovementState::LandingInPlace;
+			return EMovementStateValue::LandingInPlace;
 	}
 
-	return EMovementState::None;
+	return EMovementStateValue::None;
 }

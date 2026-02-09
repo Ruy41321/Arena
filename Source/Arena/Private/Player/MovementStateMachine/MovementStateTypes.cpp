@@ -2,82 +2,82 @@
 
 #include "Player/MovementStateMachine/MovementStateTypes.h"
 
-FString UMovementStateTypes::MovementStateToString(EMovementState State)
+FString UMovementStateTypes::MovementStateToString(EMovementStateValue State)
 {
 	switch (State)
 	{
-	case EMovementState::None:
+	case EMovementStateValue::None:
 		return TEXT("None");
-	case EMovementState::Idle:
+	case EMovementStateValue::Idle:
 		return TEXT("Idle");
-	case EMovementState::Walking:
+	case EMovementStateValue::Walking:
 		return TEXT("Walking");
-	case EMovementState::Sprinting:
+	case EMovementStateValue::Sprinting:
 		return TEXT("Sprinting");
-	case EMovementState::CrouchingIdle:
+	case EMovementStateValue::CrouchingIdle:
 		return TEXT("Crouching Idle");
-	case EMovementState::CrouchingMoving:
+	case EMovementStateValue::CrouchingMoving:
 		return TEXT("Crouching Moving");
-	case EMovementState::Jumping:
+	case EMovementStateValue::Jumping:
 		return TEXT("Jumping");
-	case EMovementState::Falling:
+	case EMovementStateValue::Falling:
 		return TEXT("Falling");
-	case EMovementState::LandingInPlace:
+	case EMovementStateValue::LandingInPlace:
 		return TEXT("Landing In Place");
-	case EMovementState::LandingMoving:
+	case EMovementStateValue::LandingMoving:
 		return TEXT("Landing Moving");
-	case EMovementState::Dodging:
+	case EMovementStateValue::Dodging:
 		return TEXT("Dodging");
 	default:
 		return TEXT("Unknown");
 	}
 }
 
-bool UMovementStateTypes::IsGroundedState(EMovementState State)
+bool UMovementStateTypes::IsGroundedState(EMovementStateValue State)
 {
 	switch (State)
 	{
-	case EMovementState::Idle:
-	case EMovementState::Walking:
-	case EMovementState::Sprinting:
-	case EMovementState::CrouchingIdle:
-	case EMovementState::CrouchingMoving:
-	case EMovementState::LandingInPlace:
-	case EMovementState::LandingMoving:
-	case EMovementState::Dodging:
+	case EMovementStateValue::Idle:
+	case EMovementStateValue::Walking:
+	case EMovementStateValue::Sprinting:
+	case EMovementStateValue::CrouchingIdle:
+	case EMovementStateValue::CrouchingMoving:
+	case EMovementStateValue::LandingInPlace:
+	case EMovementStateValue::LandingMoving:
+	case EMovementStateValue::Dodging:
 		return true;
 	default:
 		return false;
 	}
 }
 
-bool UMovementStateTypes::IsAirborneState(EMovementState State)
+bool UMovementStateTypes::IsAirborneState(EMovementStateValue State)
 {
 	switch (State)
 	{
-	case EMovementState::Jumping:
-	case EMovementState::Falling:
+	case EMovementStateValue::Jumping:
+	case EMovementStateValue::Falling:
 		return true;
 	default:
 		return false;
 	}
 }
 
-bool UMovementStateTypes::CanReceiveMovementInput(EMovementState State)
+bool UMovementStateTypes::CanReceiveMovementInput(EMovementStateValue State)
 {
 	switch (State)
 	{
-	case EMovementState::Idle:
-	case EMovementState::Walking:
-	case EMovementState::Sprinting:
-	case EMovementState::CrouchingIdle:
-	case EMovementState::CrouchingMoving:
-	case EMovementState::Jumping:
-	case EMovementState::Falling:
+	case EMovementStateValue::Idle:
+	case EMovementStateValue::Walking:
+	case EMovementStateValue::Sprinting:
+	case EMovementStateValue::CrouchingIdle:
+	case EMovementStateValue::CrouchingMoving:
+	case EMovementStateValue::Jumping:
+	case EMovementStateValue::Falling:
 		return true;
-	case EMovementState::LandingInPlace:
-	case EMovementState::LandingMoving:
-	case EMovementState::Dodging:
+	case EMovementStateValue::LandingInPlace:
+	case EMovementStateValue::LandingMoving:
+	case EMovementStateValue::Dodging:
 		return false;
 	default:
 		return false;

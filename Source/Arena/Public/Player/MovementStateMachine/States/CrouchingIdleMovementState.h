@@ -13,7 +13,7 @@ class ARENA_API UCrouchingIdleMovementState : public UMovementState
 
 public:
 	UCrouchingIdleMovementState();
-	virtual EMovementState GetStateType() const override { return EMovementState::CrouchingIdle; }
-	virtual EMovementState GetDesiredTransition_Implementation() const override;
-	virtual bool CanTransitionTo_Implementation(EMovementState NewState) const override;
+	virtual EMovementStateValue GetStateType() const override { return EMovementStateValue::CrouchingIdle; }
+	virtual EMovementStateValue GetDesiredTransition_Implementation() const override;
+	virtual bool CanTransitionTo_Implementation(EMovementStateValue NewState) const override;
 };

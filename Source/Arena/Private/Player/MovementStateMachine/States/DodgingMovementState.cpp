@@ -12,11 +12,11 @@ UDodgingMovementState::UDodgingMovementState()
 {
 }
 
-EMovementState UDodgingMovementState::GetDesiredTransition_Implementation() const
+EMovementStateValue UDodgingMovementState::GetDesiredTransition_Implementation() const
 {
 	APlayerCharacter* Player = GetPlayerCharacter();
 	if (!Player || !Player->GetCharacterMovement())
-		return EMovementState::None;
+		return EMovementStateValue::None;
 
 	// Check if no longer dodging
 	if (!Player->DodgeSystem || !Player->DodgeSystem->IsDodging())
@@ -26,9 +26,9 @@ EMovementState UDodgingMovementState::GetDesiredTransition_Implementation() cons
 		{
 			FVector Velocity = Player->GetCharacterMovement()->Velocity;
 			if (Velocity.Z > 0.0f)
-				return EMovementState::Jumping;
+				return EMovementStateValue::Jumping;
 			else
-				return EMovementState::Falling;
+				return EMovementStateValue::Falling;
 		}
 
 		// Determine ground state based on crouching and velocity
@@ -36,9 +36,9 @@ EMovementState UDodgingMovementState::GetDesiredTransition_Implementation() cons
 		{
 			float HorizontalSpeed = Player->GetCharacterMovement()->Velocity.Size2D();
 			if (HorizontalSpeed > 0.1f)
-				return EMovementState::CrouchingMoving;
+				return EMovementStateValue::CrouchingMoving;
 			else
-				return EMovementState::CrouchingIdle;
+				return EMovementStateValue::CrouchingIdle;
 		}
 		
 		float Speed = Player->GetCharacterMovement()->Velocity.Size2D();
@@ -49,38 +49,38 @@ EMovementState UDodgingMovementState::GetDesiredTransition_Implementation() cons
 				Player->SprintSystem->SetIsSprinting(true);
 				if (Player->CrouchSystem && Player->CrouchSystem->IsCrouched())
 					Player->CrouchSystem->CrouchPressed(FInputActionValue());
-				return EMovementState::Sprinting;
+				return EMovementStateValue::Sprinting;
 			}
 			else
-				return EMovementState::Walking;
+				return EMovementStateValue::Walking;
 		}
 		else
-			return EMovementState::Idle;
+			return EMovementStateValue::Idle;
 	}
 
-	return EMovementState::None;
+	return EMovementStateValue::None;
 }
 
-bool UDodgingMovementState::CanTransitionTo_Implementation(EMovementState NewState) const
+bool UDodgingMovementState::CanTransitionTo_Implementation(EMovementStateValue NewState) const
 {
 	// Dodging can transition to any state once completed
 	switch (NewState)
 	{
-	case EMovementState::CrouchingIdle:
-	case EMovementState::CrouchingMoving:
+	case EMovementStateValue::CrouchingIdle:
+	case EMovementStateValue::CrouchingMoving:
 		// Can return to crouching states
 		return true;
-	case EMovementState::Idle:
-	case EMovementState::Walking:
-	case EMovementState::Sprinting:
+	case EMovementStateValue::Idle:
+	case EMovementStateValue::Walking:
+	case EMovementStateValue::Sprinting:
 		// Basic movement transitions allowed
 		return true;
-	case EMovementState::Jumping:
-	case EMovementState::Falling:
+	case EMovementStateValue::Jumping:
+	case EMovementStateValue::Falling:
 		// Air movement always allowed
 		return true;
-	case EMovementState::LandingInPlace:
-	case EMovementState::LandingMoving:
+	case EMovementStateValue::LandingInPlace:
+	case EMovementStateValue::LandingMoving:
 		// Landing can be reached if ending in air
 		return true;
 	default:

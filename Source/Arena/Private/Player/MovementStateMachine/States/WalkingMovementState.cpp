@@ -11,34 +11,34 @@ UWalkingMovementState::UWalkingMovementState()
 {
 }
 
-EMovementState UWalkingMovementState::GetDesiredTransition_Implementation() const
+EMovementStateValue UWalkingMovementState::GetDesiredTransition_Implementation() const
 {
 	APlayerCharacter* Player = GetPlayerCharacter();
 	if (!Player || !Player->GetCharacterMovement())
-		return EMovementState::None;
+		return EMovementStateValue::None;
 
 	// Check for falling first
 	if (Player->GetCharacterMovement()->IsFalling())
 	{
 		FVector Velocity = Player->GetCharacterMovement()->Velocity;
 		if (Velocity.Z > 0.0f)
-			return EMovementState::Jumping;
+			return EMovementStateValue::Jumping;
 		else
-			return EMovementState::Falling;
+			return EMovementStateValue::Falling;
 	}
 
 	// Check for dodging
 	if (Player->DodgeSystem && Player->DodgeSystem->IsDodging())
-		return EMovementState::Dodging;
+		return EMovementStateValue::Dodging;
 
 	// Check for crouching - decide between idle and moving based on velocity
 	if (Player->CrouchSystem && Player->CrouchSystem->IsCrouched())
 	{
 		float HorizontalSpeed = Player->GetCharacterMovement()->Velocity.Size2D();
 		if (HorizontalSpeed > 0.1f)
-			return EMovementState::CrouchingMoving;
+			return EMovementStateValue::CrouchingMoving;
 		else
-			return EMovementState::CrouchingIdle;
+			return EMovementStateValue::CrouchingIdle;
 	}
 
 	// Check movement speed
@@ -46,12 +46,12 @@ EMovementState UWalkingMovementState::GetDesiredTransition_Implementation() cons
 	
 	// If no movement, go to idle
 	if (Speed <= 10.0f)
-		return EMovementState::Idle;
+		return EMovementStateValue::Idle;
 
 	// Check if sprinting
 	if (Player->SprintSystem && Player->SprintSystem->IsSprinting())
-		return EMovementState::Sprinting;
+		return EMovementStateValue::Sprinting;
 
 	// Stay in walking state
-	return EMovementState::None;
+	return EMovementStateValue::None;
 }

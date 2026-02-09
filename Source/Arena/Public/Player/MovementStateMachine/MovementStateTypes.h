@@ -10,7 +10,7 @@
  * Enum that defines all possible movement states
  */
 UENUM(BlueprintType)
-enum class EMovementState : uint8
+enum class EMovementStateValue : uint8
 {
 	None = 0			UMETA(DisplayName = "None"),
 	Idle				UMETA(DisplayName = "Idle"),
@@ -35,24 +35,24 @@ struct ARENA_API FMovementStateTransition
 
 	/** The state to transition from */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Transition")
-	EMovementState FromState;
+	EMovementStateValue FromState;
 
 	/** The state to transition to */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Transition")
-	EMovementState ToState;
+	EMovementStateValue ToState;
 
 	/** Priority of this transition (higher values have higher priority) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Transition")
 	int32 Priority;
 
 	FMovementStateTransition()
-		: FromState(EMovementState::None)
-		, ToState(EMovementState::None)
+		: FromState(EMovementStateValue::None)
+		, ToState(EMovementStateValue::None)
 		, Priority(0)
 	{
 	}
 
-	FMovementStateTransition(EMovementState InFromState, EMovementState InToState, int32 InPriority = 0)
+	FMovementStateTransition(EMovementStateValue InFromState, EMovementStateValue InToState, int32 InPriority = 0)
 		: FromState(InFromState)
 		, ToState(InToState)
 		, Priority(InPriority)
@@ -63,7 +63,7 @@ struct ARENA_API FMovementStateTransition
 /**
  * Delegate for state change notifications
  */
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnMovementStateChanged, EMovementState, OldState, EMovementState, NewState);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnMovementStateChanged, EMovementStateValue, OldState, EMovementStateValue, NewState);
 
 /**
  * Static class for movement state utility functions
@@ -76,17 +76,17 @@ class ARENA_API UMovementStateTypes : public UObject
 public:
 	/** Convert movement state enum to string */
 	UFUNCTION(BlueprintPure, Category = "Movement State")
-	static FString MovementStateToString(EMovementState State);
+	static FString MovementStateToString(EMovementStateValue State);
 
 	/** Check if a state is a grounded state */
 	UFUNCTION(BlueprintPure, Category = "Movement State")
-	static bool IsGroundedState(EMovementState State);
+	static bool IsGroundedState(EMovementStateValue State);
 
 	/** Check if a state is an airborne state */
 	UFUNCTION(BlueprintPure, Category = "Movement State")
-	static bool IsAirborneState(EMovementState State);
+	static bool IsAirborneState(EMovementStateValue State);
 
 	/** Check if a state allows movement input */
 	UFUNCTION(BlueprintPure, Category = "Movement State")
-	static bool CanReceiveMovementInput(EMovementState State);
+	static bool CanReceiveMovementInput(EMovementStateValue State);
 };

@@ -13,6 +13,6 @@ class ARENA_API UFallingMovementState : public UMovementState
 
 public:
 	UFallingMovementState();
-	virtual EMovementState GetStateType() const override { return EMovementState::Falling; }
-	virtual EMovementState GetDesiredTransition_Implementation() const override;
+	virtual EMovementStateValue GetStateType() const override { return EMovementStateValue::Falling; }
+	virtual EMovementStateValue GetDesiredTransition_Implementation() const override;
 };

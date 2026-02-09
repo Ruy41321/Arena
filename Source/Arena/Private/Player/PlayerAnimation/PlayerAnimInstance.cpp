@@ -20,8 +20,8 @@ void UPlayerAnimInstance::NativeBeginPlay()
 	Super::NativeBeginPlay();
 	PlayerCharacter = dynamic_cast<APlayerCharacter *>(TryGetPawnOwner());
 	Speed = 0.0f;
-	CurrentMovementState = EMovementState::None;
-	PreviousMovementState = EMovementState::None;
+	CurrentMovementState = EMovementStateValue::None;
+	PreviousMovementState = EMovementStateValue::None;
 	CrouchingTransitionTarget = 0.0f;
 	
 	// Subscribe to movement state changes
@@ -42,7 +42,7 @@ void UPlayerAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 	//}
 }
 
-void UPlayerAnimInstance::OnMovementStateChanged(EMovementState OldState, EMovementState NewState)
+void UPlayerAnimInstance::OnMovementStateChanged(EMovementStateValue OldState, EMovementStateValue NewState)
 {
 	// Update movement state properties when notified of changes
 	PreviousMovementState = OldState;
@@ -59,7 +59,7 @@ void UPlayerAnimInstance::OnMovementStateChanged(EMovementState OldState, EMovem
 	if (PlayerCharacter && PlayerCharacter->GetCharacterMovement())
 	{
 		Speed = PlayerCharacter->GetCharacterMovement()->MaxWalkSpeed;
-		if (NewState == EMovementState::Idle || NewState == EMovementState::CrouchingIdle)
+		if (NewState == EMovementStateValue::Idle || NewState == EMovementStateValue::CrouchingIdle)
 		{
 			Speed = 0.0f;
 		}
@@ -89,7 +89,7 @@ void UPlayerAnimInstance::UnsubscribeFromMovementStateChanges()
 
 bool UPlayerAnimInstance::IsMovementStateDataValid() const
 {
-	return CurrentMovementState != EMovementState::None && 
+	return CurrentMovementState != EMovementStateValue::None && 
 		   PlayerCharacter != nullptr && 
 		   PlayerCharacter->GetMovementStateMachine() != nullptr &&
 		   bIsSubscribedToStateChanges;

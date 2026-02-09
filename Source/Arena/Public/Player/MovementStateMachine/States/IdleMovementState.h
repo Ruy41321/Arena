@@ -17,7 +17,7 @@ class ARENA_API UIdleMovementState : public UMovementState
 public:
 	UIdleMovementState();
 
-	virtual EMovementState GetStateType() const override { return EMovementState::Idle; }
-	virtual EMovementState GetDesiredTransition_Implementation() const override;
-	virtual void EnterState(EMovementState PreviousState) override;
+	virtual EMovementStateValue GetStateType() const override { return EMovementStateValue::Idle; }
+	virtual EMovementStateValue GetDesiredTransition_Implementation() const override;
+	virtual void EnterState(EMovementStateValue PreviousState) override;
 };

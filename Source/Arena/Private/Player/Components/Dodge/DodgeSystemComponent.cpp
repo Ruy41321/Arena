@@ -89,13 +89,13 @@ void UDodgeSystemComponent::StartDodge()
 
 	if (PlayerCharacter->GetMovementStateMachine())
 	{
-		EMovementState CurrentState = PlayerCharacter->GetMovementStateMachine()->GetCurrentState();
+		EMovementStateValue CurrentState = PlayerCharacter->GetMovementStateMachine()->GetCurrentState();
 
 		if (!bCanDodge || !IsInDodgeableState(CurrentState))
 			return;
 
 		// Use CrouchSystem instead of direct PlayerCharacter calls
-		bWasCrouchingPreDodge = (CurrentState == EMovementState::CrouchingIdle || CurrentState == EMovementState::CrouchingMoving);
+		bWasCrouchingPreDodge = (CurrentState == EMovementStateValue::CrouchingIdle || CurrentState == EMovementStateValue::CrouchingMoving);
 		if (PlayerCharacter->CrouchSystem && !bWasCrouchingPreDodge)
 		{
 			PlayerCharacter->CrouchSystem->CrouchPressed(FInputActionValue());
@@ -214,16 +214,16 @@ bool UDodgeSystemComponent::UpdateDodgeDirection()
 	return true;
 }
 
-bool UDodgeSystemComponent::IsInDodgeableState(EMovementState CurrentState) const
+bool UDodgeSystemComponent::IsInDodgeableState(EMovementStateValue CurrentState) const
 {
 	// Define states where dodging is not allowed
 	switch (CurrentState)
 	{
-	case EMovementState::Idle:
-	case EMovementState::CrouchingIdle:
-	case EMovementState::CrouchingMoving:
-	case EMovementState::Walking:
-	case EMovementState::Sprinting:
+	case EMovementStateValue::Idle:
+	case EMovementStateValue::CrouchingIdle:
+	case EMovementStateValue::CrouchingMoving:
+	case EMovementStateValue::Walking:
+	case EMovementStateValue::Sprinting:
 		return true; // Dodgeable states
 	default:
 		return false; // Not dodgeable states

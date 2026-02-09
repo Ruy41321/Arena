@@ -11,18 +11,18 @@ UJumpingMovementState::UJumpingMovementState()
 {
 }
 
-EMovementState UJumpingMovementState::GetDesiredTransition_Implementation() const
+EMovementStateValue UJumpingMovementState::GetDesiredTransition_Implementation() const
 {
 	APlayerCharacter* Player = GetPlayerCharacter();
 	if (!Player || !Player->GetCharacterMovement())
-		return EMovementState::None;
+		return EMovementStateValue::None;
 
 	// Check if we're falling (velocity.Z <= 0)
 	if (Player->GetCharacterMovement()->IsFalling())
 	{
 		FVector Velocity = Player->GetCharacterMovement()->Velocity;
 		if (Velocity.Z <= 0.0f)
-			return EMovementState::Falling;
+			return EMovementStateValue::Falling;
 	}
 	else
 	{
@@ -32,9 +32,9 @@ EMovementState UJumpingMovementState::GetDesiredTransition_Implementation() cons
 			// Decide between LandingInPlace and LandingMoving based on horizontal velocity
 			float HorizontalSpeed = Player->GetCharacterMovement()->Velocity.Size2D();
 			if (HorizontalSpeed > 0.1f) // Small threshold to avoid floating-point precision issues
-				return EMovementState::LandingMoving;
+				return EMovementStateValue::LandingMoving;
 			else
-				return EMovementState::LandingInPlace;
+				return EMovementStateValue::LandingInPlace;
 		}
 		
 		// Determine ground state based on other conditions - decide between crouching states based on velocity
@@ -42,22 +42,22 @@ EMovementState UJumpingMovementState::GetDesiredTransition_Implementation() cons
 		{
 			float HorizontalSpeed = Player->GetCharacterMovement()->Velocity.Size2D();
 			if (HorizontalSpeed > 0.1f)
-				return EMovementState::CrouchingMoving;
+				return EMovementStateValue::CrouchingMoving;
 			else
-				return EMovementState::CrouchingIdle;
+				return EMovementStateValue::CrouchingIdle;
 		}
 		
 		float Speed = Player->GetCharacterMovement()->Velocity.Size2D();
 		if (Speed > 10.0f)
 		{
 			if (Player->SprintSystem && Player->SprintSystem->IsSprinting())
-				return EMovementState::Sprinting;
+				return EMovementStateValue::Sprinting;
 			else
-				return EMovementState::Walking;
+				return EMovementStateValue::Walking;
 		}
 		else
-			return EMovementState::Idle;
+			return EMovementStateValue::Idle;
 	}
 
-	return EMovementState::None;
+	return EMovementStateValue::None;
 }

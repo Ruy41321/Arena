@@ -13,6 +13,6 @@ class ARENA_API UJumpingMovementState : public UMovementState
 
 public:
 	UJumpingMovementState();
-	virtual EMovementState GetStateType() const override { return EMovementState::Jumping; }
-	virtual EMovementState GetDesiredTransition_Implementation() const override;
+	virtual EMovementStateValue GetStateType() const override { return EMovementStateValue::Jumping; }
+	virtual EMovementStateValue GetDesiredTransition_Implementation() const override;
 };

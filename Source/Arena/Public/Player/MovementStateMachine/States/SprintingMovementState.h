@@ -17,6 +17,6 @@ class ARENA_API USprintingMovementState : public UMovementState
 public:
 	USprintingMovementState();
 
-	virtual EMovementState GetStateType() const override { return EMovementState::Sprinting; }
-	virtual EMovementState GetDesiredTransition_Implementation() const override;
+	virtual EMovementStateValue GetStateType() const override { return EMovementStateValue::Sprinting; }
+	virtual EMovementStateValue GetDesiredTransition_Implementation() const override;
 };

@@ -11,34 +11,34 @@ USprintingMovementState::USprintingMovementState()
 {
 }
 
-EMovementState USprintingMovementState::GetDesiredTransition_Implementation() const
+EMovementStateValue USprintingMovementState::GetDesiredTransition_Implementation() const
 {
 	APlayerCharacter* Player = GetPlayerCharacter();
 	if (!Player || !Player->GetCharacterMovement())
-		return EMovementState::None;
+		return EMovementStateValue::None;
 
 	// Check for falling first
 	if (Player->GetCharacterMovement()->IsFalling())
 	{
 		FVector Velocity = Player->GetCharacterMovement()->Velocity;
 		if (Velocity.Z > 0.0f)
-			return EMovementState::Jumping;
+			return EMovementStateValue::Jumping;
 		else
-			return EMovementState::Falling;
+			return EMovementStateValue::Falling;
 	}
 
 	// Check for dodging
 	if (Player->DodgeSystem && Player->DodgeSystem->IsDodging())
-		return EMovementState::Dodging;
+		return EMovementStateValue::Dodging;
 
 	// Check for crouching - decide between idle and moving based on velocity
 	if (Player->CrouchSystem && Player->CrouchSystem->IsCrouched())
 	{
 		float HorizontalSpeed = Player->GetCharacterMovement()->Velocity.Size2D();
 		if (HorizontalSpeed > 0.1f)
-			return EMovementState::CrouchingMoving;
+			return EMovementStateValue::CrouchingMoving;
 		else
-			return EMovementState::CrouchingIdle;
+			return EMovementStateValue::CrouchingIdle;
 	}
 
 	// Check if still sprinting
@@ -47,11 +47,11 @@ EMovementState USprintingMovementState::GetDesiredTransition_Implementation() co
 		// Check movement speed to determine if walking or idle
 		float Speed = Player->GetCharacterMovement()->Velocity.Size2D();
 		if (Speed == 0.0f)
-			return EMovementState::Idle;
+			return EMovementStateValue::Idle;
 		else if (!Player->SprintSystem->IsSprinting())
-			return EMovementState::Walking;
+			return EMovementStateValue::Walking;
 	}
 
 	// Stay in sprinting state
-	return EMovementState::None;
+	return EMovementStateValue::None;
 }

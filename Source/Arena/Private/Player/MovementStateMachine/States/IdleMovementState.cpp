@@ -11,34 +11,34 @@ UIdleMovementState::UIdleMovementState()
 {
 }
 
-EMovementState UIdleMovementState::GetDesiredTransition_Implementation() const
+EMovementStateValue UIdleMovementState::GetDesiredTransition_Implementation() const
 {
 	APlayerCharacter* Player = GetPlayerCharacter();
 	if (!Player || !Player->GetCharacterMovement())
-		return EMovementState::None;
+		return EMovementStateValue::None;
 
 	// Check for falling
 	if (Player->GetCharacterMovement()->IsFalling())
 	{
 		FVector Velocity = Player->GetCharacterMovement()->Velocity;
 		if (Velocity.Z > 0.0f)
-			return EMovementState::Jumping;
+			return EMovementStateValue::Jumping;
 		else
-			return EMovementState::Falling;
+			return EMovementStateValue::Falling;
 	}
 
 	// Check for dodging
 	if (Player->DodgeSystem && Player->DodgeSystem->IsDodging())
-		return EMovementState::Dodging;
+		return EMovementStateValue::Dodging;
 
 	// Check for crouching - decide between idle and moving based on velocity
 	if (Player->CrouchSystem && Player->CrouchSystem->IsCrouched())
 	{
 		float HorizontalSpeed = Player->GetCharacterMovement()->Velocity.Size2D();
 		if (HorizontalSpeed > 0.1f)
-			return EMovementState::CrouchingMoving;
+			return EMovementStateValue::CrouchingMoving;
 		else
-			return EMovementState::CrouchingIdle;
+			return EMovementStateValue::CrouchingIdle;
 	}
 
 	// Check for movement
@@ -47,15 +47,15 @@ EMovementState UIdleMovementState::GetDesiredTransition_Implementation() const
 	{
 		// Check if sprinting
 		if (Player->SprintSystem && Player->SprintSystem->IsSprinting())
-			return EMovementState::Sprinting;
+			return EMovementStateValue::Sprinting;
 		else
-			return EMovementState::Walking;
+			return EMovementStateValue::Walking;
 	}
 
-	return EMovementState::None;
+	return EMovementStateValue::None;
 }
 
-void UIdleMovementState::EnterState(EMovementState PreviousState)
+void UIdleMovementState::EnterState(EMovementStateValue PreviousState)
 {
 	Super::EnterState(PreviousState);
 	// Additional logic for entering idle state can be added here

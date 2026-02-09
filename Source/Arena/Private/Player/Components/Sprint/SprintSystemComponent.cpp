@@ -89,15 +89,15 @@ void USprintSystemComponent::SprintPressed(const FInputActionValue& Value, const
 		// Don't sprint if dodging
 		if (PlayerCharacter->GetMovementStateMachine())
 		{
-			EMovementState CurrentState = PlayerCharacter->GetMovementStateMachine()->GetCurrentState();
-			if (CurrentState == EMovementState::Dodging)
+			EMovementStateValue CurrentState = PlayerCharacter->GetMovementStateMachine()->GetCurrentState();
+			if (CurrentState == EMovementStateValue::Dodging)
 			{
 				bIsSprinting = false;
 				return;
 			}
 
 			// If crouched, try to uncrouch first
-			if (CurrentState == EMovementState::CrouchingIdle || CurrentState == EMovementState::CrouchingMoving)
+			if (CurrentState == EMovementStateValue::CrouchingIdle || CurrentState == EMovementStateValue::CrouchingMoving)
 			{
 				if (!PlayerCharacter->CrouchSystem->CanUncrouchSafely())
 				{

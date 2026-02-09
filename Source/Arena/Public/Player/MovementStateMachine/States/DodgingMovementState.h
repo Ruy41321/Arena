@@ -13,7 +13,7 @@ class ARENA_API UDodgingMovementState : public UMovementState
 
 public:
 	UDodgingMovementState();
-	virtual EMovementState GetStateType() const override { return EMovementState::Dodging; }
-	virtual EMovementState GetDesiredTransition_Implementation() const override;
-	virtual bool CanTransitionTo_Implementation(EMovementState NewState) const override;
+	virtual EMovementStateValue GetStateType() const override { return EMovementStateValue::Dodging; }
+	virtual EMovementStateValue GetDesiredTransition_Implementation() const override;
+	virtual bool CanTransitionTo_Implementation(EMovementStateValue NewState) const override;
 };

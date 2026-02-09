@@ -24,7 +24,7 @@ protected:
 	
 	/** Callback for when movement state changes */
 	UFUNCTION()
-	void OnMovementStateChanged(EMovementState OldState, EMovementState NewState);
+	void OnMovementStateChanged(EMovementStateValue OldState, EMovementStateValue NewState);
 
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Default")
@@ -36,10 +36,10 @@ protected:
 
 	// Movement State Machine properties - now updated via observer pattern
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement State Machine")
-	EMovementState CurrentMovementState;
+	EMovementStateValue CurrentMovementState;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement State Machine")
-	EMovementState PreviousMovementState;
+	EMovementStateValue PreviousMovementState;
 
 	// Crouching properties
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Default")

@@ -21,19 +21,19 @@ void UMovementState::Initialize(UMovementStateMachine* InStateMachine, APlayerCh
 	PlayerCharacter = InPlayerCharacter;
 }
 
-bool UMovementState::CanTransitionTo_Implementation(EMovementState NewState) const
+bool UMovementState::CanTransitionTo_Implementation(EMovementStateValue NewState) const
 {
 	// Default implementation allows all transitions
 	return true;
 }
 
-EMovementState UMovementState::GetDesiredTransition_Implementation() const
+EMovementStateValue UMovementState::GetDesiredTransition_Implementation() const
 {
 	// Default implementation: no automatic transitions
-	return EMovementState::None;
+	return EMovementStateValue::None;
 }
 
-void UMovementState::EnterState(EMovementState PreviousState)
+void UMovementState::EnterState(EMovementStateValue PreviousState)
 {
 	// Set the appropriate speed for this state
 	SetStateSpeed();
@@ -48,7 +48,7 @@ void UMovementState::UpdateState(float DeltaTime)
 	OnUpdateState(DeltaTime);
 }
 
-void UMovementState::ExitState(EMovementState NextState)
+void UMovementState::ExitState(EMovementStateValue NextState)
 {
 	// Call Blueprint event
 	OnExitState(NextState);
@@ -60,13 +60,13 @@ void UMovementState::SetStateSpeed()
 	if (!Player)
 		return;
 
-	EMovementState StateType = GetStateType();
+	EMovementStateValue StateType = GetStateType();
 	float Speed = GetSpeedForState(StateType);
 	
 	Player->SetMaxWalkSpeed(Speed);
 }
 
-float UMovementState::GetSpeedForState(EMovementState StateType) const
+float UMovementState::GetSpeedForState(EMovementStateValue StateType) const
 {
 	APlayerCharacter* Player = GetPlayerCharacter();
 	if (!Player)
@@ -74,31 +74,31 @@ float UMovementState::GetSpeedForState(EMovementState StateType) const
 
 	switch (StateType)
 	{
-	case EMovementState::Dodging:
+	case EMovementStateValue::Dodging:
 		// Get dodge speed from DodgeSystem
 		if (Player->DodgeSystem)
 			return Player->DodgeSystem->GetDodgeSpeed();
 		return 600.0f; // Fallback dodge speed
 		
-	case EMovementState::CrouchingIdle:
-	case EMovementState::CrouchingMoving:
+	case EMovementStateValue::CrouchingIdle:
+	case EMovementStateValue::CrouchingMoving:
 		// Get crouch speed from CrouchSystem
 		if (Player->CrouchSystem)
 			return Player->CrouchSystem->GetCrouchSpeed();
 		return 150.0f; // Fallback crouch speed
 		
-	case EMovementState::Sprinting:
+	case EMovementStateValue::Sprinting:
 		// Get run speed from SprintSystem
 		if (Player->SprintSystem)
 			return Player->SprintSystem->GetRunSpeed();
 		return 600.0f; // Fallback sprint speed
 		
-	case EMovementState::Idle:
-	case EMovementState::Walking:
-	case EMovementState::Jumping:
-	case EMovementState::Falling:
-	case EMovementState::LandingInPlace:
-	case EMovementState::LandingMoving:
+	case EMovementStateValue::Idle:
+	case EMovementStateValue::Walking:
+	case EMovementStateValue::Jumping:
+	case EMovementStateValue::Falling:
+	case EMovementStateValue::LandingInPlace:
+	case EMovementStateValue::LandingMoving:
 	default:
 		// Get walk speed from BasicMovementSystem
 		if (Player->BasicMovementSystem)

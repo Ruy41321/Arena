@@ -17,8 +17,8 @@
 UMovementStateMachine::UMovementStateMachine()
 {
 	PrimaryComponentTick.bCanEverTick = true;
-	CurrentState = EMovementState::None;
-	PreviousState = EMovementState::None;
+	CurrentState = EMovementStateValue::None;
+	PreviousState = EMovementStateValue::None;
 }
 
 void UMovementStateMachine::BeginPlay()
@@ -36,7 +36,7 @@ void UMovementStateMachine::BeginPlay()
 	InitializeDefaultStates();
 	
 	// Start with Idle state
-	TransitionToState(EMovementState::Idle, true);
+	TransitionToState(EMovementStateValue::Idle, true);
 }
 
 void UMovementStateMachine::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
@@ -53,7 +53,7 @@ void UMovementStateMachine::TickComponent(float DeltaTime, ELevelTick TickType, 
 	EvaluateStateTransitions();
 }
 
-bool UMovementStateMachine::TransitionToState(EMovementState NewState, bool bForceTransition)
+bool UMovementStateMachine::TransitionToState(EMovementStateValue NewState, bool bForceTransition)
 {
 	if (NewState == CurrentState)
 	{
@@ -69,7 +69,7 @@ bool UMovementStateMachine::TransitionToState(EMovementState NewState, bool bFor
 	return true;
 }
 
-bool UMovementStateMachine::CanTransitionToState(EMovementState NewState) const
+bool UMovementStateMachine::CanTransitionToState(EMovementStateValue NewState) const
 {
 	if (UMovementState* CurrentStateObject = GetCurrentStateObject())
 	{
@@ -79,7 +79,7 @@ bool UMovementStateMachine::CanTransitionToState(EMovementState NewState) const
 	return true; // If no current state, allow transition
 }
 
-void UMovementStateMachine::RegisterState(EMovementState StateType, TSubclassOf<UMovementState> StateClass)
+void UMovementStateMachine::RegisterState(EMovementStateValue StateType, TSubclassOf<UMovementState> StateClass)
 {
 	if (StateClass)
 	{
@@ -108,26 +108,26 @@ UMovementState* UMovementStateMachine::GetCurrentStateObject() const
 void UMovementStateMachine::InitializeDefaultStates()
 {
 	// Set default state classes if not overridden
-	if (!DefaultStateClasses.Contains(EMovementState::Idle))
-		DefaultStateClasses.Add(EMovementState::Idle, UIdleMovementState::StaticClass());
-	if (!DefaultStateClasses.Contains(EMovementState::Walking))
-		DefaultStateClasses.Add(EMovementState::Walking, UWalkingMovementState::StaticClass());
-	if (!DefaultStateClasses.Contains(EMovementState::Sprinting))
-		DefaultStateClasses.Add(EMovementState::Sprinting, USprintingMovementState::StaticClass());
-	if (!DefaultStateClasses.Contains(EMovementState::CrouchingIdle))
-		DefaultStateClasses.Add(EMovementState::CrouchingIdle, UCrouchingIdleMovementState::StaticClass());
-	if (!DefaultStateClasses.Contains(EMovementState::CrouchingMoving))
-		DefaultStateClasses.Add(EMovementState::CrouchingMoving, UCrouchingMovingMovementState::StaticClass());
-	if (!DefaultStateClasses.Contains(EMovementState::Jumping))
-		DefaultStateClasses.Add(EMovementState::Jumping, UJumpingMovementState::StaticClass());
-	if (!DefaultStateClasses.Contains(EMovementState::Falling))
-		DefaultStateClasses.Add(EMovementState::Falling, UFallingMovementState::StaticClass());
-	if (!DefaultStateClasses.Contains(EMovementState::LandingInPlace))
-		DefaultStateClasses.Add(EMovementState::LandingInPlace, ULandingInPlaceMovementState::StaticClass());
-	if (!DefaultStateClasses.Contains(EMovementState::LandingMoving))
-		DefaultStateClasses.Add(EMovementState::LandingMoving, ULandingMovingMovementState::StaticClass());
-	if (!DefaultStateClasses.Contains(EMovementState::Dodging))
-		DefaultStateClasses.Add(EMovementState::Dodging, UDodgingMovementState::StaticClass());
+	if (!DefaultStateClasses.Contains(EMovementStateValue::Idle))
+		DefaultStateClasses.Add(EMovementStateValue::Idle, UIdleMovementState::StaticClass());
+	if (!DefaultStateClasses.Contains(EMovementStateValue::Walking))
+		DefaultStateClasses.Add(EMovementStateValue::Walking, UWalkingMovementState::StaticClass());
+	if (!DefaultStateClasses.Contains(EMovementStateValue::Sprinting))
+		DefaultStateClasses.Add(EMovementStateValue::Sprinting, USprintingMovementState::StaticClass());
+	if (!DefaultStateClasses.Contains(EMovementStateValue::CrouchingIdle))
+		DefaultStateClasses.Add(EMovementStateValue::CrouchingIdle, UCrouchingIdleMovementState::StaticClass());
+	if (!DefaultStateClasses.Contains(EMovementStateValue::CrouchingMoving))
+		DefaultStateClasses.Add(EMovementStateValue::CrouchingMoving, UCrouchingMovingMovementState::StaticClass());
+	if (!DefaultStateClasses.Contains(EMovementStateValue::Jumping))
+		DefaultStateClasses.Add(EMovementStateValue::Jumping, UJumpingMovementState::StaticClass());
+	if (!DefaultStateClasses.Contains(EMovementStateValue::Falling))
+		DefaultStateClasses.Add(EMovementStateValue::Falling, UFallingMovementState::StaticClass());
+	if (!DefaultStateClasses.Contains(EMovementStateValue::LandingInPlace))
+		DefaultStateClasses.Add(EMovementStateValue::LandingInPlace, ULandingInPlaceMovementState::StaticClass());
+	if (!DefaultStateClasses.Contains(EMovementStateValue::LandingMoving))
+		DefaultStateClasses.Add(EMovementStateValue::LandingMoving, ULandingMovingMovementState::StaticClass());
+	if (!DefaultStateClasses.Contains(EMovementStateValue::Dodging))
+		DefaultStateClasses.Add(EMovementStateValue::Dodging, UDodgingMovementState::StaticClass());
 
 	// Create state objects
 	for (const auto& StateClassPair : DefaultStateClasses)
@@ -139,7 +139,7 @@ void UMovementStateMachine::InitializeDefaultStates()
 	}
 }
 
-UMovementState* UMovementStateMachine::CreateStateObject(EMovementState StateType, TSubclassOf<UMovementState> StateClass)
+UMovementState* UMovementStateMachine::CreateStateObject(EMovementStateValue StateType, TSubclassOf<UMovementState> StateClass)
 {
 	if (!StateClass || !OwnerPlayerCharacter)
 	{
@@ -164,17 +164,17 @@ void UMovementStateMachine::EvaluateStateTransitions()
 {
 	if (UMovementState* CurrentStateObject = GetCurrentStateObject())
 	{
-		EMovementState DesiredState = CurrentStateObject->GetDesiredTransition();
-		if (DesiredState != EMovementState::None && DesiredState != CurrentState)
+		EMovementStateValue DesiredState = CurrentStateObject->GetDesiredTransition();
+		if (DesiredState != EMovementStateValue::None && DesiredState != CurrentState)
 		{
 			TransitionToState(DesiredState);
 		}
 	}
 }
 
-void UMovementStateMachine::PerformStateTransition(EMovementState NewState)
+void UMovementStateMachine::PerformStateTransition(EMovementStateValue NewState)
 {
-	EMovementState OldState = CurrentState;
+	EMovementStateValue OldState = CurrentState;
 
 	// Exit current state
 	if (UMovementState* CurrentStateObject = GetCurrentStateObject())

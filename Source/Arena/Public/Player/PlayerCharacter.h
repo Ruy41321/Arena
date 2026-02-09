@@ -46,13 +46,13 @@ public:
 
 	// Movement State Machine helper functions
 	UFUNCTION(BlueprintPure, Category = "Movement State Machine")
-	EMovementState GetCurrentMovementState() const;
+	EMovementStateValue GetCurrentMovementState() const;
 
 	UFUNCTION(BlueprintPure, Category = "Movement State Machine")
-	EMovementState GetPreviousMovementState() const;
+	EMovementStateValue GetPreviousMovementState() const;
 
 	UFUNCTION(BlueprintCallable, Category = "Movement State Machine")
-	bool TransitionToMovementState(EMovementState NewState, bool bForceTransition = false);
+	bool TransitionToMovementState(EMovementStateValue NewState, bool bForceTransition = false);
 
 	UFUNCTION(BlueprintPure, Category = "Movement State Machine")
 	FString GetCurrentMovementStateAsString() const;

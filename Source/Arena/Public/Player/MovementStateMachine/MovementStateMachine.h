@@ -30,23 +30,23 @@ public:
 
 	/** Transition to a new movement state */
 	UFUNCTION(BlueprintCallable, Category = "Movement State Machine")
-	bool TransitionToState(EMovementState NewState, bool bForceTransition = false);
+	bool TransitionToState(EMovementStateValue NewState, bool bForceTransition = false);
 
 	/** Get the current movement state */
 	UFUNCTION(BlueprintPure, Category = "Movement State Machine")
-	EMovementState GetCurrentState() const { return CurrentState; }
+	EMovementStateValue GetCurrentState() const { return CurrentState; }
 
 	/** Get the previous movement state */
 	UFUNCTION(BlueprintPure, Category = "Movement State Machine")
-	EMovementState GetPreviousState() const { return PreviousState; }
+	EMovementStateValue GetPreviousState() const { return PreviousState; }
 
 	/** Check if we can transition to a specific state */
 	UFUNCTION(BlueprintPure, Category = "Movement State Machine")
-	bool CanTransitionToState(EMovementState NewState) const;
+	bool CanTransitionToState(EMovementStateValue NewState) const;
 
 	/** Register a state class for a specific state type */
 	UFUNCTION(BlueprintCallable, Category = "Movement State Machine")
-	void RegisterState(EMovementState StateType, TSubclassOf<UMovementState> StateClass);
+	void RegisterState(EMovementStateValue StateType, TSubclassOf<UMovementState> StateClass);
 
 	/** Get the current state object */
 	UFUNCTION(BlueprintPure, Category = "Movement State Machine")
@@ -63,19 +63,19 @@ public:
 protected:
 	/** Current movement state */
 	UPROPERTY(BlueprintReadOnly, Category = "Movement State Machine")
-	EMovementState CurrentState;
+	EMovementStateValue CurrentState;
 
 	/** Previous movement state */
 	UPROPERTY(BlueprintReadOnly, Category = "Movement State Machine")
-	EMovementState PreviousState;
+	EMovementStateValue PreviousState;
 
 	/** Map of state types to state objects */
 	UPROPERTY()
-	TMap<EMovementState, TObjectPtr<UMovementState>> StateObjects;
+	TMap<EMovementStateValue, TObjectPtr<UMovementState>> StateObjects;
 
 	/** Default state classes that can be overridden in Blueprint */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement State Machine")
-	TMap<EMovementState, TSubclassOf<UMovementState>> DefaultStateClasses;
+	TMap<EMovementStateValue, TSubclassOf<UMovementState>> DefaultStateClasses;
 
 	/** Reference to the player character */
 	UPROPERTY()
@@ -86,7 +86,7 @@ private:
 	void InitializeDefaultStates();
 
 	/** Create state object for a specific state type */
-	UMovementState* CreateStateObject(EMovementState StateType, TSubclassOf<UMovementState> StateClass);
+	UMovementState* CreateStateObject(EMovementStateValue StateType, TSubclassOf<UMovementState> StateClass);
 
 	/** Helper function to get valid player character */
 	APlayerCharacter* GetValidPlayerCharacter() const;
@@ -95,5 +95,5 @@ private:
 	void EvaluateStateTransitions();
 
 	/** Perform the actual state transition */
-	void PerformStateTransition(EMovementState NewState);
+	void PerformStateTransition(EMovementStateValue NewState);
 };

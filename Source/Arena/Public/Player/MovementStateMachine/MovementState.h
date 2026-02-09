@@ -27,7 +27,7 @@ public:
 
 	/** Called when entering this state */
 	UFUNCTION(BlueprintImplementableEvent, Category = "Movement State")
-	void OnEnterState(EMovementState PreviousState);
+	void OnEnterState(EMovementStateValue PreviousState);
 
 	/** Called every frame while in this state */
 	UFUNCTION(BlueprintImplementableEvent, Category = "Movement State")
@@ -35,26 +35,26 @@ public:
 
 	/** Called when exiting this state */
 	UFUNCTION(BlueprintImplementableEvent, Category = "Movement State")
-	void OnExitState(EMovementState NextState);
+	void OnExitState(EMovementStateValue NextState);
 
 	/** Check if this state can transition to another state */
 	UFUNCTION(BlueprintNativeEvent, Category = "Movement State")
-	bool CanTransitionTo(EMovementState NewState) const;
-	virtual bool CanTransitionTo_Implementation(EMovementState NewState) const;
+	bool CanTransitionTo(EMovementStateValue NewState) const;
+	virtual bool CanTransitionTo_Implementation(EMovementStateValue NewState) const;
 
 	/** Check if this state should transition to another state automatically */
 	UFUNCTION(BlueprintNativeEvent, Category = "Movement State")
-	EMovementState GetDesiredTransition() const;
-	virtual EMovementState GetDesiredTransition_Implementation() const;
+	EMovementStateValue GetDesiredTransition() const;
+	virtual EMovementStateValue GetDesiredTransition_Implementation() const;
 
 	/** Get the state type this class represents */
 	UFUNCTION(BlueprintPure, Category = "Movement State")
-	virtual EMovementState GetStateType() const PURE_VIRTUAL(UMovementState::GetStateType, return EMovementState::None;);
+	virtual EMovementStateValue GetStateType() const PURE_VIRTUAL(UMovementState::GetStateType, return EMovementStateValue::None;);
 
 	/** C++ versions of the Blueprint events for derived classes */
-	virtual void EnterState(EMovementState PreviousState);
+	virtual void EnterState(EMovementStateValue PreviousState);
 	virtual void UpdateState(float DeltaTime);
-	virtual void ExitState(EMovementState NextState);
+	virtual void ExitState(EMovementStateValue NextState);
 
 protected:
 	/** Reference to the state machine that owns this state */
@@ -77,5 +77,5 @@ protected:
 	virtual void SetStateSpeed();
 
 	/** Gets the speed value for a specific state type */
-	virtual float GetSpeedForState(EMovementState StateType) const;
+	virtual float GetSpeedForState(EMovementStateValue StateType) const;
 };
