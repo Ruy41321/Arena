@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
+#include "GameplayTagContainer.h"
 #include "RPGAbilitySystemLibrary.generated.h"
 
 class UCharacterClassInfo;
@@ -21,4 +22,18 @@ public:
 	UFUNCTION(BlueprintPure)
 	static UCharacterClassInfo* GetCharacterClassDefaultInfo(const UObject* WorldContextObject);
 
+
+	template<typename T>
+	static T* GetDataTableRowByTag(const UDataTable* DataTable, const FGameplayTag& Tag);
+
 };
+
+template<typename T>
+T* URPGAbilitySystemLibrary::GetDataTableRowByTag(const UDataTable* DataTable, const FGameplayTag& Tag)
+{
+	if (!DataTable)
+	{
+		return nullptr;
+	}
+	return DataTable->FindRow<T>(Tag.GetTagName(), FString());
+}

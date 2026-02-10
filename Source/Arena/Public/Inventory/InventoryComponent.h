@@ -5,7 +5,10 @@
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
 #include "Components/ActorComponent.h"
+#include "ItemTypes.h"
 #include "InventoryComponent.generated.h"
+
+class UItemTypesToTables;
 
 USTRUCT()
 struct FPackagedInventory
@@ -43,7 +46,13 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	UFUNCTION(BlueprintCallable)
-	void AddItem(const FGameplayTag& ItemTag, int32 NumItes = 1);
+	void AddItem(const FGameplayTag& ItemTag, int32 NumItems = 1);
+
+	UFUNCTION(BlueprintCallable)
+	void UseItem(const FGameplayTag& ItemTag, int32 NumItems);
+
+	UFUNCTION(BlueprintPure)
+	FMasterItemDefinition GetItemDefinitionByTag(const FGameplayTag& ItemTag) const;
 
 protected:
 
@@ -57,8 +66,14 @@ private:
 	UPROPERTY(ReplicatedUsing=OnRep_CachedInventory)
 	FPackagedInventory CachedInventory;
 
+	UPROPERTY(EditDefaultsOnly)
+	TObjectPtr<UItemTypesToTables> InventoryDefinitions;
+
 	UFUNCTION(Server, Reliable)
 	void ServerAddItem(const FGameplayTag& ItemTag, int32 NumItems);
+
+	UFUNCTION(Server, Reliable)
+	void ServerUseItem(const FGameplayTag& ItemTag, int32 NumItems);
 
 	void PackageInventory(FPackagedInventory& OutInventory) const;
 	void ReconstructInventoryMap(const FPackagedInventory& InInventory);

@@ -2,7 +2,10 @@
 
 
 #include "Inventory/InventoryComponent.h"
-
+#include "Inventory/ItemTypesToTables.h"
+#include "AbilitySystemComponent.h"
+#include "AbilitySystemBlueprintLibrary.h"
+#include "Libraries/RPGAbilitySystemLibrary.h"
 #include "Net/UnrealNetwork.h"
 
 bool FPackagedInventory::NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess)
@@ -33,7 +36,7 @@ void UInventoryComponent::BeginPlay()
 
 }
 
-void UInventoryComponent::AddItem(const FGameplayTag& ItemTag, int32 NumItes)
+void UInventoryComponent::AddItem(const FGameplayTag& ItemTag, int32 NumItems)
 {
 	AActor* Owner = GetOwner();
 	if (!IsValid(Owner))
@@ -41,22 +44,25 @@ void UInventoryComponent::AddItem(const FGameplayTag& ItemTag, int32 NumItes)
 
 	if (!Owner->HasAuthority())
 	{
-		ServerAddItem(ItemTag, NumItes);
+		ServerAddItem(ItemTag, NumItems);
 		return;
 	}
 
 	// Add the item to the inventory map
 	if (InventoryTagMap.Contains(ItemTag))
 	{
-		InventoryTagMap[ItemTag] += NumItes;
+		InventoryTagMap[ItemTag] += NumItems;
+		// If is zero delete the entry from the map
+		if (InventoryTagMap[ItemTag] <= 0)
+			InventoryTagMap.Remove(ItemTag);
 	}
 	else
 	{
-		InventoryTagMap.Emplace(ItemTag, NumItes);
+		InventoryTagMap.Emplace(ItemTag, NumItems);
 	}
 
 	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-		FString::Printf(TEXT("Added %d of %s to inventory"), NumItes, *ItemTag.ToString()));
+		FString::Printf(TEXT("Added %d of %s to inventory"), NumItems, *ItemTag.ToString()));
 
 	// Update the cached inventory for replication
 	PackageInventory(CachedInventory);
@@ -96,4 +102,71 @@ void UInventoryComponent::ReconstructInventoryMap(const FPackagedInventory& InIn
 void UInventoryComponent::OnRep_CachedInventory()
 {
 	ReconstructInventoryMap(CachedInventory);
+}
+
+void UInventoryComponent::UseItem(const FGameplayTag& ItemTag, int32 NumItems)
+{
+	AActor* Owner = GetOwner();
+	if (!IsValid(Owner))
+		return;
+
+	// Check if the item is in the inventory and if we have enough quantity to use
+	if (!InventoryTagMap.Contains(ItemTag) || InventoryTagMap[ItemTag] < NumItems)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
+			FString::Printf(TEXT("Not enough %s in inventory to use"), *ItemTag.ToString()));
+		return;
+	}
+	
+	if (!Owner->HasAuthority())
+	{
+		ServerUseItem(ItemTag, NumItems);
+		return;
+	}
+
+	FMasterItemDefinition Item = GetItemDefinitionByTag(ItemTag);
+
+	if (UAbilitySystemComponent* OwnerASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(Owner))
+	{
+		if (IsValid(Item.ConsumableProps.ItemEffectClass))
+		{
+			const FGameplayEffectContextHandle EffectContext = OwnerASC->MakeEffectContext();
+			const FGameplayEffectSpecHandle SpecHandle = OwnerASC->MakeOutgoingSpec(Item.ConsumableProps.ItemEffectClass, 
+				Item.ConsumableProps.ItemEffectLevel, EffectContext);
+			OwnerASC->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
+
+			AddItem(ItemTag, -1);
+
+			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Magenta,
+				FString::Printf(TEXT("Server Used %d of %s from inventory"), NumItems, *Item.ItemName.ToString()));
+		}
+	}
+}
+
+void UInventoryComponent::ServerUseItem_Implementation(const FGameplayTag& ItemTag, int32 NumItems)
+{
+	UseItem(ItemTag, NumItems);
+}
+
+FMasterItemDefinition UInventoryComponent::GetItemDefinitionByTag(const FGameplayTag& ItemTag) const
+{
+	checkf(InventoryDefinitions, TEXT("InventoryDefinitions is not set on %s"), *GetNameSafe(this));
+
+	for (const auto& Pair : InventoryDefinitions->TagsToTables)
+	{
+		if (ItemTag.MatchesTag(Pair.Key))
+		{
+			const UDataTable* DataTable = Pair.Value;
+			if (DataTable)
+			{
+				FMasterItemDefinition* ItemDef = URPGAbilitySystemLibrary::GetDataTableRowByTag<FMasterItemDefinition>(DataTable, ItemTag);
+				if (ItemDef)
+				{
+					return *ItemDef;
+				}
+			}
+		}
+	}
+
+	return FMasterItemDefinition();
 }

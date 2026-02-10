@@ -1,6 +1,4 @@
 GAS Implementation:
-	-Capire perche non ricostruisce l inventario quando chiama il server
-	-Capire come funziona NetSerialize
 	-continua tutorial
 
 Combat
