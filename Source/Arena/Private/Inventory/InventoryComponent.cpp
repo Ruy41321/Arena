@@ -66,6 +66,7 @@ void UInventoryComponent::AddItem(const FGameplayTag& ItemTag, int32 NumItems)
 
 	// Update the cached inventory for replication
 	PackageInventory(CachedInventory);
+	InventoryPackagedDelegate.Broadcast(CachedInventory);
 }
 
 void UInventoryComponent::ServerAddItem_Implementation(const FGameplayTag& ItemTag, int32 NumItems)
@@ -102,6 +103,7 @@ void UInventoryComponent::ReconstructInventoryMap(const FPackagedInventory& InIn
 void UInventoryComponent::OnRep_CachedInventory()
 {
 	ReconstructInventoryMap(CachedInventory);
+	InventoryPackagedDelegate.Broadcast(CachedInventory);
 }
 
 void UInventoryComponent::UseItem(const FGameplayTag& ItemTag, int32 NumItems)
@@ -169,4 +171,9 @@ FMasterItemDefinition UInventoryComponent::GetItemDefinitionByTag(const FGamepla
 	}
 
 	return FMasterItemDefinition();
+}
+
+TMap<FGameplayTag, int32> UInventoryComponent::GetInventoryTagMap() const
+{
+	return InventoryTagMap;
 }
