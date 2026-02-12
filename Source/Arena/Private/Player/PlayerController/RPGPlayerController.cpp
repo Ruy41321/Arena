@@ -2,11 +2,14 @@
 
 
 #include "Player/PlayerController/RPGPlayerController.h"
+#include "Input/RPGSystemInputComponent.h"
 #include "AbilitySystemBlueprintLibrary.h"
 #include "Inventory/InventoryComponent.h"
 #include "Net/UnrealNetwork.h"
 #include "UI/WidgetControllers/InventoryWidgetController.h"
 #include "UI/RPGSystemWidget.h"
+#include "AbilitySystem/RPGAbilitySystemComponent.h"
+#include "Player/PlayerState/RPGPlayerState.h"
 
 ARPGPlayerController::ARPGPlayerController()
 {
@@ -14,6 +17,29 @@ ARPGPlayerController::ARPGPlayerController()
 
 	InventoryComponent = CreateDefaultSubobject<UInventoryComponent>(TEXT("InventoryComponent"));
 	InventoryComponent->SetIsReplicated(true);
+}
+
+void ARPGPlayerController::BeginPlay()
+{
+	Super::BeginPlay();
+
+	if (ARPGPlayerState* RPGPlayerState = GetPlayerState<ARPGPlayerState>())
+	{
+		if (URPGAbilitySystemComponent* ASC = RPGPlayerState->GetRPGAbilitySystemComponent())
+		{
+			RPGAbilitySystemComponent = ASC;
+		}
+	}
+}
+
+void ARPGPlayerController::SetupInputComponent()
+{
+	APlayerController::SetupInputComponent();
+
+	if (URPGSystemInputComponent* RPGInputComponent = Cast<URPGSystemInputComponent>(InputComponent))
+	{
+		RPGInputComponent->BindAbilityActions(RPGInputConfig, this, &ARPGPlayerController::AbilityInputPressed, &ARPGPlayerController::AbilityInputReleased);
+	}
 }
 
 void ARPGPlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -54,5 +80,21 @@ void ARPGPlayerController::CreateInventoryWidget()
 		InventoryWidget->SetWidgetController(GetInventoryWidgetController());
 		InventoryWidgetController->BroadcastInitialValues();
 		InventoryWidget->AddToViewport();
+	}
+}
+
+void ARPGPlayerController::AbilityInputPressed(const FGameplayTag& InputTag)
+{
+	if (IsValid(RPGAbilitySystemComponent))
+	{
+		RPGAbilitySystemComponent->AbilityInputPressed(InputTag);
+	}
+}
+
+void ARPGPlayerController::AbilityInputReleased(const FGameplayTag& InputTag)
+{
+	if (IsValid(RPGAbilitySystemComponent))
+	{
+		RPGAbilitySystemComponent->AbilityInputReleased(InputTag);
 	}
 }
