@@ -23,6 +23,10 @@ void ARPGPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
 
+	if (IsValid(InventoryComponent))
+	{
+		InventoryComponent->bOwnerLocallyControlled = IsLocalController();
+	}
 }
 
 URPGAbilitySystemComponent* ARPGPlayerController::GetRPGAbilitySystemComponent()

@@ -102,8 +102,11 @@ void UInventoryComponent::ReconstructInventoryMap(const FPackagedInventory& InIn
 
 void UInventoryComponent::OnRep_CachedInventory()
 {
-	ReconstructInventoryMap(CachedInventory);
-	InventoryPackagedDelegate.Broadcast(CachedInventory);
+	if (bOwnerLocallyControlled)
+	{
+		ReconstructInventoryMap(CachedInventory);
+		InventoryPackagedDelegate.Broadcast(CachedInventory);
+	}
 }
 
 void UInventoryComponent::UseItem(const FGameplayTag& ItemTag, int32 NumItems)
@@ -111,15 +114,7 @@ void UInventoryComponent::UseItem(const FGameplayTag& ItemTag, int32 NumItems)
 	AActor* Owner = GetOwner();
 	if (!IsValid(Owner))
 		return;
-
-	// Check if the item is in the inventory and if we have enough quantity to use
-	if (!InventoryTagMap.Contains(ItemTag) || InventoryTagMap[ItemTag] < NumItems)
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
-			FString::Printf(TEXT("Not enough %s in inventory to use"), *ItemTag.ToString()));
-		return;
-	}
-	
+		
 	if (!Owner->HasAuthority())
 	{
 		ServerUseItem(ItemTag, NumItems);
@@ -147,6 +142,13 @@ void UInventoryComponent::UseItem(const FGameplayTag& ItemTag, int32 NumItems)
 
 void UInventoryComponent::ServerUseItem_Implementation(const FGameplayTag& ItemTag, int32 NumItems)
 {
+	// Check if the item is in the inventory and if we have enough quantity to use
+	if (!InventoryTagMap.Contains(ItemTag) || InventoryTagMap[ItemTag] < NumItems)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
+			FString::Printf(TEXT("Not enough %s in inventory to use"), *ItemTag.ToString()));
+		return;
+	}
 	UseItem(ItemTag, NumItems);
 }
 

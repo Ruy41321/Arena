@@ -62,6 +62,8 @@ public:
 
 	void ReconstructInventoryMap(const FPackagedInventory& InInventory);
 
+	bool bOwnerLocallyControlled = false;
+
 protected:
 
 	virtual void BeginPlay() override;
