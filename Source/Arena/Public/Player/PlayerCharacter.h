@@ -3,13 +3,9 @@
 #pragma once
 
 #include "CoreMinimal.h"
-
 #include "Player/MovementStateMachine/MovementStateTypes.h"
-
-#include "GameplayTagContainer.h"
 #include "AbilitySystemInterface.h"
-
-#include "GameFramework/Character.h"
+#include "Character/CharacterBase.h"
 #include "PlayerCharacter.generated.h"
 
 // Forward declarations for Enhanced Input
@@ -30,7 +26,7 @@ class UMovementStateMachine;
 
 
 UCLASS()
-class ARENA_API APlayerCharacter : public ACharacter, public IAbilitySystemInterface
+class ARENA_API APlayerCharacter : public ACharacterBase, public IAbilitySystemInterface
 {
 	GENERATED_BODY()
 
@@ -78,7 +74,7 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
-
+	virtual void InitAbilityActorInfo();
 	virtual void Landed(const FHitResult& Hit) override;
 
 public:
@@ -111,6 +107,7 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
 	TObjectPtr<UInputMappingContext> DefaultMappingContext;
 
+
 private:
 
 	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = true))
@@ -119,10 +116,7 @@ private:
 	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = true))
 	TObjectPtr<URPGAttributeSet> RPGAttributeSet;
 
-	UPROPERTY(EditAnywhere, Category = "Custom Values | Character Info")
-	FGameplayTag CharacterTag;
 
-	void InitAbilityActorInfo();
 	void InitClassDefaults();
 	void BindCallbacksToDependencies();
 
