@@ -26,12 +26,16 @@ void UInventoryWidgetController::BroadcastInventoryContent()
 	{
 		TMap<FGameplayTag, int32> LocalInventoryMap = OwningInventory->GetInventoryTagMap();
 
+		ScrollBoxResetDelegate.Broadcast();
+
 		for (const auto& Pair : LocalInventoryMap)
 		{
 			FMasterItemDefinition ItemDefinition = OwningInventory->GetItemDefinitionByTag(Pair.Key);
 			ItemDefinition.ItemQuantity = Pair.Value;
 			InventoryItemDelegate.Broadcast(ItemDefinition);
 		}
+
+		InventoryBroadcastCompleteDelegate.Broadcast();
 	}
 }
 

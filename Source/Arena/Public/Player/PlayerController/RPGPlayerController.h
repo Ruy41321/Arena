@@ -31,6 +31,7 @@ public:
 
 	UInventoryWidgetController* GetInventoryWidgetController();
 	
+	UFUNCTION(BlueprintCallable)
 	void CreateInventoryWidget();
 
 private:

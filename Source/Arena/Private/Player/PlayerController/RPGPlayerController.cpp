@@ -52,6 +52,7 @@ void ARPGPlayerController::CreateInventoryWidget()
 	{
 		InventoryWidget = Cast<URPGSystemWidget>(Widget);
 		InventoryWidget->SetWidgetController(GetInventoryWidgetController());
+		InventoryWidgetController->BroadcastInitialValues();
 		InventoryWidget->AddToViewport();
 	}
 }
