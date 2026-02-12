@@ -34,11 +34,21 @@ void URPGSystemInputComponent::BindAbilityActions(URPGInputConfig* InputConfig,
 		{
 			if (PressedFunc)
 			{
-				BindAction(Action.InputAction, ETriggerEvent::Started, Object, PressedFunc, Action.InputTag);
+				FGameplayTag Tag = Action.InputTag;
+				BindActionValueLambda(Action.InputAction, ETriggerEvent::Started,
+					[Object, PressedFunc, Tag](const FInputActionValue&)
+					{
+						(Object->*PressedFunc)(Tag);
+					});
 			}
 			if (ReleasedFunc)
 			{
-				BindAction(Action.InputAction, ETriggerEvent::Completed, Object, ReleasedFunc, Action.InputTag);
+				FGameplayTag Tag = Action.InputTag;
+				BindActionValueLambda(Action.InputAction, ETriggerEvent::Completed,
+					[Object, ReleasedFunc, Tag](const FInputActionValue&)
+					{
+						(Object->*ReleasedFunc)(Tag);
+					});
 			}
 		}
 	}

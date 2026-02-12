@@ -38,6 +38,8 @@ public:
 
 	UInventoryWidgetController* GetInventoryWidgetController();
 	
+	URPGAbilitySystemComponent* GetRPGAbilitySystemComponent();
+
 	UFUNCTION(BlueprintCallable)
 	void CreateInventoryWidget();
 

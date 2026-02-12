@@ -23,13 +23,22 @@ void ARPGPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
 
-	if (ARPGPlayerState* RPGPlayerState = GetPlayerState<ARPGPlayerState>())
+}
+
+URPGAbilitySystemComponent* ARPGPlayerController::GetRPGAbilitySystemComponent()
+{
+	if (!IsValid(RPGAbilitySystemComponent))
 	{
-		if (URPGAbilitySystemComponent* ASC = RPGPlayerState->GetRPGAbilitySystemComponent())
+		if (ARPGPlayerState* RPGPlayerState = GetPlayerState<ARPGPlayerState>())
 		{
-			RPGAbilitySystemComponent = ASC;
+			if (URPGAbilitySystemComponent* ASC = RPGPlayerState->GetRPGAbilitySystemComponent())
+			{
+				RPGAbilitySystemComponent = ASC;
+			}
 		}
 	}
+
+	return RPGAbilitySystemComponent;
 }
 
 void ARPGPlayerController::SetupInputComponent()
@@ -85,7 +94,7 @@ void ARPGPlayerController::CreateInventoryWidget()
 
 void ARPGPlayerController::AbilityInputPressed(const FGameplayTag& InputTag)
 {
-	if (IsValid(RPGAbilitySystemComponent))
+	if (IsValid(GetRPGAbilitySystemComponent()))
 	{
 		RPGAbilitySystemComponent->AbilityInputPressed(InputTag);
 	}
@@ -93,7 +102,7 @@ void ARPGPlayerController::AbilityInputPressed(const FGameplayTag& InputTag)
 
 void ARPGPlayerController::AbilityInputReleased(const FGameplayTag& InputTag)
 {
-	if (IsValid(RPGAbilitySystemComponent))
+	if (IsValid(GetRPGAbilitySystemComponent()))
 	{
 		RPGAbilitySystemComponent->AbilityInputReleased(InputTag);
 	}
