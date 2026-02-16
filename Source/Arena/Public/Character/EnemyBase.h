@@ -22,14 +22,20 @@ public:
 	AEnemyBase();
 
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 protected:
 
 	virtual void BeginPlay() override;
-
 	virtual void InitAbilityActorInfo() override;
+	virtual void InitClassDefaults() override;
+	virtual void BindCallbacksToDependencies() override;
+	virtual void BroadcastInitialValues() override;
 
 private:
+
+	UPROPERTY(ReplicatedUsing=OnRep_InitAttributes)
+	bool bInitAttributes = false;
 
 	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = true))
 	TObjectPtr<URPGAbilitySystemComponent> RPGAbilitySystemComponent;
@@ -37,6 +43,7 @@ private:
 	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = true))
 	TObjectPtr<URPGAttributeSet> RPGAttributeSet;
 
-	void InitClassDefaults();
-	
+	UFUNCTION()
+	void OnRep_InitAttributes();
+
 };

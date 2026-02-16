@@ -66,16 +66,14 @@ public:
 
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
 
-	UFUNCTION(BlueprintImplementableEvent)
-	void OnHealthChanged(float CurrentHealth, float MaxHealth);
-
-	UFUNCTION(BlueprintImplementableEvent)
-	void OnManaChanged(float CurrentMana, float MaxMana);
-
 protected:
 	virtual void BeginPlay() override;
 	virtual void InitAbilityActorInfo();
 	virtual void Landed(const FHitResult& Hit) override;
+
+	virtual void BindCallbacksToDependencies() override;
+	virtual void InitClassDefaults() override;
+	virtual void BroadcastInitialValues() override;
 
 public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Dodge System")
@@ -116,10 +114,4 @@ private:
 	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = true))
 	TObjectPtr<URPGAttributeSet> RPGAttributeSet;
 
-
-	void InitClassDefaults();
-	void BindCallbacksToDependencies();
-
-	UFUNCTION(BlueprintCallable)
-	void BroadcastInitialValues();
 };

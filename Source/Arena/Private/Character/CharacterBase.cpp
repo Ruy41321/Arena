@@ -31,3 +31,18 @@ void ACharacterBase::InitAbilityActorInfo()
 {
 	// Blank for now
 }
+
+void ACharacterBase::BindCallbacksToDependencies()
+{
+	// Blank for now
+}
+
+void ACharacterBase::InitClassDefaults()
+{
+	// Blank for now
+}
+
+void ACharacterBase::BroadcastInitialValues()
+{
+	// Blank for now
+}

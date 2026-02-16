@@ -6,6 +6,7 @@
 #include "AbilitySystem/Attributes/RPGAttributeSet.h"
 #include "Libraries/RPGAbilitySystemLibrary.h"
 #include <Data/CharacterClassInfo.h>
+#include "Net/UnrealNetwork.h"
 
 AEnemyBase::AEnemyBase()
 {
@@ -23,10 +24,8 @@ void AEnemyBase::BeginPlay()
 {
 	Super::BeginPlay();
 	
-	if (HasAuthority())
-	{
-		InitAbilityActorInfo();
-	}
+	BindCallbacksToDependencies();
+	InitAbilityActorInfo();
 
 }
 
@@ -39,6 +38,7 @@ void AEnemyBase::InitAbilityActorInfo()
 		if (HasAuthority())
 		{
 			InitClassDefaults();
+			BroadcastInitialValues();
 		}
 	}
 }
@@ -46,6 +46,12 @@ void AEnemyBase::InitAbilityActorInfo()
 UAbilitySystemComponent* AEnemyBase::GetAbilitySystemComponent() const
 {
 	return RPGAbilitySystemComponent;
+}
+
+void AEnemyBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(AEnemyBase, bInitAttributes);
 }
 
 void AEnemyBase::InitClassDefaults()
@@ -70,4 +76,39 @@ void AEnemyBase::InitClassDefaults()
 			}
 		}
 	}
+}
+
+void AEnemyBase::BindCallbacksToDependencies()
+{
+	if (IsValid(RPGAbilitySystemComponent) && IsValid(RPGAttributeSet))
+	{
+		//Health
+		RPGAbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(URPGAttributeSet::GetHealthAttribute()).AddLambda(
+			[this](const FOnAttributeChangeData& Data)
+			{
+				OnHealthChanged(Data.NewValue, RPGAttributeSet->GetMaxHealth());
+			});
+
+		if (HasAuthority())
+		{
+			RPGAbilitySystemComponent->OnAttributesGiven.AddLambda(
+				[this]
+				{
+					bInitAttributes = true;
+				});
+		}
+	}
+}
+
+void AEnemyBase::BroadcastInitialValues()
+{
+	if (IsValid(RPGAttributeSet))
+	{
+		OnHealthChanged(RPGAttributeSet->GetHealth(), RPGAttributeSet->GetMaxHealth());
+	}
+}
+
+void AEnemyBase::OnRep_InitAttributes()
+{
+	BroadcastInitialValues();
 }

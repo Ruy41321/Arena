@@ -6,3 +6,12 @@ Combat
 Enemies
 
 Arena Map
+
+Ideas:
+	{
+		- Guadagno di moneta dopo i duelli (2x se si vince)
+		- Shop di skin (poche)
+		- Skin uniche che si ottengono con un certo rank / dopo tot duelli vinti
+	}
+	- Solo combattimento di spada (specifico / verticale / peculiare)
+	
