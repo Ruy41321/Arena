@@ -7,7 +7,7 @@
 #include "RPGGameMode.generated.h"
 
 class UCharacterClassInfo;
-
+class UProjectileInfo;
 /**
  * 
  */
@@ -19,9 +19,13 @@ class ARENA_API ARPGGameMode : public AGameMode
 public:
 
 	UCharacterClassInfo* GetCharacterClassDefaultInfo() const;
+	UProjectileInfo* GetProjectileInfo() const;
 
 private:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Custom Values | Class Defaults")
 	TObjectPtr<UCharacterClassInfo> ClassDefaults;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Custom Values | Projectiles")
+	TObjectPtr<UProjectileInfo> ProjectileInfo;
 };

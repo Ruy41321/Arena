@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Player/MovementStateMachine/MovementStateTypes.h"
 #include "AbilitySystemInterface.h"
+#include "Interfaces/RPGAbilitySystemInterface.h"
 #include "Character/CharacterBase.h"
 #include "PlayerCharacter.generated.h"
 
@@ -26,7 +27,7 @@ class UMovementStateMachine;
 
 
 UCLASS()
-class ARENA_API APlayerCharacter : public ACharacterBase, public IAbilitySystemInterface
+class ARENA_API APlayerCharacter : public ACharacterBase, public IAbilitySystemInterface, public IRPGAbilitySystemInterface
 {
 	GENERATED_BODY()
 
@@ -65,6 +66,9 @@ public:
 	virtual void OnRep_PlayerState() override;
 
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
+
+	/* Implement RPGAbilitySystemInterface */
+	virtual USceneComponent* GetDynamicSpawnPoint_Implementation() override;
 
 protected:
 	virtual void BeginPlay() override;
@@ -107,6 +111,9 @@ protected:
 
 
 private:
+
+	UPROPERTY(VisibleAnywhere, meta = (AllowPrivateAccess = true))
+	TObjectPtr<USceneComponent> DynamicProjectileSpawnPoint;
 
 	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = true))
 	TObjectPtr<URPGAbilitySystemComponent> RPGAbilitySystemComponent;

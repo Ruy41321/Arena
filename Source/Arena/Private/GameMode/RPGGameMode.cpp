@@ -7,3 +7,8 @@ UCharacterClassInfo* ARPGGameMode::GetCharacterClassDefaultInfo() const
 {
 	return ClassDefaults;
 }
+
+UProjectileInfo* ARPGGameMode::GetProjectileInfo() const
+{
+	return ProjectileInfo;
+}

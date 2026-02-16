@@ -11,7 +11,7 @@ void URPGAbilitySystemComponent::AddCharacterAbilities(const TArray<TSubclassOf<
 
 		if (const URPGGameplayAbility* RPGAbility = Cast<URPGGameplayAbility>(AbilitySpec.Ability))
 		{
-			AbilitySpec.DynamicAbilityTags.AddTag(RPGAbility->InputTag);
+			AbilitySpec.GetDynamicSpecSourceTags().AddTag(RPGAbility->InputTag);
 			GiveAbility(AbilitySpec);
 		}
 	}
@@ -45,7 +45,7 @@ void URPGAbilitySystemComponent::AbilityInputPressed(const FGameplayTag& InputTa
 
 	for (const FGameplayAbilitySpec& Spec : GetActivatableAbilities())
 	{
-		if (Spec.DynamicAbilityTags.HasTagExact(InputTag))
+		if (Spec.GetDynamicSpecSourceTags().HasTagExact(InputTag))
 		{
 			if (!Spec.IsActive())
 			{
@@ -53,8 +53,15 @@ void URPGAbilitySystemComponent::AbilityInputPressed(const FGameplayTag& InputTa
 			}
 			else
 			{
-				InvokeReplicatedEvent(EAbilityGenericReplicatedEvent::InputPressed, Spec.Handle,
-					Spec.ActivationInfo.GetActivationPredictionKey());
+				// Use the ability instance's CurrentActivationInfo for instanced abilities.
+				if (Spec.Ability && Spec.Ability->GetInstancingPolicy() == EGameplayAbilityInstancingPolicy::InstancedPerActor)
+				{
+					if (UGameplayAbility* AbilityInstance = Spec.GetPrimaryInstance())
+					{
+						InvokeReplicatedEvent(EAbilityGenericReplicatedEvent::InputPressed, Spec.Handle,
+							AbilityInstance->GetCurrentActivationInfo().GetActivationPredictionKey());
+					}
+				}
 			}
 		}
 	}
@@ -69,10 +76,17 @@ void URPGAbilitySystemComponent::AbilityInputReleased(const FGameplayTag& InputT
 
 	for (const FGameplayAbilitySpec& Spec : GetActivatableAbilities())
 	{
-		if (Spec.DynamicAbilityTags.HasTagExact(InputTag))
+		if (Spec.GetDynamicSpecSourceTags().HasTagExact(InputTag))
 		{
-			InvokeReplicatedEvent(EAbilityGenericReplicatedEvent::InputReleased, Spec.Handle,
-				Spec.ActivationInfo.GetActivationPredictionKey());
+			// Use the ability instance's CurrentActivationInfo for instanced abilities.
+			if (Spec.Ability && Spec.Ability->GetInstancingPolicy() == EGameplayAbilityInstancingPolicy::InstancedPerActor)
+			{
+				if (UGameplayAbility* AbilityInstance = Spec.GetPrimaryInstance())
+				{
+					InvokeReplicatedEvent(EAbilityGenericReplicatedEvent::InputPressed, Spec.Handle,
+						AbilityInstance->GetCurrentActivationInfo().GetActivationPredictionKey());
+				}
+			}
 		}
 	}
 }

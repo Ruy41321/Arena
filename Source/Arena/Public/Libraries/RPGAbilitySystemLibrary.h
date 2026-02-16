@@ -8,6 +8,7 @@
 #include "RPGAbilitySystemLibrary.generated.h"
 
 class UCharacterClassInfo;
+class UProjectileInfo;
 
 /**
  * 
@@ -22,6 +23,8 @@ public:
 	UFUNCTION(BlueprintPure)
 	static UCharacterClassInfo* GetCharacterClassDefaultInfo(const UObject* WorldContextObject);
 
+	UFUNCTION(BlueprintPure)
+	static UProjectileInfo* GetProjectileInfo(const UObject* WorldContextObject);
 
 	template<typename T>
 	static T* GetDataTableRowByTag(const UDataTable* DataTable, const FGameplayTag& Tag);

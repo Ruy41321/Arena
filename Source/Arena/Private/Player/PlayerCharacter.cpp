@@ -50,6 +50,9 @@ APlayerCharacter::APlayerCharacter()
 	JumpSystem = CreateDefaultSubobject<UJumpSystemComponent>(TEXT("Jump System Component"));
 	SprintSystem = CreateDefaultSubobject<USprintSystemComponent>(TEXT("Sprint System Component"));
 	MovementStateMachine = CreateDefaultSubobject<UMovementStateMachine>(TEXT("Movement State Machine"));
+
+	DynamicProjectileSpawnPoint = CreateDefaultSubobject<USceneComponent>(TEXT("Projectile Spawn Point"));
+	DynamicProjectileSpawnPoint->SetupAttachment(GetRootComponent());
 }
 
 void APlayerCharacter::BeginPlay()
@@ -252,4 +255,9 @@ void APlayerCharacter::BroadcastInitialValues()
 		OnHealthChanged(RPGAttributeSet->GetHealth(), RPGAttributeSet->GetMaxHealth());
 		OnManaChanged(RPGAttributeSet->GetMana(), RPGAttributeSet->GetMaxMana());
 	}
+}
+
+USceneComponent* APlayerCharacter::GetDynamicSpawnPoint_Implementation()
+{
+	return DynamicProjectileSpawnPoint;
 }
