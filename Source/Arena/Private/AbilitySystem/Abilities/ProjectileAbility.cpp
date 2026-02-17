@@ -45,9 +45,15 @@ void UProjectileAbility::SpawnProjectile()
 		SpawnTransform.SetLocation(SpawnPoint);
 		SpawnTransform.SetRotation(TargetRotation.Quaternion());
 
-		if (AProjectileBase* SpawnedProjectile = GetWorld()->SpawnActorDeferred<AProjectileBase>(CurrentProjectileParams.ProjectileClass, SpawnTransform))
+		if (AProjectileBase* SpawnedProjectile = GetWorld()->SpawnActorDeferred<AProjectileBase>(CurrentProjectileParams.ProjectileClass, SpawnTransform, AvatarActorFromInfo))
 		{
 			SpawnedProjectile->SetProjectileParams(CurrentProjectileParams);
+
+			FDamageEffectInfo DamageEffectInfo;
+			CaptureDamageEffectInfo(nullptr, DamageEffectInfo);
+
+			SpawnedProjectile->DamageEffectInfo = DamageEffectInfo;
+
 			SpawnedProjectile->FinishSpawning(SpawnTransform);
 		}
 	}

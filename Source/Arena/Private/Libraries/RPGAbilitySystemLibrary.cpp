@@ -2,8 +2,11 @@
 
 
 #include "Libraries/RPGAbilitySystemLibrary.h"
-
+#include "AbilitySystem/RPGAbilityTypes.h"
+#include "AbilitySystemComponent.h"
 #include "GameMode/RPGGameMode.h"
+#include "AbilitySystemBlueprintLibrary.h"
+#include "AbilitySystem/RPGGameplayTags.h"
 #include "Kismet/GameplayStatics.h"
 
 UCharacterClassInfo* URPGAbilitySystemLibrary::GetCharacterClassDefaultInfo(const UObject* WorldContextObject)
@@ -24,4 +27,20 @@ UProjectileInfo* URPGAbilitySystemLibrary::GetProjectileInfo(const UObject* Worl
 	}
 
 	return nullptr;
+}
+
+void URPGAbilitySystemLibrary::ApplyDamageEffect(const FDamageEffectInfo& DamageEffectInfo)
+{
+	FGameplayEffectContextHandle ContextHandle = DamageEffectInfo.SourceASC->MakeEffectContext();
+	ContextHandle.AddSourceObject(DamageEffectInfo.AvatarActor);
+	
+	const FGameplayEffectSpecHandle SpecHandle = DamageEffectInfo.SourceASC->MakeOutgoingSpec(DamageEffectInfo.DamageEffect, 
+		DamageEffectInfo.AbilityLevel, ContextHandle);
+
+	UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(SpecHandle, RPGGameplayTags::Combat::Data_Damage, DamageEffectInfo.BaseDamage);
+
+	if (IsValid(DamageEffectInfo.TargetASC))
+	{
+		DamageEffectInfo.TargetASC->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
+	}
 }

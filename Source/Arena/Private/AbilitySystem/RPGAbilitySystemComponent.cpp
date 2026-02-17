@@ -3,6 +3,7 @@
 
 #include "AbilitySystem/RPGAbilitySystemComponent.h"
 #include "AbilitySystem/Abilities/RPGGameplayAbility.h"
+#include "AbilitySystem/Abilities/ProjectileAbility.h"
 
 void URPGAbilitySystemComponent::AddCharacterAbilities(const TArray<TSubclassOf<class UGameplayAbility>>& AbilitiesToGrant)
 {
@@ -89,4 +90,36 @@ void URPGAbilitySystemComponent::AbilityInputReleased(const FGameplayTag& InputT
 			}
 		}
 	}
+}
+
+void URPGAbilitySystemComponent::SetDynamicProjectile(const FGameplayTag& ProjectileTag, int32 AbilityLevel)
+{
+	if (!ProjectileTag.IsValid())
+		return;
+	if (!GetAvatarActor()->HasAuthority())
+	{
+		ServerSetDynamicProjectile(ProjectileTag, AbilityLevel);
+		return;
+	}
+
+	if (ActiveProjectileAbility.IsValid())
+	{
+		ClearAbility(ActiveProjectileAbility);
+	}
+
+	if (IsValid(DynamicProjectileAbility))
+	{
+		FGameplayAbilitySpec Spec = FGameplayAbilitySpec(DynamicProjectileAbility, AbilityLevel);
+		if (UProjectileAbility* ProjectileAbility = Cast<UProjectileAbility>(Spec.Ability))
+		{
+			ProjectileAbility->ProjectileToSpawnTag = ProjectileTag;
+			Spec.GetDynamicSpecSourceTags().AddTag(ProjectileAbility->InputTag);
+			ActiveProjectileAbility = GiveAbility(Spec);
+		}
+	}
+}
+
+void URPGAbilitySystemComponent::ServerSetDynamicProjectile_Implementation(const FGameplayTag& ProjectileTag, int32 AbilityLevel)
+{
+	SetDynamicProjectile(ProjectileTag, AbilityLevel);
 }

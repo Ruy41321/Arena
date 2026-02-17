@@ -4,14 +4,14 @@
 
 #include "CoreMinimal.h"
 #include "AbilitySystem/RPGAbilityTypes.h"
-#include "AbilitySystem/Abilities/RPGGameplayAbility.h"
+#include "AbilitySystem/Abilities/RPGDamageAbility.h"
 #include "ProjectileAbility.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class ARENA_API UProjectileAbility : public URPGGameplayAbility
+class ARENA_API UProjectileAbility : public URPGDamageAbility
 {
 	GENERATED_BODY()
 	

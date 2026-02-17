@@ -2,8 +2,10 @@
 
 
 #include "Projectiles/ProjectileBase.h"
-
+#include "Components/SphereComponent.h"
 #include "AbilitySystem/RPGAbilityTypes.h"
+#include "AbilitySystemGlobals.h"
+#include "Libraries/RPGAbilitySystemLibrary.h"
 #include "GameFramework/ProjectileMovementComponent.h"
 
 AProjectileBase::AProjectileBase()
@@ -15,12 +17,41 @@ AProjectileBase::AProjectileBase()
 	SetRootComponent(ProjectileMesh);
 	ProjectileMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 	ProjectileMesh->SetCollisionObjectType(ECollisionChannel::ECC_WorldDynamic);
-	ProjectileMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Overlap);
-	ProjectileMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
+	ProjectileMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
 	ProjectileMesh->SetIsReplicated(true);
 
 	ProjectileMovementComponent = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("MovementComponent"));
 	//ProjectileMovementComponent->SetIsReplicated(true);
+
+	OverlapSphere = CreateDefaultSubobject<USphereComponent>(TEXT("OverlapSphere"));
+	OverlapSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	OverlapSphere->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
+	OverlapSphere->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Overlap);
+	OverlapSphere->SetupAttachment(GetRootComponent());
+}
+
+void AProjectileBase::BeginPlay()
+{
+	Super::BeginPlay();
+
+	if (HasAuthority())
+	{
+		OverlapSphere->OnComponentBeginOverlap.AddDynamic(this, &AProjectileBase::OnSphereBeginOverlap);
+	}
+}
+
+void AProjectileBase::OnSphereBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, 
+	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
+	if (OtherActor == GetOwner()) return;
+
+	if (UAbilitySystemComponent* TargetASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(OtherActor))
+	{
+		DamageEffectInfo.TargetASC = TargetASC;
+		URPGAbilitySystemLibrary::ApplyDamageEffect(DamageEffectInfo);
+
+		Destroy();
+	}
 }
 
 void AProjectileBase::SetProjectileParams(const FProjectileParams& Params)
@@ -38,5 +69,3 @@ void AProjectileBase::SetProjectileParams(const FProjectileParams& Params)
 		ProjectileMovementComponent->Bounciness = Params.Bounciness;
 	}
 }
-
-

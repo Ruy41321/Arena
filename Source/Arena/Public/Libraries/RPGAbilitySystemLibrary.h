@@ -9,7 +9,7 @@
 
 class UCharacterClassInfo;
 class UProjectileInfo;
-
+struct FDamageEffectInfo;
 /**
  * 
  */
@@ -25,6 +25,9 @@ public:
 
 	UFUNCTION(BlueprintPure)
 	static UProjectileInfo* GetProjectileInfo(const UObject* WorldContextObject);
+
+	UFUNCTION(BlueprintCallable)
+	static void ApplyDamageEffect(const FDamageEffectInfo& DamageEffectInfo);
 
 	template<typename T>
 	static T* GetDataTableRowByTag(const UDataTable* DataTable, const FGameplayTag& Tag);

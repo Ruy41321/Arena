@@ -42,7 +42,14 @@ public:
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_MaxMana)
 	FGameplayAttributeData MaxMana;
 	ATTRIBUTE_ACCESSORS(URPGAttributeSet, MaxMana)
+
+	UPROPERTY()
+	FGameplayAttributeData IncomingHealthDamage;
+	ATTRIBUTE_ACCESSORS(URPGAttributeSet, IncomingHealthDamage);
+
 private:
+
+	void HandleIncomingHealthDamage(const FGameplayEffectModCallbackData& Data);
 
 	UFUNCTION()
 	void OnRep_Health(const FGameplayAttributeData& OldHealth);

@@ -17,7 +17,7 @@ struct FConsumableProps
 	TSubclassOf<UGameplayEffect> ItemEffectClass;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	float ItemEffectLevel;
+	float ItemEffectLevel = 0.f;
 
 };
 
@@ -30,7 +30,7 @@ struct FMasterItemDefinition : public FTableRowBase
 	FGameplayTag ItemTag;
 
 	UPROPERTY(BlueprintReadOnly)
-	int32 ItemQuantity;
+	int32 ItemQuantity = 0;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	FText ItemName;

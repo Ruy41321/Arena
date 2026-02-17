@@ -72,6 +72,14 @@ UInventoryComponent* ARPGPlayerController::GetInventoryComponent_Implementation(
 	return InventoryComponent;
 }
 
+void ARPGPlayerController::SetDynamicProjectile_Implementation(const FGameplayTag& ProjectileTag, int32 AbilityLevel)
+{
+	if (IsValid(GetRPGAbilitySystemComponent()))
+	{
+		RPGAbilitySystemComponent->SetDynamicProjectile(ProjectileTag, AbilityLevel);
+	}
+}
+
 UInventoryWidgetController* ARPGPlayerController::GetInventoryWidgetController()
 {
 	if (!IsValid(InventoryWidgetController))
