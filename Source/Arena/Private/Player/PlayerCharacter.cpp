@@ -239,11 +239,17 @@ void APlayerCharacter::BindCallbacksToDependencies()
 			{
 				OnHealthChanged(Data.NewValue, RPGAttributeSet->GetMaxHealth());
 			});
-		//Mana
-		RPGAbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(URPGAttributeSet::GetManaAttribute()).AddLambda(
+		//Stamina
+		RPGAbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(URPGAttributeSet::GetStaminaAttribute()).AddLambda(
 			[this](const FOnAttributeChangeData& Data)
 			{
-				OnManaChanged(Data.NewValue, RPGAttributeSet->GetMaxMana());
+				OnStaminaChanged(Data.NewValue, RPGAttributeSet->GetMaxStamina());
+			});
+		//Shield
+		RPGAbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(URPGAttributeSet::GetShieldAttribute()).AddLambda(
+			[this](const FOnAttributeChangeData& Data)
+			{
+				OnShieldChanged(Data.NewValue, RPGAttributeSet->GetMaxShield());
 			});
 	}
 }
@@ -253,7 +259,8 @@ void APlayerCharacter::BroadcastInitialValues()
 	if (IsValid(RPGAttributeSet))
 	{
 		OnHealthChanged(RPGAttributeSet->GetHealth(), RPGAttributeSet->GetMaxHealth());
-		OnManaChanged(RPGAttributeSet->GetMana(), RPGAttributeSet->GetMaxMana());
+		OnStaminaChanged(RPGAttributeSet->GetStamina(), RPGAttributeSet->GetMaxStamina());
+		OnShieldChanged(RPGAttributeSet->GetShield(), RPGAttributeSet->GetMaxShield());
 	}
 }
 

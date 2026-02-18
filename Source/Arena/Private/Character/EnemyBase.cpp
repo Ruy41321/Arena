@@ -89,6 +89,13 @@ void AEnemyBase::BindCallbacksToDependencies()
 				OnHealthChanged(Data.NewValue, RPGAttributeSet->GetMaxHealth());
 			});
 
+		//Shield
+		RPGAbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(URPGAttributeSet::GetShieldAttribute()).AddLambda(
+			[this](const FOnAttributeChangeData& Data)
+			{
+				OnShieldChanged(Data.NewValue, RPGAttributeSet->GetMaxShield());
+			});
+
 		if (HasAuthority())
 		{
 			RPGAbilitySystemComponent->OnAttributesGiven.AddLambda(
@@ -105,6 +112,7 @@ void AEnemyBase::BroadcastInitialValues()
 	if (IsValid(RPGAttributeSet))
 	{
 		OnHealthChanged(RPGAttributeSet->GetHealth(), RPGAttributeSet->GetMaxHealth());
+		OnShieldChanged(RPGAttributeSet->GetShield(), RPGAttributeSet->GetMaxShield());
 	}
 }
 

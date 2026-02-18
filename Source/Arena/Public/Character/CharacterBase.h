@@ -19,7 +19,10 @@ public:
 	void OnHealthChanged(float CurrentHealth, float MaxHealth);
 
 	UFUNCTION(BlueprintImplementableEvent)
-	void OnManaChanged(float CurrentMana, float MaxMana);
+	void OnStaminaChanged(float CurrentStamina, float MaxStamina);
+
+	UFUNCTION(BlueprintImplementableEvent)
+	void OnShieldChanged(float CurrentShield, float MaxShield);
 
 protected:
 	virtual void BeginPlay() override;
