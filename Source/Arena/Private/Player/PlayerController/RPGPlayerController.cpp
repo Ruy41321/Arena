@@ -10,6 +10,8 @@
 #include "UI/RPGSystemWidget.h"
 #include "AbilitySystem/RPGAbilitySystemComponent.h"
 #include "Player/PlayerState/RPGPlayerState.h"
+#include "Equipment/EquipmentManagerComponent.h"
+#include "Equipment/EquipmentDefinition.h"
 
 ARPGPlayerController::ARPGPlayerController()
 {
@@ -17,6 +19,8 @@ ARPGPlayerController::ARPGPlayerController()
 
 	InventoryComponent = CreateDefaultSubobject<UInventoryComponent>(TEXT("InventoryComponent"));
 	InventoryComponent->SetIsReplicated(true);
+
+	EquipmentComponent = CreateDefaultSubobject<UEquipmentManagerComponent>(TEXT("EquipmentComponent"));
 }
 
 URPGAbilitySystemComponent* ARPGPlayerController::GetRPGAbilitySystemComponent()
@@ -50,6 +54,12 @@ void ARPGPlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>&
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(ARPGPlayerController, InventoryComponent);
+}
+
+void ARPGPlayerController::BeginPlay()
+{
+	Super::BeginPlay();
+	BindCallbacksToDependencies();
 }
 
 UAbilitySystemComponent* ARPGPlayerController::GetAbilitySystemComponent() const
@@ -107,5 +117,24 @@ void ARPGPlayerController::AbilityInputReleased(const FGameplayTag& InputTag)
 	if (IsValid(GetRPGAbilitySystemComponent()))
 	{
 		RPGAbilitySystemComponent->AbilityInputReleased(InputTag);
+	}
+}
+
+void ARPGPlayerController::BindCallbacksToDependencies()
+{
+	if (IsValid(InventoryComponent) && IsValid(EquipmentComponent))
+	{
+		InventoryComponent->EquipmentItemUsedDelegate.AddLambda(
+			[this](const TSubclassOf<UEquipmentDefinition>& EquipmentDefinition)
+			{
+				// Equipping Item from Inventory on Use
+				EquipmentComponent->EquipItem(EquipmentDefinition);
+			});
+		EquipmentComponent->EquipmentList.UnEquipDelegate.AddLambda(
+			[this](const FGameplayTag& EntryTag)
+			{
+				// Returning Item to Inventory on UnEquip
+				InventoryComponent->AddItem(EntryTag);
+			});
 	}
 }

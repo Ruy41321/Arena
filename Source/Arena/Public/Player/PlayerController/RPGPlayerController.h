@@ -15,6 +15,7 @@ class UInventoryComponent;
 class UInventoryWidgetController;
 class URPGSystemWidget;
 class URPGAbilitySystemComponent;
+class UEquipmentManagerComponent;
 /**
  * 
  */
@@ -48,6 +49,8 @@ public:
 
 protected:
 
+	virtual void BeginPlay() override;
+
 	void AbilityInputPressed(const FGameplayTag& InputTag);
 	void AbilityInputReleased(const FGameplayTag& InputTag);
 
@@ -62,6 +65,9 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = true), Replicated)
 	TObjectPtr<UInventoryComponent> InventoryComponent;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = true))
+	TObjectPtr<UEquipmentManagerComponent> EquipmentComponent;
+
 	UPROPERTY()
 	TObjectPtr<UInventoryWidgetController> InventoryWidgetController;
 
@@ -73,4 +79,6 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, category = "Custom Values | Widgets")
 	TSubclassOf<URPGSystemWidget> InventoryWidgetClass;
+
+	void BindCallbacksToDependencies();
 };

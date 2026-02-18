@@ -4,12 +4,14 @@
 
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
-#include "Components/ActorComponent.h"
 #include "ItemTypes.h"
+#include "Delegates/DelegateCombinations.h"
 #include "Net/Serialization/FastArraySerializer.h"
 #include "InventoryComponent.generated.h"
 
 class UItemTypesToTables;
+
+DECLARE_MULTICAST_DELEGATE_OneParam(FEquipmentItemUsed, const TSubclassOf<UEquipmentDefinition>& /*Equipment Definition*/);
 
 USTRUCT(BlueprintType)
 struct FRPGInventoryEntry : public FFastArraySerializerItem
@@ -77,6 +79,8 @@ class ARENA_API UInventoryComponent : public UActorComponent
 	GENERATED_BODY()
 
 public:
+
+	FEquipmentItemUsed EquipmentItemUsedDelegate;
 
 	UInventoryComponent();
 

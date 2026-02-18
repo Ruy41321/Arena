@@ -47,12 +47,8 @@ void FRPGInventoryList::RemoveItem(const FGameplayTag& ItemTag, int32 NumItems)
 
 		if (Entry.ItemTag.MatchesTagExact(ItemTag))
 		{
-			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-				FString::Printf(TEXT("Removing %d of %s from inventory"), NumItems, *Entry.ItemTag.ToString()));
 			Entry.Quantity = (Entry.Quantity - NumItems <= 0) ? 0 : (Entry.Quantity - NumItems);
 
-			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-				FString::Printf(TEXT("Remaining %d"), Entry.Quantity));
 			MarkItemDirty(Entry);
 
 			if (OwnerComponent->GetOwner()->HasAuthority())
@@ -174,6 +170,12 @@ void UInventoryComponent::UseItem(const FGameplayTag& ItemTag, int32 NumItems)
 
 			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Magenta,
 				FString::Printf(TEXT("Server Used %d of %s from inventory"), NumItems, *Item.ItemName.ToString()));
+		}
+		
+		if (IsValid(Item.EquipmentItemProps.EquipmentClass))
+		{
+			EquipmentItemUsedDelegate.Broadcast(Item.EquipmentItemProps.EquipmentClass);
+			InventoryList.RemoveItem(ItemTag);
 		}
 	}
 }
