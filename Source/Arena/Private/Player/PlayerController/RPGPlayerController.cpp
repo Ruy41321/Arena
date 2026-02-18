@@ -19,16 +19,6 @@ ARPGPlayerController::ARPGPlayerController()
 	InventoryComponent->SetIsReplicated(true);
 }
 
-void ARPGPlayerController::BeginPlay()
-{
-	Super::BeginPlay();
-
-	if (IsValid(InventoryComponent))
-	{
-		InventoryComponent->bOwnerLocallyControlled = IsLocalController();
-	}
-}
-
 URPGAbilitySystemComponent* ARPGPlayerController::GetRPGAbilitySystemComponent()
 {
 	if (!IsValid(RPGAbilitySystemComponent))

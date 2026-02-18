@@ -8,7 +8,10 @@ public class Arena : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 	
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput", "GameplayAbilities", "GameplayTasks", "GameplayTags" });
+		PublicDependencyModuleNames.AddRange(new string[] {
+			"Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput",
+			"GameplayAbilities", "GameplayTasks", "GameplayTags", "NetCore"
+		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] {  });
 

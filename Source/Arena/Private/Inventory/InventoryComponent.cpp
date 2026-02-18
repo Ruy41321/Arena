@@ -8,16 +8,103 @@
 #include "Libraries/RPGAbilitySystemLibrary.h"
 #include "Net/UnrealNetwork.h"
 
-bool FPackagedInventory::NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess)
+void FRPGInventoryList::AddItem(const FGameplayTag& ItemTag, int32 NumItems)
 {
-	SafeNetSerializeTArray_WithNetSerialize<100>(Ar, ItemTags, Map);
-	SafeNetSerializeTArray_Default<100>(Ar, ItemQuantities);
+	for (auto EntryIt = Entries.CreateIterator(); EntryIt; ++EntryIt)
+	{
+		FRPGInventoryEntry& Entry = *EntryIt;
 
-	bOutSuccess = true;
-	return true;
+		if (Entry.ItemTag.MatchesTagExact(ItemTag))
+		{
+			Entry.Quantity += NumItems;
+
+			MarkItemDirty(Entry);
+
+			if (OwnerComponent->GetOwner()->HasAuthority())
+			{
+				DirtyItemDelegate.Broadcast(Entry);
+			}
+			return;
+		}
+	}
+
+	FRPGInventoryEntry& NewEntry = Entries.AddDefaulted_GetRef();
+	NewEntry.ItemTag = ItemTag;
+	NewEntry.Quantity = NumItems;
+
+	MarkItemDirty(NewEntry);
+	if (OwnerComponent->GetOwner()->HasAuthority())
+	{
+		DirtyItemDelegate.Broadcast(NewEntry);
+	}
 }
 
-UInventoryComponent::UInventoryComponent()
+void FRPGInventoryList::RemoveItem(const FGameplayTag& ItemTag, int32 NumItems)
+{
+	for (auto EntryIt = Entries.CreateIterator(); EntryIt; ++EntryIt)
+	{
+		FRPGInventoryEntry& Entry = *EntryIt;
+
+		if (Entry.ItemTag.MatchesTagExact(ItemTag))
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
+				FString::Printf(TEXT("Removing %d of %s from inventory"), NumItems, *Entry.ItemTag.ToString()));
+			Entry.Quantity = (Entry.Quantity - NumItems <= 0) ? 0 : (Entry.Quantity - NumItems);
+
+			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
+				FString::Printf(TEXT("Remaining %d"), Entry.Quantity));
+			MarkItemDirty(Entry);
+
+			if (OwnerComponent->GetOwner()->HasAuthority())
+			{
+				DirtyItemDelegate.Broadcast(Entry);
+			}
+			return;
+		}
+	}
+}
+
+bool FRPGInventoryList::HasEnough(const FGameplayTag& ItemTag, int32 NumItems)
+{
+	for (auto EntryIt = Entries.CreateIterator(); EntryIt; ++EntryIt)
+	{
+		FRPGInventoryEntry& Entry = *EntryIt;
+
+		if (Entry.ItemTag.MatchesTagExact(ItemTag))
+		{
+			if (Entry.Quantity >= NumItems)
+			{
+				return true;
+			}
+			return false;
+		}
+	}
+
+	return false;
+}
+
+void FRPGInventoryList::PreReplicatedRemove(const TArrayView<int32>& RemovedIndices, int32 FinalSize)
+{
+	// Dont know that it is reliably good for
+}
+
+void FRPGInventoryList::PostReplicatedAdd(const TArrayView<int32>& AddedIndices, int32 FinalSize)
+{
+	for (const int32 Index : AddedIndices)
+	{
+		DirtyItemDelegate.Broadcast(Entries[Index]);
+	}
+}
+
+void FRPGInventoryList::PostReplicatedChange(const TArrayView<int32>& ChangedIndices, int32 FinalSize)
+{
+	for (const int32 Index : ChangedIndices)
+	{
+		DirtyItemDelegate.Broadcast(Entries[Index]);
+	}
+}
+
+UInventoryComponent::UInventoryComponent() : InventoryList(this)
 {
 	PrimaryComponentTick.bCanEverTick = false;
 
@@ -27,7 +114,7 @@ void UInventoryComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME(UInventoryComponent, CachedInventory);
+	DOREPLIFETIME(UInventoryComponent, InventoryList);
 }
 
 void UInventoryComponent::BeginPlay()
@@ -48,25 +135,7 @@ void UInventoryComponent::AddItem(const FGameplayTag& ItemTag, int32 NumItems)
 		return;
 	}
 
-	// Add the item to the inventory map
-	if (InventoryTagMap.Contains(ItemTag))
-	{
-		InventoryTagMap[ItemTag] += NumItems;
-		// If is zero delete the entry from the map
-		if (InventoryTagMap[ItemTag] <= 0)
-			InventoryTagMap.Remove(ItemTag);
-	}
-	else
-	{
-		InventoryTagMap.Emplace(ItemTag, NumItems);
-	}
-
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-		FString::Printf(TEXT("Added %d of %s to inventory"), NumItems, *ItemTag.ToString()));
-
-	// Update the cached inventory for replication
-	PackageInventory(CachedInventory);
-	InventoryPackagedDelegate.Broadcast(CachedInventory);
+	InventoryList.AddItem(ItemTag, NumItems);
 }
 
 void UInventoryComponent::ServerAddItem_Implementation(const FGameplayTag& ItemTag, int32 NumItems)
@@ -74,40 +143,6 @@ void UInventoryComponent::ServerAddItem_Implementation(const FGameplayTag& ItemT
 	AddItem(ItemTag, NumItems);
 }
 
-void UInventoryComponent::PackageInventory(FPackagedInventory& OutInventory) const
-{
-	// Clear
-	OutInventory.ItemTags.Empty();
-	OutInventory.ItemQuantities.Empty();
-
-	//Fill the struct packageinventory with the data from the map
-	for (const auto& Pair : InventoryTagMap)
-	{
-		OutInventory.ItemTags.Add(Pair.Key);
-		OutInventory.ItemQuantities.Add(Pair.Value);
-	}
-}
-
-void UInventoryComponent::ReconstructInventoryMap(const FPackagedInventory& InInventory)
-{
-	InventoryTagMap.Empty();
-	// Fill the map with the data from the struct packageinventory replicated from the server
-	for (int32 i = 0; i < InInventory.ItemTags.Num(); ++i)
-	{
-		InventoryTagMap.Emplace(InInventory.ItemTags[i], InInventory.ItemQuantities[i]);
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue,
-			FString::Printf(TEXT("Reconstuct %d of %s to inventory"), InInventory.ItemQuantities[i], *InInventory.ItemTags[i].ToString()));
-	}
-}
-
-void UInventoryComponent::OnRep_CachedInventory()
-{
-	if (bOwnerLocallyControlled)
-	{
-		ReconstructInventoryMap(CachedInventory);
-		InventoryPackagedDelegate.Broadcast(CachedInventory);
-	}
-}
 
 void UInventoryComponent::UseItem(const FGameplayTag& ItemTag, int32 NumItems)
 {
@@ -115,6 +150,9 @@ void UInventoryComponent::UseItem(const FGameplayTag& ItemTag, int32 NumItems)
 	if (!IsValid(Owner))
 		return;
 		
+	if (!InventoryList.HasEnough(ItemTag, NumItems))
+		return;
+
 	if (!Owner->HasAuthority())
 	{
 		ServerUseItem(ItemTag, NumItems);
@@ -132,7 +170,7 @@ void UInventoryComponent::UseItem(const FGameplayTag& ItemTag, int32 NumItems)
 				Item.ConsumableProps.ItemEffectLevel, EffectContext);
 			OwnerASC->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
 
-			AddItem(ItemTag, -1);
+			InventoryList.RemoveItem(ItemTag);
 
 			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Magenta,
 				FString::Printf(TEXT("Server Used %d of %s from inventory"), NumItems, *Item.ItemName.ToString()));
@@ -142,14 +180,10 @@ void UInventoryComponent::UseItem(const FGameplayTag& ItemTag, int32 NumItems)
 
 void UInventoryComponent::ServerUseItem_Implementation(const FGameplayTag& ItemTag, int32 NumItems)
 {
-	// Check if the item is in the inventory and if we have enough quantity to use
-	if (!InventoryTagMap.Contains(ItemTag) || InventoryTagMap[ItemTag] < NumItems)
+	if (InventoryList.HasEnough(ItemTag, NumItems))
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
-			FString::Printf(TEXT("Not enough %s in inventory to use"), *ItemTag.ToString()));
-		return;
+		UseItem(ItemTag, NumItems);
 	}
-	UseItem(ItemTag, NumItems);
 }
 
 FMasterItemDefinition UInventoryComponent::GetItemDefinitionByTag(const FGameplayTag& ItemTag) const
@@ -175,7 +209,7 @@ FMasterItemDefinition UInventoryComponent::GetItemDefinitionByTag(const FGamepla
 	return FMasterItemDefinition();
 }
 
-TMap<FGameplayTag, int32> UInventoryComponent::GetInventoryTagMap() const
+TArray<FRPGInventoryEntry> UInventoryComponent::GetInventoryEntries()
 {
-	return InventoryTagMap;
+	return InventoryList.Entries;
 }

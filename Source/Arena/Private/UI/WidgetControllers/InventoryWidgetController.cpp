@@ -10,45 +10,18 @@ void UInventoryWidgetController::SetOwningActor(AActor* InOwner)
 	OwningActor = InOwner;
 }
 
-void UInventoryWidgetController::UpdateInventory(const FPackagedInventory& PackagedInventory)
-{
-	if (IsValid(OwningInventory))
-	{
-		//OwningInventory->ReconstructInventoryMap(PackagedInventory);
-
-		BroadcastInventoryContent();
-	}
-}
-
-void UInventoryWidgetController::BroadcastInventoryContent()
-{
-	if (IsValid(OwningInventory))
-	{
-		TMap<FGameplayTag, int32> LocalInventoryMap = OwningInventory->GetInventoryTagMap();
-
-		ScrollBoxResetDelegate.Broadcast();
-
-		for (const auto& Pair : LocalInventoryMap)
-		{
-			FMasterItemDefinition ItemDefinition = OwningInventory->GetItemDefinitionByTag(Pair.Key);
-			ItemDefinition.ItemQuantity = Pair.Value;
-			InventoryItemDelegate.Broadcast(ItemDefinition);
-		}
-
-		InventoryBroadcastCompleteDelegate.Broadcast();
-	}
-}
-
 void UInventoryWidgetController::BindCallbacksToDependencies()
 {
 	OwningInventory = IInventoryInterface::Execute_GetInventoryComponent(OwningActor);
 
 	if (IsValid(OwningInventory))
 	{
-		OwningInventory->InventoryPackagedDelegate.AddLambda(
-			[this](const FPackagedInventory& PackagedInventory)
+		OwningInventory->InventoryList.DirtyItemDelegate.AddLambda(
+			[this](const FRPGInventoryEntry& DirtyItem)
 			{
-				UpdateInventory(PackagedInventory);
+				FMasterItemDefinition Item = OwningInventory->GetItemDefinitionByTag(DirtyItem.ItemTag);
+				Item.ItemQuantity = DirtyItem.Quantity;
+				InventoryItemDelegate.Broadcast(Item);
 			});
 	}
 }
@@ -57,6 +30,11 @@ void UInventoryWidgetController::BroadcastInitialValues()
 {
 	if (IsValid(OwningInventory))
 	{
-		BroadcastInventoryContent();
+		for (const FRPGInventoryEntry& Entry : OwningInventory->GetInventoryEntries())
+		{
+			FMasterItemDefinition Item = OwningInventory->GetItemDefinitionByTag(Entry.ItemTag);
+			Item.ItemQuantity = Entry.Quantity;
+			InventoryItemDelegate.Broadcast(Item);
+		}
 	}
 }
