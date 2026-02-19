@@ -7,9 +7,9 @@
 #include "InventoryWidgetController.generated.h"
 
 class UInventoryComponent;
-struct FMasterItemDefinition;
+struct FRPGInventoryEntry;
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FInventoryItemSignature, const FMasterItemDefinition&, Item);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FInventoryEntrySignature, const FRPGInventoryEntry&, Entry);
 /**
  * 
  */
@@ -21,7 +21,7 @@ class ARENA_API UInventoryWidgetController : public UWidgetController
 public:
 
 	UPROPERTY(BlueprintAssignable)
-	FInventoryItemSignature InventoryItemDelegate;
+	FInventoryEntrySignature InventoryEntryDelegate;
 
 
 	void SetOwningActor(AActor* InOwner);

@@ -12,6 +12,7 @@
 class UEquipmentManagerComponent;
 class UEquipmentDefinition;
 class UEquipmentInstance;
+class URPGAbilitySystemComponent;
 
 USTRUCT(BlueprintType)
 struct FRPGEquipmentEntry : public FFastArraySerializerItem
@@ -27,8 +28,13 @@ struct FRPGEquipmentEntry : public FFastArraySerializerItem
 	UPROPERTY(BlueprintReadOnly)
 	FGameplayTag RarityTag = FGameplayTag();
 
+	UPROPERTY(BlueprintReadOnly)
+	TArray<FEquipmentStatEffectGroup> StatEffects = TArray<FEquipmentStatEffectGroup>();
+
 	UPROPERTY(NotReplicated)
 	FEquipmentGrantedHandles GrantedHandles = FEquipmentGrantedHandles();
+
+	bool HasStats() const { return !StatEffects.IsEmpty(); }
 
 private:
 
@@ -44,7 +50,7 @@ private:
 };
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FEquipmentEntrySignature, const FRPGEquipmentEntry& /*Equipment Entry*/);
-DECLARE_MULTICAST_DELEGATE_OneParam(FEquipmentUnEquipSignature, const FGameplayTag& /*Equipment Entry*/);
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnUnEquippedEntrySignature, const FRPGEquipmentEntry& /*UnEquipment Entry*/);
 
 USTRUCT()
 struct FRPGEquipmentList : public FFastArraySerializer
@@ -54,7 +60,10 @@ struct FRPGEquipmentList : public FFastArraySerializer
 	FRPGEquipmentList() : OwnerComponent() {}
 	FRPGEquipmentList(UActorComponent* InComponent) : OwnerComponent(InComponent) {}
 
-	UEquipmentInstance* AddEntry(const TSubclassOf<UEquipmentDefinition>& EquipmentDefinition);
+	URPGAbilitySystemComponent* GetAbilitySystemComponent();
+	void AddEquipmentStats(FRPGEquipmentEntry* Entry);
+	void RemoveEquipmentStats(FRPGEquipmentEntry* Entry);
+	UEquipmentInstance* AddEntry(const TSubclassOf<UEquipmentDefinition>& EquipmentDefinition, const TArray<FEquipmentStatEffectGroup>& StatEffects);
 	void RemoveEntry(UEquipmentInstance* EquipmentInstance);
 
 	void GetEntries(TArray<FRPGEquipmentEntry>& OutEntries) const { OutEntries = Entries; }
@@ -70,7 +79,7 @@ struct FRPGEquipmentList : public FFastArraySerializer
 	}
 
 	FEquipmentEntrySignature EquipmentEntryDelegate;
-	FEquipmentUnEquipSignature UnEquipDelegate;
+	FOnUnEquippedEntrySignature UnEquippedEntryDelegate;
 
 private:
 
@@ -108,13 +117,13 @@ public:
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
-	void EquipItem(const TSubclassOf<UEquipmentDefinition>& EquipmentDefinition);
+	void EquipItem(const TSubclassOf<UEquipmentDefinition>& EquipmentDefinition, const TArray<FEquipmentStatEffectGroup>& StatEffects);
 	void UnEquipItem(UEquipmentInstance* EquipmentInstance);
 
 private:
 
 	UFUNCTION(Server, Reliable)
-	void ServerEquipItem(TSubclassOf<UEquipmentDefinition> EquipmentDefinition);
+	void ServerEquipItem(TSubclassOf<UEquipmentDefinition> EquipmentDefinition, const TArray<FEquipmentStatEffectGroup>& StatEffects);
 
 	UFUNCTION(Server, Reliable)
 	void ServerUnEquipItem(UEquipmentInstance* EquipmentInstance);

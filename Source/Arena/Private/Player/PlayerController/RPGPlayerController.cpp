@@ -125,16 +125,16 @@ void ARPGPlayerController::BindCallbacksToDependencies()
 	if (IsValid(InventoryComponent) && IsValid(EquipmentComponent))
 	{
 		InventoryComponent->EquipmentItemUsedDelegate.AddLambda(
-			[this](const TSubclassOf<UEquipmentDefinition>& EquipmentDefinition)
+			[this](const TSubclassOf<UEquipmentDefinition>& EquipmentDefinition, const TArray<FEquipmentStatEffectGroup>& StatEffects)
 			{
 				// Equipping Item from Inventory on Use
-				EquipmentComponent->EquipItem(EquipmentDefinition);
+				EquipmentComponent->EquipItem(EquipmentDefinition, StatEffects);
 			});
-		EquipmentComponent->EquipmentList.UnEquipDelegate.AddLambda(
-			[this](const FGameplayTag& EntryTag)
+		EquipmentComponent->EquipmentList.UnEquippedEntryDelegate.AddLambda(
+			[this](const FRPGEquipmentEntry& UnEquippedEntry)
 			{
 				// Returning Item to Inventory on UnEquip
-				InventoryComponent->AddItem(EntryTag);
+				InventoryComponent->AddUnEquippedItemEntry(UnEquippedEntry.EntryTag, UnEquippedEntry.StatEffects);
 			});
 	}
 }
