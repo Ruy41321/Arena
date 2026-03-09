@@ -1,0 +1,28 @@
+# Design Pattern utilizzati nel progetto Arena
+
+1. **Component-Based Architecture (Component Pattern)**
+   - Ogni abilità di movimento (dodge, crouch, jump, sprint, basic movement) è implementata come componente (`UActorComponent`) separato e riutilizzabile.
+   - Esempi: `UBasicMovementComponent`, `UDodgeSystemComponent`, `UCrouchSystemComponent`, `UJumpSystemComponent`, `USprintSystemComponent`.
+
+2. **State Machine Pattern**
+   - Gestione centralizzata degli stati di movimento tramite `UMovementStateMachine` e classi di stato derivate (`UMovementState`).
+   - Ogni stato (`Idle`, `Walking`, `Sprinting`, ecc.) è una classe separata che implementa la logica specifica.
+   - Transizioni automatiche e manuali tra stati.
+
+3. **Observer Pattern**
+   - Notifiche di cambio stato tramite delegate Unreal (`FOnMovementStateChanged`).
+   - Sistemi come l’animazione si iscrivono agli eventi di cambio stato senza dipendenze dirette.
+   - Esempio: `UPlayerAnimInstance` si sottoscrive agli eventi di cambio stato del `MovementStateMachine`.
+
+4. **Strategy Pattern** (variante implicita)
+   - Ogni stato di movimento incapsula una strategia di comportamento diversa per il personaggio.
+   - Le classi di stato (`UMovementState` e derivate) definiscono comportamenti intercambiabili a runtime.
+
+5. **Factory Pattern** (variante implicita)
+   - Gli oggetti stato vengono creati dinamicamente tramite `CreateStateObject` in `UMovementStateMachine`, in base alla mappa di classi di stato.
+
+---
+
+GAS: Gameplay Ability System 
+
+Model view controller pattern (MVC)

@@ -1,0 +1,50 @@
+// Fill out your copyright notice in the Description page of Project Settings.
+
+#pragma once
+
+#include "CoreMinimal.h"
+#include "NativeGameplayTags.h"
+
+namespace RPGGameplayTags::Combat
+{
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Damage);
+}
+
+namespace RPGGameplayTags::State::Movement
+{
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Idle);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Walking);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Sprinting);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(CrouchingIdle);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(CrouchingMoving);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Jumping);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Falling);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(LandingInPlace);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(LandingMoving);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Dodging);
+}
+
+namespace RPGGameplayTags::State
+{
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(OutOfStamina);
+}
+
+namespace RPGGameplayTags::Equip
+{
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Category_Equipment);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Category_Weapon);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Category_Consumable);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(ArmorSlot);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(WeaponSlot);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(ConsumableQuickSlot1);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(ConsumableQuickSlot2);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(ConsumableQuickSlot3);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(WeaponQuickSlot1);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(WeaponQuickSlot2);
+}
+
+namespace RPGGameplayTags::Input
+{
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(QuickSlot);
+}
