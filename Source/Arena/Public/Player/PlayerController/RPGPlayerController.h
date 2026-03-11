@@ -29,6 +29,8 @@ class ARENA_API ARPGPlayerController : public APlayerController, public IAbility
 {
 	GENERATED_BODY()
 	
+	friend class AMainHUD;
+	
 public:
 
 	ARPGPlayerController();
@@ -50,17 +52,9 @@ public:
 
 	/* Implement RPG Ability System Interface */ 
 	virtual void SetDynamicProjectile_Implementation(const FGameplayTag& ProjectileTag, int32 AbilityLevel) override;
-
-	UInventoryDashboardController* GetInventoryWidgetController();
 	
 	URPGAbilitySystemComponent* GetRPGAbilitySystemComponent();
 	
-	UFUNCTION(BlueprintCallable)
-	void CreateInventoryWidget();
-
-	UFUNCTION(BlueprintCallable)
-	void DestroyInventoryWidget();
-
 protected:
 
 	virtual void BeginPlay() override;
@@ -98,21 +92,8 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = true))
 	TObjectPtr<UQuickSlotManagerComponent> QuickSlotManagerComponent;
 	
-	UPROPERTY()
-	TObjectPtr<UInventoryDashboardController> InventoryDashboardController;
-
-	UPROPERTY(EditDefaultsOnly, category = "Custom Values | Widgets")
-	TSubclassOf<UInventoryDashboardController> InventoryDashboardControllerClass;
-
-	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = true))
-	TObjectPtr<UInventoryDashboardWidget> InventoryDashboardWidget;
-
-	UPROPERTY(EditDefaultsOnly, category = "Custom Values | Widgets")
-	TSubclassOf<UInventoryDashboardWidget> InventoryDashboardWidgetClass;
-
 	void BindCallbacksToDependencies() const;
-	void BindInventoryWidgetDelegates();
 
-	void ToggleInventory();
 	void ChangeFocus(FString Focus);
+	void ToggleInventory();
 };

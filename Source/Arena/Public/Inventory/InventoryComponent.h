@@ -57,9 +57,11 @@ struct FRPGInventoryEntry : public FFastArraySerializerItem
 	}
 };
 
-DECLARE_MULTICAST_DELEGATE_OneParam(FDirtyInventoryItemSignature, const FRPGInventoryEntry& /*DirtyEntry*/);
+DECLARE_MULTICAST_DELEGATE_OneParam(FInventoryItemChangedSignature, const FRPGInventoryEntry& /*DirtyEntry*/);
 DECLARE_MULTICAST_DELEGATE_OneParam(FInventoryItemRemovedSignature, const int64 /*RemovedItemID*/);
-DECLARE_MULTICAST_DELEGATE_OneParam(FInventoryEntryQuickSlottedSignature, const FRPGInventoryEntry& /*EntryToAdd*/);
+DECLARE_MULTICAST_DELEGATE_OneParam(FInventoryQuickSlotRelocatedSignature, const FRPGInventoryEntry& /*EntryToRelocate*/);
+DECLARE_MULTICAST_DELEGATE_OneParam(FInventoryQuickSlotChangedSignature, const FRPGInventoryEntry& /*QuickSlotEntryToUpdate*/);
+DECLARE_MULTICAST_DELEGATE_OneParam(FInventoryQuickSlotRemovedSignature, const int64 /*QuickSlotEntryIDToRemove*/);
 
 USTRUCT()
 struct FRPGInventoryList : public FFastArraySerializer
@@ -94,9 +96,11 @@ struct FRPGInventoryList : public FFastArraySerializer
 		return FFastArraySerializer::FastArrayDeltaSerialize<FRPGInventoryEntry, FRPGInventoryList>(Entries, DeltaParms, *this);
 	}
 
-	FDirtyInventoryItemSignature DirtyItemDelegate;
+	FInventoryItemChangedSignature InventoryItemChangedDelegate;
 	FInventoryItemRemovedSignature InventoryItemRemovedDelegate;
-	FInventoryEntryQuickSlottedSignature InventoryItemQuickSlottedDelegate;
+	FInventoryQuickSlotRelocatedSignature QuickSlotItemRelocatedDelegate;
+	FInventoryQuickSlotChangedSignature QuickSlotItemChangeDelegate;
+	FInventoryQuickSlotRemovedSignature QuickSlotItemRemovedDelegate;
 
 private:
 
@@ -125,6 +129,13 @@ private:
 
 	/** Marks an entry dirty and broadcasts it if running with authority. */
 	void BroadcastNewEntry(FRPGInventoryEntry& NewEntry);
+
+	/**
+	 * Dispatches the appropriate delegate based on the entry's QuickSlot state and the operation type.
+	 * @param Entry    The inventory entry involved in the change or removal.
+	 * @param bChanged If true, broadcasts a "changed/updated" delegate; if false, broadcasts a "removed" delegate.
+	 */
+	void BroadcastEntryUpdate(const FRPGInventoryEntry& Entry, bool bChanged);
 
 };
 

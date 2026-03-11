@@ -11,6 +11,10 @@
 class URPGAbilitySystemComponent;
 class URPGAttributeSet;
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnHealthChangedSignature, float, OldHealth, float, CurrentHealth, float, MaxHealth);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnStaminaChangedSignature, float, OldStamina, float, CurrentStamina, float, MaxStamina);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnShieldChangedSignature, float, OldShield, float, CurrentShield, float, MaxShield);
+
 UCLASS()
 class ARENA_API ACharacterBase : public ACharacter, public IAbilitySystemInterface
 {
@@ -25,15 +29,14 @@ public:
 
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
 
-	UFUNCTION(BlueprintImplementableEvent)
-	void OnHealthChanged(float OldHealth, float CurrentHealth, float MaxHealth);
+	UPROPERTY(BlueprintAssignable, Category = "Delegates")
+	FOnHealthChangedSignature OnHealthChanged;
 
-	UFUNCTION(BlueprintNativeEvent)
-	void OnStaminaChanged(float OldStamina, float CurrentStamina, float MaxStamina);
-	virtual void OnStaminaChanged_Implementation(float OldStamina, float CurrentStamina, float MaxStamina);
+	UPROPERTY(BlueprintAssignable, Category = "Delegates")
+	FOnStaminaChangedSignature OnStaminaChanged;
 
-	UFUNCTION(BlueprintImplementableEvent)
-	void OnShieldChanged(float OldShield, float CurrentShield, float MaxShield);
+	UPROPERTY(BlueprintAssignable, Category = "Delegates")
+	FOnShieldChangedSignature OnShieldChanged;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	float StaminaRegenDelay = 1.0f;
@@ -43,6 +46,9 @@ protected:
 	virtual void InitAbilityActorInfo();
 	virtual void BindCallbacksToDependencies();
 	virtual void InitClassDefaults();
+
+	/** Called before broadcasting OnStaminaChanged delegate. Handles gameplay tag logic (OutOfStamina). */
+	virtual void HandleStaminaChanged(float OldStamina, float CurrentStamina, float MaxStamina);
 
 	UFUNCTION(BlueprintCallable)
 	virtual void BroadcastInitialValues();

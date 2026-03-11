@@ -60,7 +60,7 @@ bool FRPGInventoryList::TryStackItem(const FGameplayTag& ItemTag, int32 NumItems
 
 			if (OwnerComponent->GetOwner()->HasAuthority())
 			{
-				DirtyItemDelegate.Broadcast(Entry);
+				BroadcastEntryUpdate(Entry, true);
 			}
 			return true;
 		}
@@ -97,7 +97,33 @@ void FRPGInventoryList::BroadcastNewEntry(FRPGInventoryEntry& NewEntry)
 
 	if (OwnerComponent->GetOwner()->HasAuthority())
 	{
-		DirtyItemDelegate.Broadcast(NewEntry);
+		BroadcastEntryUpdate(NewEntry, true);
+	}
+}
+
+void FRPGInventoryList::BroadcastEntryUpdate(const FRPGInventoryEntry& Entry, bool bChanged)
+{
+	if (Entry.bIsQuickSlotted)
+	{
+		if (bChanged)
+		{
+			QuickSlotItemChangeDelegate.Broadcast(Entry);
+		}
+		else
+		{
+			QuickSlotItemRemovedDelegate.Broadcast(Entry.ItemID);
+		}
+	}
+	else
+	{
+		if (bChanged)
+		{
+			InventoryItemChangedDelegate.Broadcast(Entry);
+		}
+		else
+		{
+			InventoryItemRemovedDelegate.Broadcast(Entry.ItemID);
+		}
 	}
 }
 
@@ -114,7 +140,7 @@ void FRPGInventoryList::RemoveItem(const FRPGInventoryEntry& InventoryEntry, int
 
 			if (Entry.Quantity <= 0)
 			{
-				InventoryItemRemovedDelegate.Broadcast(Entry.ItemID);
+				BroadcastEntryUpdate(Entry, false);
 				EntryIt.RemoveCurrent();
 				MarkArrayDirty();
 			}
@@ -124,7 +150,7 @@ void FRPGInventoryList::RemoveItem(const FRPGInventoryEntry& InventoryEntry, int
 
 				if (OwnerComponent->GetOwner()->HasAuthority())
 				{
-					DirtyItemDelegate.Broadcast(Entry);
+					BroadcastEntryUpdate(Entry, true);
 				}
 			}
 			break;
@@ -252,11 +278,11 @@ void FRPGInventoryList::AddEntryToQuickSlot(int64 ItemID, const FGameplayTag& Qu
 			{
 				OwnerComponent->EquipmentItemUnequippedDelegate.Broadcast(SwappedEntry->ItemID);
 			}
-			InventoryItemQuickSlottedDelegate.Broadcast(*SwappedEntry);
+			QuickSlotItemRelocatedDelegate.Broadcast(*SwappedEntry);
 		}
 		Entry->bIsQuickSlotted = true;
 		Entry->QuickSlotTag = QuickSlotTag;
-		InventoryItemQuickSlottedDelegate.Broadcast(*Entry);
+		QuickSlotItemRelocatedDelegate.Broadcast(*Entry);
 	}
 }
 
@@ -272,7 +298,7 @@ void FRPGInventoryList::RemoveEntryFromQuickSlot(const int64 ItemID)
 			}
 			Entry->bIsQuickSlotted = false;
 			Entry->QuickSlotTag = FGameplayTag();
-			InventoryItemQuickSlottedDelegate.Broadcast(*Entry);
+			QuickSlotItemRelocatedDelegate.Broadcast(*Entry);
 		}
 	}
 }
@@ -281,7 +307,7 @@ void FRPGInventoryList::PreReplicatedRemove(const TArrayView<int32>& RemovedIndi
 {
 	for (const int32 Index : RemovedIndices)
 	{
-		InventoryItemRemovedDelegate.Broadcast(Entries[Index].ItemID);
+		BroadcastEntryUpdate(Entries[Index], false);
 	}
 }
 
@@ -289,7 +315,7 @@ void FRPGInventoryList::PostReplicatedAdd(const TArrayView<int32>& AddedIndices,
 {
 	for (const int32 Index : AddedIndices)
 	{
-		DirtyItemDelegate.Broadcast(Entries[Index]);
+		BroadcastEntryUpdate(Entries[Index], true);
 	}
 }
 
@@ -297,7 +323,7 @@ void FRPGInventoryList::PostReplicatedChange(const TArrayView<int32>& ChangedInd
 {
 	for (const int32 Index : ChangedIndices)
 	{
-		DirtyItemDelegate.Broadcast(Entries[Index]);
+		BroadcastEntryUpdate(Entries[Index], true);
 	}
 }
 

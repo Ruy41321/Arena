@@ -41,20 +41,20 @@ void ACharacterBase::BindCallbacksToDependencies()
 {
 	if (IsValid(RPGAbilitySystemComponent) && IsValid(RPGAttributeSet))
 	{
-		//Health
+		// Health
 		RPGAbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(URPGAttributeSet::GetHealthAttribute()).AddLambda(
 			[this](const FOnAttributeChangeData& Data)
 			{
-				OnHealthChanged(Data.OldValue, Data.NewValue, RPGAttributeSet->GetMaxHealth());
+				OnHealthChanged.Broadcast(Data.OldValue, Data.NewValue, RPGAttributeSet->GetMaxHealth());
 			});
 
-		//Shield
+		// Shield
 		RPGAbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(URPGAttributeSet::GetShieldAttribute()).AddLambda(
 			[this](const FOnAttributeChangeData& Data)
 			{
-				OnShieldChanged(Data.OldValue, Data.NewValue, RPGAttributeSet->GetMaxShield());
+				OnShieldChanged.Broadcast(Data.OldValue, Data.NewValue, RPGAttributeSet->GetMaxShield());
 			});
-		}
+	}
 }
 
 void ACharacterBase::InitClassDefaults()
@@ -90,12 +90,12 @@ void ACharacterBase::BroadcastInitialValues()
 {
 	if (IsValid(RPGAttributeSet))
 	{
-		OnHealthChanged(RPGAttributeSet->GetHealth(), RPGAttributeSet->GetHealth(), RPGAttributeSet->GetMaxHealth());
-		OnShieldChanged(RPGAttributeSet->GetShield(), RPGAttributeSet->GetShield(), RPGAttributeSet->GetMaxShield());
+		OnHealthChanged.Broadcast(RPGAttributeSet->GetHealth(), RPGAttributeSet->GetHealth(), RPGAttributeSet->GetMaxHealth());
+		OnShieldChanged.Broadcast(RPGAttributeSet->GetShield(), RPGAttributeSet->GetShield(), RPGAttributeSet->GetMaxShield());
 	}
 }
 
-void ACharacterBase::OnStaminaChanged_Implementation(float OldStamina, float CurrentStamina, float MaxStamina)
+void ACharacterBase::HandleStaminaChanged(float OldStamina, float CurrentStamina, float MaxStamina)
 {
 	if (!IsValid(RPGAbilitySystemComponent))
 	{

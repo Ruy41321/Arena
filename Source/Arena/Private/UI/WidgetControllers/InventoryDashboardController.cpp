@@ -10,11 +10,7 @@
 #include "Interfaces/EquipmentInterface.h"
 #include "Interfaces/QuickSlotInterface.h"
 #include "Inventory/InventoryItem/InventoryItem.h"
-
-void UInventoryDashboardController::SetOwningActor(AActor* InOwner)
-{
-	OwningActor = InOwner;
-}
+#include "UI/HUD/Inventory/InventoryDashboardWidget.h"
 
 void UInventoryDashboardController::SetOwningInventory()
 {
@@ -35,9 +31,9 @@ void UInventoryDashboardController::SetInventoryWidget(UInventoryDashboardWidget
 {
 	OwningInventoryDashboardWidget = InInventoryWidget;
 	
-	if (IsValid(OwningInventoryComp))
+	if (IsValid(OwningInventoryDashboardWidget) && IsValid(OwningInventoryComp))
 	{
-		BindDelegatesToInventoryWidget();
+		BindDelegatesToWidget();
 	}
 }
 
@@ -72,24 +68,36 @@ void UInventoryDashboardController::BindCallbacksToDependencies()
 {
 	if (EnsureOwningInventory())
 	{
-		OwningInventoryComp->InventoryList.DirtyItemDelegate.AddLambda(
+		OwningInventoryComp->InventoryList.InventoryItemChangedDelegate.AddLambda(
 			[this](const FRPGInventoryEntry& DirtyItem)
 			{
 				UInventoryItem* Item = UInventoryItem::CreateFromInventoryEntry(this, DirtyItem);
-				InventoryEntryDelegate.Broadcast(Item);
+				DashboardBagItemChangedDelegate.Broadcast(Item);
 			});
 
 		OwningInventoryComp->InventoryList.InventoryItemRemovedDelegate.AddLambda(
 			[this](const int64 RemovedItemID)
 			{
-				InventoryItemRemovedDelegate.Broadcast(RemovedItemID);
+				DashboardBagItemRemovedDelegate.Broadcast(RemovedItemID);
 			});
 		
-		OwningInventoryComp->InventoryList.InventoryItemQuickSlottedDelegate.AddLambda(
+		OwningInventoryComp->InventoryList.QuickSlotItemRelocatedDelegate.AddLambda(
 		[this](const FRPGInventoryEntry& InventoryEntry)
 			{
 				UInventoryItem* Item = UInventoryItem::CreateFromInventoryEntry(this, InventoryEntry);
-				InventoryItemQuickSlottedDelegate.Broadcast(Item);
+				QuickSlotItemRelocatedDelegate.Broadcast(Item);
+			});
+		
+		OwningInventoryComp->InventoryList.QuickSlotItemChangeDelegate.AddLambda(
+		[this](const FRPGInventoryEntry& InventoryEntry)			{
+				UInventoryItem* Item = UInventoryItem::CreateFromInventoryEntry(this, InventoryEntry);
+				QuickSlotItemChangedDelegate.Broadcast(Item);
+			});
+		
+		OwningInventoryComp->InventoryList.QuickSlotItemRemovedDelegate.AddLambda(
+			[this](const int64 RemovedItemID)
+			{
+				QuickSlotItemRemovedDelegate.Broadcast(RemovedItemID);
 			});
 	}
 
@@ -99,12 +107,12 @@ void UInventoryDashboardController::BindCallbacksToDependencies()
 			[this](const FRPGEquipmentEntry& EquipmentEntry)
 			{
 				UInventoryItem* Item = UInventoryItem::CreateFromEquipmentEntry(this, EquipmentEntry);
-				EquippedEntryDelegate.Broadcast(Item);
+				DashboardEquipmentChangeDelegate.Broadcast(Item);
 			});
 		OwningEquipmentManagerComp->EquipmentList.UnEquippedEntryDelegate.AddLambda(
 			[this](const FRPGEquipmentEntry& UnEquippedEntry)
 			{
-				UnEquippedEntryDelegate.Broadcast(UnEquippedEntry.SlotTag);
+				DashboardEquipmentRemovedDelegate.Broadcast(UnEquippedEntry.SlotTag);
 			});
 	}
 }
@@ -119,7 +127,7 @@ void UInventoryDashboardController::BroadcastInitialValues()
 	for (const FRPGInventoryEntry& Entry : OwningInventoryComp->GetInventoryEntries())
 	{
 		UInventoryItem* Item = UInventoryItem::CreateFromInventoryEntry(this, Entry);
-		InventoryEntryDelegate.Broadcast(Item);
+		DashboardBagItemChangedDelegate.Broadcast(Item);
 	}
 
 	TArray<FRPGEquipmentEntry> FoundEntries;
@@ -127,14 +135,30 @@ void UInventoryDashboardController::BroadcastInitialValues()
 	for (const FRPGEquipmentEntry& Entry : FoundEntries)
 	{
 		UInventoryItem* Item = UInventoryItem::CreateFromEquipmentEntry(this, Entry);
-		EquippedEntryDelegate.Broadcast(Item);
+		DashboardEquipmentChangeDelegate.Broadcast(Item);
 	}
+}
+
+void UInventoryDashboardController::BindDelegatesToWidget_Implementation()
+{
+	if (!IsValid(OwningInventoryDashboardWidget))
+	{
+		return;
+	}
+	
+	DashboardBagItemChangedDelegate.AddDynamic(OwningInventoryDashboardWidget, &UInventoryDashboardWidget::OnInventoryItemChanged);
+	DashboardBagItemRemovedDelegate.AddDynamic(OwningInventoryDashboardWidget, &UInventoryDashboardWidget::OnInventoryItemRemoved);
+	DashboardEquipmentChangeDelegate.AddDynamic(OwningInventoryDashboardWidget, &UInventoryDashboardWidget::OnItemEquipped);
+	DashboardEquipmentRemovedDelegate.AddDynamic(OwningInventoryDashboardWidget, &UInventoryDashboardWidget::OnItemUnequipped);
+	QuickSlotItemRelocatedDelegate.AddDynamic(OwningInventoryDashboardWidget, &UInventoryDashboardWidget::OnQuickSlotItemRelocated);
+	QuickSlotItemChangedDelegate.AddDynamic(OwningInventoryDashboardWidget, &UInventoryDashboardWidget::OnQuickSlotItemChanged);
+	QuickSlotItemRemovedDelegate.AddDynamic(OwningInventoryDashboardWidget, &UInventoryDashboardWidget::OnQuickSlotItemRemoved);
 }
 
 void UInventoryDashboardController::UnbindAllEventsFromDelegates()
 {
-	InventoryEntryDelegate.Clear();
-	InventoryItemRemovedDelegate.Clear();
-	EquippedEntryDelegate.Clear();
-	UnEquippedEntryDelegate.Clear();
+	DashboardBagItemChangedDelegate.Clear();
+	DashboardBagItemRemovedDelegate.Clear();
+	DashboardEquipmentChangeDelegate.Clear();
+	DashboardEquipmentRemovedDelegate.Clear();
 }

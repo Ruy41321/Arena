@@ -164,6 +164,7 @@ void APlayerCharacter::PossessedBy(AController* NewController)
 	if (HasAuthority())
 	{
 		InitAbilityActorInfo();
+		BroadcastInitialValues();
 	}
 }
 
@@ -171,6 +172,7 @@ void APlayerCharacter::OnRep_PlayerState()
 {
 	Super::OnRep_PlayerState();
 	InitAbilityActorInfo();
+	BroadcastInitialValues();
 }
 
 
@@ -216,11 +218,12 @@ void APlayerCharacter::BindCallbacksToDependencies()
 	// Stamina: specifica del player
 	if (IsValid(RPGAbilitySystemComponent) && IsValid(RPGAttributeSet))
 	{
-		//Stamina
+		// Stamina
 		RPGAbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(URPGAttributeSet::GetStaminaAttribute()).AddLambda(
 			[this](const FOnAttributeChangeData& Data)
 			{
-				OnStaminaChanged(Data.OldValue, Data.NewValue, RPGAttributeSet->GetMaxStamina());
+				HandleStaminaChanged(Data.OldValue, Data.NewValue, RPGAttributeSet->GetMaxStamina());
+				OnStaminaChanged.Broadcast(Data.OldValue, Data.NewValue, RPGAttributeSet->GetMaxStamina());
 			});
 	}
 }
@@ -231,7 +234,7 @@ void APlayerCharacter::BroadcastInitialValues()
 	
 	if (IsValid(RPGAttributeSet))
 	{
-		OnStaminaChanged(RPGAttributeSet->GetStamina(), RPGAttributeSet->GetStamina(), RPGAttributeSet->GetMaxStamina());
+		OnStaminaChanged.Broadcast(RPGAttributeSet->GetStamina(), RPGAttributeSet->GetStamina(), RPGAttributeSet->GetMaxStamina());
 	}
 }
 

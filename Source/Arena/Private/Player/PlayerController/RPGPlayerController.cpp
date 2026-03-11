@@ -9,14 +9,13 @@
 #include "InputAction.h"
 #include "Inventory/InventoryComponent.h"
 #include "Net/UnrealNetwork.h"
-#include "UI/WidgetControllers/InventoryDashboardController.h"
-#include "UI/Inventory/InventoryDashboardWidget.h"
 #include "AbilitySystem/RPGAbilitySystemComponent.h"
 #include "AbilitySystem/RPGGameplayTags.h"
 #include "Player/PlayerState/RPGPlayerState.h"
 #include "Equipment/EquipmentManagerComponent.h"
 #include "Inventory/InventoryItem/InventoryItem.h"
 #include "QuickSlot/QuickSlotManagerComponent.h"
+#include "UI/HUD/MainHUD.h"
 
 ARPGPlayerController::ARPGPlayerController()
 {
@@ -77,6 +76,7 @@ void ARPGPlayerController::BeginPlay()
 	ChangeMappingContext(DefaultMappingContext);
 	
 	BindCallbacksToDependencies();
+	
 }
 
 void ARPGPlayerController::ChangeMappingContext(const UInputMappingContext* NewMappingContext) const
@@ -116,63 +116,6 @@ void ARPGPlayerController::SetDynamicProjectile_Implementation(const FGameplayTa
 	}
 }
 
-UInventoryDashboardController* ARPGPlayerController::GetInventoryWidgetController()
-{
-	if (!IsValid(InventoryDashboardController))
-	{
-		InventoryDashboardController = NewObject<UInventoryDashboardController>(this, InventoryDashboardControllerClass);
-		InventoryDashboardController->SetOwningActor(this);
-
-		InventoryDashboardController->BindCallbacksToDependencies();
-	}
-
-	return InventoryDashboardController;
-}
-
-void ARPGPlayerController::CreateInventoryWidget()
-{
-	if (UUserWidget* Widget = CreateWidget<UInventoryDashboardWidget>(this, InventoryDashboardWidgetClass))
-	{
-		InventoryDashboardWidget = Cast<UInventoryDashboardWidget>(Widget);
-		UInventoryDashboardController* Controller = GetInventoryWidgetController();
-		Controller->SetInventoryWidget(InventoryDashboardWidget);
-		BindInventoryWidgetDelegates();
-		Controller->BroadcastInitialValues();
-		InventoryDashboardWidget->AddToViewport();
-	}
-}
-
-void ARPGPlayerController::BindInventoryWidgetDelegates()
-{
-	InventoryDashboardWidget->OnOpenInventoryDashboardDelegate.AddLambda(
-		[this]()
-		{
-			ChangeFocus("Inventory");
-		});
-	InventoryDashboardWidget->OnCloseInventoryDashboardDelegate.AddLambda(
-		[this]()
-		{
-			ChangeFocus("Game");
-		});
-	InventoryDashboardWidget->OnDestructionInventoryDashboardDelegate.AddLambda(
-		[this]()
-		{
-			InventoryDashboardWidget->UnbindAllEventsFromDelegates();
-			InventoryDashboardWidget = nullptr;
-			GetInventoryWidgetController()->UnbindAllEventsFromDelegates();
-			GetInventoryWidgetController()->SetInventoryWidget(nullptr);
-			ChangeFocus("Game");
-		});
-}
-
-void ARPGPlayerController::DestroyInventoryWidget()
-{
-	if (IsValid(InventoryDashboardWidget))
-	{
-		InventoryDashboardWidget->DestroyInventoryDashboard();
-	}
-}
-
 void ARPGPlayerController::AbilityInputPressed(const FGameplayTag& InputTag)
 {
 	if (IsValid(GetRPGAbilitySystemComponent()))
@@ -189,6 +132,9 @@ void ARPGPlayerController::AbilityInputReleased(const FGameplayTag& InputTag)
 	}
 }
 
+/**
+ * Callbacks between components (stays in the model)
+ */
 void ARPGPlayerController::BindCallbacksToDependencies() const
 {
 	if (IsValid(InventoryComponent) && IsValid(EquipmentComponent))
@@ -210,7 +156,7 @@ void ARPGPlayerController::BindCallbacksToDependencies() const
 				// Returning Item to Inventory on UnEquip
 				InventoryComponent->AddUnEquippedItemEntry(UInventoryItem::CreateFromEquipmentEntry(GetWorld(), UnEquippedEntry));
 			});
-		InventoryComponent->InventoryList.InventoryItemQuickSlottedDelegate.AddLambda(
+		InventoryComponent->InventoryList.QuickSlotItemRelocatedDelegate.AddLambda(
 			[this](const FRPGInventoryEntry& QuickSlottedEntry)
 			{
 				if (QuickSlottedEntry.bIsQuickSlotted)
@@ -222,23 +168,6 @@ void ARPGPlayerController::BindCallbacksToDependencies() const
 					QuickSlotManagerComponent->RemoveQuickSlot(QuickSlottedEntry.ItemID);
 				}
 			});
-	}
-}
-
-void ARPGPlayerController::ToggleInventory()
-{
-	if (!IsValid(InventoryDashboardWidget))
-	{
-		CreateInventoryWidget();
-		InventoryDashboardWidget->OpenInventoryDashboard();
-	}
-	else if (InventoryDashboardWidget->bIsOpen)
-	{
-		InventoryDashboardWidget->CloseInventoryDashboard();
-	}
-	else
-	{
-		InventoryDashboardWidget->OpenInventoryDashboard();
 	}
 }
 
@@ -255,5 +184,13 @@ void ARPGPlayerController::ChangeFocus(FString Focus)
 		SetShowMouseCursor(false);
 		SetInputMode(FInputModeGameOnly());
 		ChangeMappingContext(DefaultMappingContext);
+	}
+}
+
+void ARPGPlayerController::ToggleInventory()
+{
+	if (AMainHUD* HUD = GetHUD<AMainHUD>())
+	{
+		HUD->ToggleInventory();
 	}
 }

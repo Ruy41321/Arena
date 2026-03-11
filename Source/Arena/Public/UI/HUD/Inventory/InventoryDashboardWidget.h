@@ -32,10 +32,10 @@ public:
 	FOnDestructionInventoryDashboardSignature OnDestructionInventoryDashboardDelegate;
 	
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
-	void OnEntryChanged(UInventoryItem* NewItem);
+	void OnInventoryItemChanged(UInventoryItem* NewItem);
 	
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
-	void OnItemRemoved(const int64 RemovedItemID);
+	void OnInventoryItemRemoved(const int64 RemovedItemID);
 	
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
 	void OnItemEquipped(UInventoryItem* EquipItem);
@@ -44,8 +44,14 @@ public:
 	void OnItemUnequipped(const FGameplayTag& SlotTag);
 	
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
+	void OnQuickSlotItemRelocated(UInventoryItem* QuickSlottedItem);
+	
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
 	void OnQuickSlotItemChanged(UInventoryItem* QuickSlottedItem);
 		
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
+	void OnQuickSlotItemRemoved(const int64 RemovedItemID);
+	
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
 	void OpenInventoryDashboard();
 	

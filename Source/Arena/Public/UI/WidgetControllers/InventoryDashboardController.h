@@ -7,20 +7,21 @@
 #include "UI/WidgetControllers/WidgetController.h"
 #include "InventoryDashboardController.generated.h"
 
-class UQuickSlotManagerComponent;
-struct FRPGInventoryEntry;
-struct FRPGEquipmentEntry;
 class UInventoryItem;
 class UInventoryDashboardWidget;
 class UInventoryComponent;
 class UEquipmentManagerComponent;
+class UQuickSlotManagerComponent;
 
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FInventoryEntrySignature, UInventoryItem*, Item);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnInventoryItemRemoved, const int64, RemovedItemID);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FEquippedEntrySignature, UInventoryItem*, Item /*Equipped Item*/);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FUnEquippedEntrySignature, const FGameplayTag&, SlotTag /*UnEquipped Slot*/);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FInventoryItemQuickSlottedSignature, UInventoryItem*, Item /*Quick Slotted Item*/);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDashboardBagItemChangedSignature, UInventoryItem*, Item);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDashboardBagItemRemovedSignature, const int64, RemovedItemID);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDashboardEquipmentChangeSignature, UInventoryItem*, Item /*Equipped Item*/);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDashboardEquipmentRemovedSignature, const FGameplayTag&, SlotTag /*UnEquipped Slot*/);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDashboardQuickSlotRelocatedSignature, UInventoryItem*, Item /*Quick Slotted Item*/);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDashboardQuickSlotChangedSignature, UInventoryItem*, Item /*Quick Slotted Item*/);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDashboardQuickSlotRemovedSignature, const int64, RemovedItemID);
+
 /**
  * 
  */
@@ -32,22 +33,26 @@ class ARENA_API UInventoryDashboardController : public UWidgetController
 public:
 
 	UPROPERTY(BlueprintAssignable)
-	FInventoryEntrySignature InventoryEntryDelegate;
+	FDashboardBagItemChangedSignature DashboardBagItemChangedDelegate;
 
 	UPROPERTY(BlueprintAssignable)
-	FOnInventoryItemRemoved InventoryItemRemovedDelegate;
+	FDashboardBagItemRemovedSignature DashboardBagItemRemovedDelegate;
 	
 	UPROPERTY(BlueprintAssignable)
-	FEquippedEntrySignature EquippedEntryDelegate;
+	FDashboardEquipmentChangeSignature DashboardEquipmentChangeDelegate;
 	
 	UPROPERTY(BlueprintAssignable)
-	FUnEquippedEntrySignature UnEquippedEntryDelegate;
+	FDashboardEquipmentRemovedSignature DashboardEquipmentRemovedDelegate;
 	
 	UPROPERTY(BlueprintAssignable)
-	FInventoryItemQuickSlottedSignature InventoryItemQuickSlottedDelegate;
+	FDashboardQuickSlotRelocatedSignature QuickSlotItemRelocatedDelegate;
 	
-	void SetOwningActor(AActor* InOwner);
-
+	UPROPERTY(BlueprintAssignable)
+	FDashboardQuickSlotChangedSignature QuickSlotItemChangedDelegate;
+	
+	UPROPERTY(BlueprintAssignable)
+	FDashboardQuickSlotRemovedSignature QuickSlotItemRemovedDelegate;
+	
 	void SetOwningInventory();
 
 	void SetOwningEquipmentManagerComp();
@@ -56,14 +61,13 @@ public:
 	
 	void SetInventoryWidget(UInventoryDashboardWidget* InInventoryWidget);
 
-	void BindCallbacksToDependencies();
+	virtual void BindCallbacksToDependencies() override;
 
-	void BroadcastInitialValues();
+	virtual void BroadcastInitialValues() override;
 	
-	void UnbindAllEventsFromDelegates();
-
-	UFUNCTION(BlueprintImplementableEvent)
-	void BindDelegatesToInventoryWidget();
+	virtual void BindDelegatesToWidget_Implementation() override;
+	
+	virtual void UnbindAllEventsFromDelegates() override;
 		
 private:
 	
@@ -72,9 +76,6 @@ private:
 	bool EnsureOwningEquipmentManagerComp();
 	
 	bool EnsureOwningQuickSlotManagerComp();
-
-	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = true))
-	TObjectPtr<AActor> OwningActor;
 
 	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = true))
 	TObjectPtr<UInventoryComponent> OwningInventoryComp;
