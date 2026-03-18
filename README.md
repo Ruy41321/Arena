@@ -10,7 +10,11 @@ This repository is a **public mirror** of my private development environment. It
 - **Secondary Goals:** Do practice, implement a robust and scalable codebase, maintain high performance standards, and build a fully scalable architecture to allow a future bigger project to start from here.
 
 ## ▶️ Video Showcase
-- to be added soon.
+<div align="center">
+  <a href="https://www.youtube.com/watch?v=7plB67gLEM4">
+    <img src="https://img.youtube.com/vi/7plB67gLEM4/maxresdefault.jpg" alt="Watch the video" style="width:100%;">
+  </a>
+</div>
 
 ## 📂 Why a Public Mirror?
 I have chosen to maintain a separate public repository for the following reasons:
