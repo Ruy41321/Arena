@@ -50,4 +50,7 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Custom Values | Ability")
 	FGameplayTagContainer PossibleAbilityRolls;
+	
+	UPROPERTY(EditDefaultsOnly, Category = "Custom Values | Ability")
+	FGameplayTagContainer BasicAbilitiesGranted;
 };

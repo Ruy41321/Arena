@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "UI/RPGSystemWidget.h"
+#include "GameplayTagContainer.h"
 #include "HUDOverlayWidget.generated.h"
 
 class UInventoryItem;
@@ -25,5 +26,11 @@ public:
 	
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
 	void OnItemRemoved(const int64 RemovedItemID);
+	
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
+	void OnQuickSlotActivated(const FGameplayTag& QuickSlotTag);
+	
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
+	void OnWeaponEquipped(const int64 EquippedWeaponID);
 	
 };

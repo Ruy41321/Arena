@@ -14,6 +14,7 @@ class UInventoryItem;
 class UInventoryComponent;
 class UItemTypesToTables;
 class UEquipmentStatEffects;
+struct FStreamableHandle;
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FEquipmentItemUsed, UInventoryItem* /*Inventory Item*/);
 DECLARE_MULTICAST_DELEGATE_OneParam(FEquipmentItemUnequipped, int64 /*ItemIDToRemove*/);
@@ -187,6 +188,15 @@ public:
 	
 	UFUNCTION(BlueprintCallable)
 	void RemoveEntryFromQuickSlot(int64 ItemID);
+
+	/**
+	 * This Function Preload the asset of the weapon that is being quickslotted,
+	 * so if the players attacks while the weapon is sheathed the attack starts directly
+	 * @param Entry 
+	 */
+	void PreloadItem(FRPGInventoryEntry* Entry);
+
+	void RemovePreloadedItemRef(int64 ItemID);
 	
 protected:
 
@@ -210,5 +220,7 @@ private:
 	void ServerUseItem(int64 ItemID, int32 NumItems);
 
 	bool ServerUseItem_Validate(int64 ItemID, int32 NumItems);
+
+	TMap<int64, TArray<TSharedPtr<FStreamableHandle>>> PreloadedItemHandles;
 
 };

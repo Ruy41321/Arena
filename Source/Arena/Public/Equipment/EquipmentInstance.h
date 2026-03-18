@@ -24,8 +24,10 @@ public:
 	void SpawnEquipmentActors(const TArray<FEquipmentActorToSpawn>& ActorsToSpawn);
 	void DestroySpawnedActors();
 
+	TArray<AActor*> GetSpawnedActors();
+	
 private:
-
+	
 	UPROPERTY()
 	TArray<AActor*> SpawnedActors;
 

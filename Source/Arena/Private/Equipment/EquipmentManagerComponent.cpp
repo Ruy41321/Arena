@@ -122,6 +122,22 @@ void FRPGEquipmentList::RemoveEntryBySlot(const FGameplayTag& SlotTag)
 	}
 }
 
+FRPGEquipmentEntry* FRPGEquipmentList::FindEntryMutable(int64 OriginalItemID, const FGameplayTag& SlotTag)
+{
+	return Entries.FindByPredicate([OriginalItemID, &SlotTag](FRPGEquipmentEntry& Entry)
+	{
+		return Entry.OriginalItemID == OriginalItemID && Entry.SlotTag.MatchesTagExact(SlotTag);
+	});
+}
+
+const FRPGEquipmentEntry* FRPGEquipmentList::FindEntry(int64 OriginalItemID, const FGameplayTag& SlotTag) const
+{
+	return Entries.FindByPredicate([OriginalItemID, &SlotTag](const FRPGEquipmentEntry& Entry)
+	{
+		return Entry.OriginalItemID == OriginalItemID && Entry.SlotTag.MatchesTagExact(SlotTag);
+	});
+}
+
 void FRPGEquipmentList::PreReplicatedRemove(const TArrayView<int32>& RemovedIndices, int32 FinalSize)
 {
 	for (const int32 Index : RemovedIndices)
@@ -253,6 +269,17 @@ const FGameplayTag& UEquipmentManagerComponent::GetSlotTagByItemID(int64 ItemID)
 		return Entry.OriginalItemID == ItemID;
 	});
 	return (FoundEntry) ? FoundEntry->SlotTag : FGameplayTag::EmptyTag;
+}
+
+UEquipmentInstance* UEquipmentManagerComponent::GetEquipmentInstanceBySlot(const FGameplayTag& SlotTag) const
+{	
+	TArray<FRPGEquipmentEntry> Entries;
+	EquipmentList.GetEntries(Entries);
+	FRPGEquipmentEntry* FoundEntry = Entries.FindByPredicate([SlotTag](const FRPGEquipmentEntry& Entry)
+	{
+		return Entry.SlotTag.MatchesTagExact(SlotTag);
+	});
+	return (FoundEntry) ? FoundEntry->Instance : nullptr;
 }
 
 void UEquipmentManagerComponent::ServerEquipItem_Implementation(FRPGEquipmentEntry InEntry)

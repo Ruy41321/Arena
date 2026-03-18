@@ -6,6 +6,7 @@
 #include "AbilitySystem/Abilities/ProjectileAbility.h"
 #include "Equipment/EquipmentManagerComponent.h"
 #include "Equipment/EquipmentTypes.h"
+#include "Interfaces/EquipmentInterface.h"
 #include "Engine/StreamableManager.h"
 #include "Engine/AssetManager.h"
 
@@ -57,7 +58,7 @@ void URPGAbilitySystemComponent::AbilityInputPressed(const FGameplayTag& InputTa
 				TryActivateAbility(Spec.Handle);
 			}
 			else
-			{
+			{	
 				const TArray<UGameplayAbility*>& Instances = Spec.GetAbilityInstances();
 				if (Instances.Num() > 0)
 				{
@@ -121,8 +122,19 @@ void URPGAbilitySystemComponent::SetDynamicProjectile(const FGameplayTag& Projec
 
 void URPGAbilitySystemComponent::AddEquipmentEffects(FRPGEquipmentEntry* EquipmentEntry)
 {
+	if (!EquipmentEntry)
+		return;
+
 	FStreamableManager& Manager = UAssetManager::GetStreamableManager();
 	TWeakObjectPtr<URPGAbilitySystemComponent> WeakThis(this);
+	UEquipmentManagerComponent* EquipmentManager = nullptr;
+	if (AbilityActorInfo.IsValid())
+	{
+		EquipmentManager = IEquipmentInterface::Execute_GetEquipmentManagerComponent(AbilityActorInfo->PlayerController.Get());
+	}
+	TWeakObjectPtr<UEquipmentManagerComponent> WeakEquipmentManager(EquipmentManager);
+	const int64 EntryItemID = EquipmentEntry->OriginalItemID;
+	const FGameplayTag EntrySlotTag = EquipmentEntry->SlotTag;
 	const FGameplayEffectContextHandle ContextHandle = MakeEffectContext();
 
 	for (const FEquipmentStatEffectDefinition& StatEffect : EquipmentEntry->EffectPackage.StatEffects)
@@ -137,15 +149,21 @@ void URPGAbilitySystemComponent::AddEquipmentEffects(FRPGEquipmentEntry* Equipme
 		else
 		{
 			Manager.RequestAsyncLoad(StatEffect.EffectClass.ToSoftObjectPath(),
-				[WeakThis, StatEffect, ContextHandle, EquipmentEntry] 
+				[WeakThis, WeakEquipmentManager, StatEffect, ContextHandle, EntryItemID, EntrySlotTag]
 				{
 					if (!WeakThis.IsValid())
+						return;
+					if (!WeakEquipmentManager.IsValid())
+						return;
+
+					FRPGEquipmentEntry* ResolvedEntry = WeakEquipmentManager->EquipmentList.FindEntryMutable(EntryItemID, EntrySlotTag);
+					if (!ResolvedEntry)
 						return;
 
 					const FGameplayEffectSpecHandle SpecHandle = WeakThis->MakeOutgoingSpec(StatEffect.EffectClass.Get(), StatEffect.CurrentValue, ContextHandle);
 					const FActiveGameplayEffectHandle ActiveHandle = WeakThis->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
 
-					EquipmentEntry->GrantedHandles.AddEffectHandle(ActiveHandle);
+					ResolvedEntry->GrantedHandles.AddEffectHandle(ActiveHandle);
 				});
 		}
 	}
@@ -162,8 +180,19 @@ void URPGAbilitySystemComponent::RemoveEquipmentEffects(FRPGEquipmentEntry* Equi
 
 void URPGAbilitySystemComponent::AddEquipmentAbility(FRPGEquipmentEntry* EquipmentEntry)
 {
+	if (!EquipmentEntry)
+		return;
+
 	FStreamableManager& Manager = UAssetManager::GetStreamableManager();
 	TWeakObjectPtr<URPGAbilitySystemComponent> WeakThis(this);
+	UEquipmentManagerComponent* EquipmentManager = nullptr;
+	if (AbilityActorInfo.IsValid())
+	{
+		EquipmentManager = IEquipmentInterface::Execute_GetEquipmentManagerComponent(AbilityActorInfo->PlayerController.Get());
+	}
+	TWeakObjectPtr<UEquipmentManagerComponent> WeakEquipmentManager(EquipmentManager);
+	const int64 EntryItemID = EquipmentEntry->OriginalItemID;
+	const FGameplayTag EntrySlotTag = EquipmentEntry->SlotTag;
 
 	for (const FEquipmentAbilityDefinition& AbilityDef : EquipmentEntry->EffectPackage.Abilities)
 	{
@@ -174,25 +203,30 @@ void URPGAbilitySystemComponent::AddEquipmentAbility(FRPGEquipmentEntry* Equipme
 		else
 		{
 			Manager.RequestAsyncLoad(AbilityDef.AbilityClass.ToSoftObjectPath(),
-				[WeakThis, AbilityDef, EquipmentEntry]
+				[WeakThis, WeakEquipmentManager, AbilityDef, EntryItemID, EntrySlotTag]
 				{
 					if (!WeakThis.IsValid())
 						return;
+					if (!WeakEquipmentManager.IsValid())
+						return;
 
-					EquipmentEntry->GrantedHandles.AddAbilityHandle(WeakThis->GrantEquipmentAbility(AbilityDef));
+					FRPGEquipmentEntry* ResolvedEntry = WeakEquipmentManager->EquipmentList.FindEntryMutable(EntryItemID, EntrySlotTag);
+					if (!ResolvedEntry)
+						return;
+
+					ResolvedEntry->GrantedHandles.AddAbilityHandle(WeakThis->GrantEquipmentAbility(AbilityDef));
 				});
 		}
 	}
 }
 
-void URPGAbilitySystemComponent::RemoveEquipmentAbility(const FRPGEquipmentEntry* EquipmentEntry)
+void URPGAbilitySystemComponent::RemoveEquipmentAbility(FRPGEquipmentEntry* EquipmentEntry)
 {
 	for (auto HandleIt = EquipmentEntry->GrantedHandles.GrantedAbilities.CreateConstIterator(); HandleIt; ++HandleIt)
 	{
 		ClearAbility(*HandleIt);
 	}
-	// Const-cast only to clear the transient handle array after removal
-	const_cast<FRPGEquipmentEntry*>(EquipmentEntry)->GrantedHandles.GrantedAbilities.Empty();
+	EquipmentEntry->GrantedHandles.GrantedAbilities.Empty();
 }
 
 FGameplayAbilitySpecHandle URPGAbilitySystemComponent::GrantEquipmentAbility(const FEquipmentAbilityDefinition& AbilityDef)
@@ -201,12 +235,17 @@ FGameplayAbilitySpecHandle URPGAbilitySystemComponent::GrantEquipmentAbility(con
 
 	if (URPGGameplayAbility* RPGAbility = Cast<URPGGameplayAbility>(Spec.Ability))
 	{
+		if (AbilityDef.bIsSkillAbility)
+		{
+			// Ovveride the input tag for skills because they are set dynamically
+			RPGAbility->InputTag = AbilityDef.SkillInputTag;
+		}
 		Spec.GetDynamicSpecSourceTags().AddTag(RPGAbility->InputTag);
 	}
 
 	if (UProjectileAbility* ProjectileAbility = Cast<UProjectileAbility>(Spec.Ability))
 	{
-		ProjectileAbility->ProjectileToSpawnTag = ProjectileAbility->ProjectileToSpawnTag;
+		ProjectileAbility->ProjectileToSpawnTag = AbilityDef.ContextTag;
 	}
 
 	return GiveAbility(Spec);

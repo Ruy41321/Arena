@@ -24,7 +24,10 @@ void UQuickSlotManagerComponent::AddQuickSlot(const FGameplayTag& QuickSlotTag, 
 {
 	RemoveQuickSlot(ItemID);
 	QuickSlotTagMap.Add(QuickSlotTag, ItemID);
-	
+	if (QuickSlotTag.MatchesTag(RPGGameplayTags::Equip::WeaponQuickSlotCategory) && !QuickEquipWeaponSlotTag.IsValid())
+	{
+		QuickEquipWeaponSlotTag = QuickSlotTag;
+	}
 }
 
 void UQuickSlotManagerComponent::RemoveQuickSlot(int64 ItemID)
@@ -33,12 +36,36 @@ void UQuickSlotManagerComponent::RemoveQuickSlot(int64 ItemID)
 	const FGameplayTag* ExistingKey = QuickSlotTagMap.FindKey(ItemID);
 	if (ExistingKey)
 	{
+		bool bRemovedQuickEquipWeapon = false;
+		if (ExistingKey->MatchesTagExact(QuickEquipWeaponSlotTag))
+		{
+			QuickEquipWeaponSlotTag = FGameplayTag();
+			bRemovedQuickEquipWeapon = true;
+		}
 		QuickSlotTagMap.Remove(*ExistingKey);
+		
+		if (bRemovedQuickEquipWeapon)
+		{
+			if (QuickSlotTagMap.Contains(RPGGameplayTags::Equip::WeaponQuickSlot1))
+			{
+				QuickEquipWeaponSlotTag = RPGGameplayTags::Equip::WeaponQuickSlot1;
+			}
+			else if (QuickSlotTagMap.Contains(RPGGameplayTags::Equip::WeaponQuickSlot2))
+			{
+				QuickEquipWeaponSlotTag = RPGGameplayTags::Equip::WeaponQuickSlot2;
+			}
+		}
 	}
 }
 
 void UQuickSlotManagerComponent::UseQuickSlot(const FGameplayTag& QuickSlotTag)
 {
+	// Dont trigger activation for sheathed use
+	if (bCanTriggerActivation)
+		QuickSlotActivatedDelegate.Execute(QuickSlotTag);
+	else
+		bCanTriggerActivation = true;
+	
 	const int64* ItemID = QuickSlotTagMap.Find(QuickSlotTag);
 	if (!ItemID)
 	{
@@ -51,10 +78,27 @@ void UQuickSlotManagerComponent::UseQuickSlot(const FGameplayTag& QuickSlotTag)
 		return;
 	}
 	
+	// Assign the last weapon used as quick weapon if unarmed 
+	if (QuickSlotTag.MatchesTag(RPGGameplayTags::Equip::WeaponQuickSlotCategory))
+	{
+		QuickEquipWeaponSlotTag = QuickSlotTag;
+	}
+	
 	InventoryComponent->UseItem(*ItemID, 1);
 }
 
 int64 UQuickSlotManagerComponent::GetQuickSlotID(const FGameplayTag& QuickSlotTag) const
 {
 	return QuickSlotTagMap.Contains(QuickSlotTag) ? QuickSlotTagMap[QuickSlotTag] : 0;
+}
+
+bool UQuickSlotManagerComponent::TryEquipWeapon()
+{
+	if (!QuickEquipWeaponSlotTag.IsValid())
+		return false;
+	
+	bCanTriggerActivation = false; // Dont trigger activation for sheathed use
+	UseQuickSlot(QuickEquipWeaponSlotTag);
+	
+	return true;
 }

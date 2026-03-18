@@ -45,7 +45,6 @@ public:
 	UFUNCTION(BlueprintCallable)
 	UInventoryDashboardController* GetInventoryWidgetController();
 
-	
 protected:
 	
 	virtual void BeginPlay() override;

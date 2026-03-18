@@ -15,7 +15,6 @@ struct RPGDamageStatics
 
 	// Target Captures
 	DECLARE_ATTRIBUTE_CAPTUREDEF(IncomingDamage);
-	DECLARE_ATTRIBUTE_CAPTUREDEF(Shield);
 
 	RPGDamageStatics()
 	{
@@ -25,7 +24,6 @@ struct RPGDamageStatics
 
 		// Target Defines
 		DEFINE_ATTRIBUTE_CAPTUREDEF(URPGAttributeSet, IncomingDamage, Target, false);
-		DEFINE_ATTRIBUTE_CAPTUREDEF(URPGAttributeSet, Shield, Target, false);
 		
 	}
 };
@@ -44,7 +42,6 @@ UExecCalc_Damage::UExecCalc_Damage()
 
 	// Target Captures
 	RelevantAttributesToCapture.Add(DamageStatics().IncomingDamageDef);
-	RelevantAttributesToCapture.Add(DamageStatics().ShieldDef);
 }
 
 void UExecCalc_Damage::Execute_Implementation(const FGameplayEffectCustomExecutionParameters& ExecutionParams, 
@@ -72,14 +69,9 @@ void UExecCalc_Damage::Execute_Implementation(const FGameplayEffectCustomExecuti
 	ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(DamageStatics().CritDamageModDef, EvalParams, CritDamageMod);
 	CritDamageMod = FMath::Max<float>(CritDamageMod, 0.f);
 
-	// Target Captures
-	float Shield = 0.f;
-	ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(DamageStatics().ShieldDef, EvalParams, Shield);
-	Shield = FMath::Max<float>(Shield, 0.f);
-
 	// Begin Calculation
 
-	const bool bCriticalHit = FMath::RandRange(0, 100) < CritChance;
+	const bool bCriticalHit = FMath::RandRange(1, 100) <= CritChance;
 	Damage = bCriticalHit ? Damage * (1.f + CritDamageMod) : Damage;
 	RPGContext->SetIsCriticalHit(bCriticalHit);
 		

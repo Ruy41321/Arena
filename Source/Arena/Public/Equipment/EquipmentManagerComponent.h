@@ -74,6 +74,8 @@ struct FRPGEquipmentList : public FFastArraySerializer
 	void RemoveEquipmentAbility(FRPGEquipmentEntry* Entry);
 	UEquipmentInstance* AddEntry(const FRPGEquipmentEntry& InEntry);
 	void RemoveEntryBySlot(const FGameplayTag& SlotTag);
+	FRPGEquipmentEntry* FindEntryMutable(int64 OriginalItemID, const FGameplayTag& SlotTag);
+	const FRPGEquipmentEntry* FindEntry(int64 OriginalItemID, const FGameplayTag& SlotTag) const;
 
 	void GetEntries(TArray<FRPGEquipmentEntry>& OutEntries) const { OutEntries = Entries; }
 
@@ -139,6 +141,8 @@ public:
 		
 	UFUNCTION(BlueprintCallable)
 	const FGameplayTag& GetSlotTagByItemID(int64 ItemID) const;
+	
+	UEquipmentInstance* GetEquipmentInstanceBySlot(const FGameplayTag& SlotTag) const;
 
 private:
 

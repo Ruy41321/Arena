@@ -1,670 +1,500 @@
-# Arena Character System Architecture Documentation
+# Character System Architecture
 
 ## Table of Contents
-1. [System Overview](#system-overview)
-2. [Architecture Components](#architecture-components)
-3. [Movement State Machine](#movement-state-machine)
-4. [Component Interactions](#component-interactions)
-5. [Observer Pattern Implementation](#observer-pattern-implementation)
-6. [Adding New Movement States](#adding-new-movement-states)
-7. [Implementing Observer Pattern Subscribers](#implementing-observer-pattern-subscribers)
-8. [Input System Integration](#input-system-integration)
-9. [Best Practices](#best-practices)
 
-## System Overview
+1. [Overview](#overview)
+2. [Class Hierarchy](#class-hierarchy)
+3. [ACharacterBase](#acharacterbase)
+4. [APlayerCharacter](#aplayercharacter)
+5. [AEnemyBase](#aenemybase)
+6. [Movement Components](#movement-components)
+7. [Movement State Machine](#movement-state-machine)
+8. [Animation System](#animation-system)
+9. [Camera Setup](#camera-setup)
+10. [Input System](#input-system)
+11. [Adding a New Movement State](#adding-a-new-movement-state)
+12. [Adding a New Observer](#adding-a-new-observer)
 
-The Arena character system is built using a **component-based architecture** with a **finite state machine** for movement management and an **observer pattern** for state change notifications. This design provides modularity, extensibility, and clean separation of concerns.
+---
 
-### Key Design Principles
-- **Component-Based Design**: Each movement ability is encapsulated in its own component
-- **State Machine Pattern**: Centralized movement state management with automatic transitions
-- **Observer Pattern**: Decoupled notifications for state changes
-- **Enhanced Input Integration**: Modern Unreal Engine input system support
-- **Blueprint Accessibility**: All systems exposed to Blueprint for designer control
+## Overview
 
-## Architecture Components
+The Arena character system uses a **component-based architecture** combined with a **finite state machine** for movement management and an **observer pattern** for state-change notifications. This design separates each movement ability into its own component, delegates state management to a dedicated state machine, and notifies dependent systems (such as animation) through delegates.
 
-### Core Classes
+Key principles:
+- **Single Responsibility**: Each component handles exactly one movement mechanic.
+- **Open/Closed**: New movement states can be added without modifying existing state classes.
+- **Decoupled Communication**: Systems react to state changes through delegates, not direct coupling.
+- **Blueprint Accessibility**: All major properties and functions are exposed for designer iteration.
 
-#### APlayerCharacter
-The main character class that orchestrates all movement systems.
+---
 
-**Location**: `Source/Arena/Player/PlayerCharacter.h/cpp`
+## Class Hierarchy
 
-**Key Responsibilities**:
-- Manages all movement components
-- Provides unified interface for state machine access
-- Handles Enhanced Input setup delegation
-- Exposes Blueprint-accessible functions
+```
+ACharacter (Engine)
+  └─ ACharacterBase                  [IAbilitySystemInterface]
+       ├─ APlayerCharacter           [IRPGAbilitySystemInterface]
+       └─ AEnemyBase
+```
 
-**Key Components**:
+---
+
+## ACharacterBase
+
+**Location**: `Source/Arena/Public/Character/CharacterBase.h`
+
+The abstract base class shared by players and enemies. It provides the GAS integration point and common attribute-change delegates.
+
+### Responsibilities
+
+- Implements `IAbilitySystemInterface::GetAbilitySystemComponent()`.
+- Declares virtual hooks for GAS initialisation: `InitAbilityActorInfo()`, `BindCallbacksToDependencies()`, `InitClassDefaults()`, `BroadcastInitialValues()`.
+- Manages the `OutOfStamina` gameplay tag in `HandleStaminaChanged()`.
+
+### Key Properties
+
 ```cpp
+UPROPERTY(EditAnywhere, Category = "Custom Values | Character Info")
+FGameplayTag CharacterTag;                              // Identifies the character class for data lookup
+
+TObjectPtr<URPGAbilitySystemComponent> RPGAbilitySystemComponent;
+TObjectPtr<URPGAttributeSet> RPGAttributeSet;
+```
+
+### Delegates
+
+| Delegate | Signature | Fired When |
+|---|---|---|
+| `OnHealthChanged` | `(float OldHealth, float CurrentHealth, float MaxHealth)` | Health attribute changes |
+| `OnStaminaChanged` | `(float OldStamina, float CurrentStamina, float MaxStamina)` | Stamina attribute changes |
+| `OnShieldChanged` | `(float OldShield, float CurrentShield, float MaxShield)` | Shield attribute changes |
+
+---
+
+## APlayerCharacter
+
+**Location**: `Source/Arena/Public/Player/PlayerCharacter.h`
+
+The player-controlled character. It owns the movement components, state machine, and camera, and delegates GAS ownership to `ARPGPlayerState`.
+
+### Components Created in Constructor
+
+```cpp
+// Camera
+TObjectPtr<USpringArmComponent> CameraBoom;
+TObjectPtr<UCameraComponent> Camera;
+
 // Movement Systems
-TObjectPtr<UBasicMovementComponent> BasicMovementSystem;
 TObjectPtr<UDodgeSystemComponent> DodgeSystem;
 TObjectPtr<UCrouchSystemComponent> CrouchSystem;
+TObjectPtr<UBasicMovementComponent> BasicMovementSystem;
 TObjectPtr<UJumpSystemComponent> JumpSystem;
 TObjectPtr<USprintSystemComponent> SprintSystem;
 
 // State Management
 TObjectPtr<UMovementStateMachine> MovementStateMachine;
 
-// Camera System
-TObjectPtr<USpringArmComponent> CameraBoom;
-TObjectPtr<UCameraComponent> Camera;
+// Projectile spawn point for GAS abilities
+TObjectPtr<USceneComponent> DynamicProjectileSpawnPoint;
 ```
 
-#### Movement Components
+### GAS Initialisation
 
-All movement components inherit from `UActorComponent` and follow a consistent pattern:
+The ASC and attribute set are obtained from `ARPGPlayerState` in `InitAbilityActorInfo()`:
 
-##### UBasicMovementComponent
-**Location**: `Source/Arena/Components/BasicMovement/`
-- Handles basic movement input (WASD/Gamepad)
-- Manages look input (mouse/gamepad)
-- Provides movement smoothing
-- Updates movement input tracking for other systems
+```
+PossessedBy() [Server]
+  └─ InitAbilityActorInfo()
+       ├─ ASC = PlayerState->GetRPGAbilitySystemComponent()
+       ├─ AttributeSet = PlayerState->GetRPGAttributeSet()
+       ├─ ASC->InitAbilityActorInfo(PlayerState, this)
+       ├─ BindCallbacksToDependencies()
+       ├─ MovementStateMachine->SyncCurrentStateTagToASC()
+       └─ InitClassDefaults()  [Authority only]
 
-##### UDodgeSystemComponent  
-**Location**: `Source/Arena/Components/Dodge/`
-- Manages dodge mechanics with direction blending
-- Handles dodge cooldown and duration
-- Integrates with crouching system
-- Supports input-influenced dodge direction
-
-##### UCrouchSystemComponent
-**Location**: `Source/Arena/Components/Crouch/`
-- Handles crouching/uncrouching with smooth transitions
-- Performs collision checking for safe uncrouching
-- Manages capsule component height adjustments
-- Provides crouch speed settings
-
-##### UJumpSystemComponent
-**Location**: `Source/Arena/Components/Jump/`
-- Manages jump input and execution
-- Tracks landing state for animations
-- Handles jump cooldown
-- Integrates with Unreal's CharacterMovementComponent
-
-##### USprintSystemComponent
-**Location**: `Source/Arena/Components/Sprint/`
-- Handles sprint toggling
-- Manages sprint interruption conditions
-- Integrates with crouching system (auto-uncrouch when sprinting)
-- Prevents sprinting while dodging
-
-## Movement State Machine
-
-### Core State Machine Classes
-
-#### UMovementStateMachine
-**Location**: `Source/Arena/Player/MovementStateMachine/MovementStateMachine.h/cpp`
-
-**Key Features**:
-- Manages state transitions and validation
-- Fires state change events via delegate
-- Supports both automatic and manual transitions
-- Provides Blueprint-accessible interface
-- Maintains current and previous state tracking
-
-#### EMovementState Enumeration
-**Location**: `Source/Arena/Player/MovementStateMachine/MovementStateTypes.h`
-
-**Available States**:
-```cpp
-enum class EMovementState : uint8
-{
-    None = 0,
-    Idle,
-    Walking,
-    Sprinting, 
-    CrouchingIdle,
-    CrouchingMoving,
-    Jumping,
-    Falling,
-    LandingInPlace,
-    LandingMoving,
-    Dodging
-};
+OnRep_PlayerState() [Client]
+  └─ InitAbilityActorInfo()   (same flow, minus InitClassDefaults)
 ```
 
-#### UMovementState Base Class
-**Location**: `Source/Arena/Player/MovementStateMachine/MovementState.h/cpp`
+### Input Setup
 
-**Abstract base class for all movement states providing**:
-- Virtual methods for state lifecycle (Enter, Update, Exit)
-- Blueprint implementable events
-- Transition validation logic
-- Speed management for each state
-- Access to PlayerCharacter and StateMachine references
+`SetupPlayerInputComponent` casts to `UEnhancedInputComponent` and delegates binding to each movement component's `SetupInput` method.
 
-### Individual State Classes
+### Public Helpers
 
-Each movement state inherits from `UMovementState` and implements specific behavior:
+| Method | Description |
+|---|---|
+| `SetMaxWalkSpeed(float)` | Sets `CharacterMovement->MaxWalkSpeed` |
+| `GetCurrentMovementState()` | Returns `MovementStateMachine->GetCurrentState()` |
+| `GetPreviousMovementState()` | Returns `MovementStateMachine->GetPreviousState()` |
+| `TransitionToMovementState(NewState, bForce)` | Calls `MovementStateMachine->TransitionToState()` |
+| `GetDynamicSpawnPoint_Implementation()` | Returns the `DynamicProjectileSpawnPoint` scene component |
 
-#### UIdle MovementState
-- Default state when no input is detected
-- Transitions to Walking/Sprinting on movement input
-- Transitions to Jumping on jump input
-- Transitions to Crouching on crouch input
+---
 
-#### UWalkingMovementState  
-- Active during normal movement
-- Transitions to Idle when movement stops
-- Transitions to Sprinting when sprint is activated
-- Can transition to Jumping or Dodging
+## AEnemyBase
 
-#### USprintingMovementState
-- High-speed movement state
-- Requires movement input to maintain
-- Transitions to Walking when sprint is released
-- Auto-transitions to Walking if movement stops
+**Location**: `Source/Arena/Public/Character/EnemyBase.h`
 
-#### UCrouchingIdleMovementState / UCrouchingMovingMovementState
-- Crouched variants of Idle and Walking
-- Reduced movement speed
-- Lower profile for tactical movement
-- Smooth transitions with capsule height adjustments
+AI-controlled characters. Unlike the player, enemies own their ASC directly.
 
-#### UJumpingMovementState / UFallingMovementState
-- Airborne states for jump/fall mechanics
-- Automatic transitions based on character movement state
-- Integration with Unreal's built-in falling detection
+### Key Differences from Player
 
-#### ULandingInPlaceMovementState / ULandingMovingMovementState
-- Brief states after landing for animation timing
-- Automatically transition to appropriate ground states
-- Provide landing feedback opportunities
+| Aspect | Player | Enemy |
+|---|---|---|
+| ASC Owner | `ARPGPlayerState` | `AEnemyBase` itself |
+| ASC Actor Info | `InitAbilityActorInfo(PlayerState, this)` | `InitAbilityActorInfo(this, this)` |
+| Replication Mode | `Mixed` | `Minimal` |
+| Init Trigger | `PossessedBy` / `OnRep_PlayerState` | `BeginPlay` |
 
-#### UDodgingMovementState
-- Special evasive movement state
-- Fixed duration with automatic reset
-- High movement speed with directional control
-- Cannot be interrupted except by completion
+Enemies replicate a `bInitAttributes` flag so clients can broadcast initial values after attribute setup completes server-side.
 
-## Component Interactions
+---
 
-### State Machine Integration
+## Movement Components
 
-Each movement component interacts with the state machine through the PlayerCharacter:
+All movement components inherit from `UActorComponent` and follow a consistent pattern: each component receives input, manages its own state, and coordinates with other components through the shared `APlayerCharacter` reference.
 
-```cpp
-// Example: Dodge component checking current state
-EMovementState CurrentState = PlayerCharacter->MovementStateMachine->GetCurrentState();
-if (IsInDodgeableState(CurrentState))
-{
-    // Perform dodge logic
-}
-```
+### UBasicMovementComponent
+
+**Location**: `Source/Arena/Public/Player/Components/BasicMovement/BasicMovementComponent.h`
+
+- Processes WASD/gamepad movement input and mouse/gamepad look input.
+- Tracks whether the character has active movement input (used by other systems).
+- Manages movement smoothing and sensitivity settings.
+
+### UDodgeSystemComponent
+
+**Location**: `Source/Arena/Public/Player/Components/Dodge/DodgeSystemComponent.h`
+
+- Handles dodge initiation, direction blending, and cooldown.
+- Checks the current movement state against a dodgeable-state whitelist (`Idle`, `CrouchingIdle`, `CrouchingMoving`, `Walking`, `Sprinting`).
+- Remembers pre-dodge crouch state and restores it after the dodge ends.
+- Replicates `bIsDodging` for multiplayer; has a Server RPC for `StartDodge`.
+- Broadcasts `OnDodgeFinishedDelegate` when the dodge ends.
+
+### UCrouchSystemComponent
+
+**Location**: `Source/Arena/Public/Player/Components/Crouch/CrouchSystemComponent.h`
+
+- Toggles crouching with collision-safe uncrouch checks.
+- Smoothly adjusts capsule height transitions.
+- Provides `CanUncrouchSafely()` used by Sprint and Dodge components.
+- Manages crouch speed settings.
+
+### UJumpSystemComponent
+
+**Location**: `Source/Arena/Public/Player/Components/Jump/JumpSystemComponent.h`
+
+- Handles jump input and delegates to `ACharacter::Jump()`.
+- Tracks landing state and timing for animation.
+- Manages jump cooldown.
+- Receives `Landed()` callbacks from `APlayerCharacter`.
+
+### USprintSystemComponent
+
+**Location**: `Source/Arena/Public/Player/Components/Sprint/SprintSystemComponent.h`
+
+- Toggles sprinting on/off.
+- Automatically uncrouches when sprint starts (with collision check).
+- Tracks sprint interruption conditions.
+- Prevents sprinting while dodging.
 
 ### Component Cooperation
 
-Components coordinate through shared state and cross-component calls:
+Components coordinate through the shared `APlayerCharacter` reference:
 
-**Sprint + Crouch Interaction**:
+**Sprint ↔ Crouch**: Sprint auto-uncrouches if `CanUncrouchSafely()` returns true; otherwise sprint is cancelled.
+
+**Dodge ↔ Crouch**: Dodge records whether the character was crouching before the dodge (`bWasCrouchingPreDodge`) and restores the crouch state on dodge end.
+
+**Dodge ↔ State Machine**: Before dodging, the component checks `MovementStateMachine->GetCurrentState()` against the dodgeable-state whitelist.
+
+---
+
+## Movement State Machine
+
+### UMovementStateMachine
+
+**Location**: `Source/Arena/Public/Player/MovementStateMachine/MovementStateMachine.h`
+
+An `UActorComponent` that manages a map of `EMovementStateValue` → `UMovementState*` objects.
+
+**Tick behaviour**:
+1. Calls `UpdateState(DeltaTime)` on the current state.
+2. Calls `EvaluateStateTransitions()` which asks the current state for a `GetDesiredTransition()`. If the returned value is not `None`, it attempts a transition.
+
+**Transition logic**:
+- `TransitionToState(NewState, bForceTransition)` returns `false` if already in the target state or if the current state's `CanTransitionTo()` returns `false` (unless forced).
+- `PerformStateTransition(NewState)` calls `ExitState` on the old state, updates `PreviousState`/`CurrentState`, calls `EnterState` on the new state, and broadcasts `OnStateChanged`.
+
+### EMovementStateValue
+
+**Location**: `Source/Arena/Public/Player/MovementStateMachine/MovementStateTypes.h`
+
 ```cpp
-// Sprint component auto-uncrouches when sprint starts
-if (CurrentState == EMovementState::CrouchingIdle || CurrentState == EMovementState::CrouchingMoving)
+UENUM(BlueprintType)
+enum class EMovementStateValue : uint8
 {
-    if (!PlayerCharacter->CrouchSystem->CanUncrouchSafely())
-    {
-        bIsSprinting = false;
-        return;
-    }
-    PlayerCharacter->CrouchSystem->CrouchPressed(Value);
-}
-```
-
-**Dodge + Crouch Interaction**:
-```cpp
-// Dodge remembers pre-dodge crouch state
-bWasCrouchingPreDodge = (CurrentState == EMovementState::CrouchingIdle || 
-                         CurrentState == EMovementState::CrouchingMoving);
-```
-
-### Input Flow
-
-1. **PlayerCharacter::SetupPlayerInputComponent** delegates input setup to each component
-2. Each component binds its specific input actions
-3. Input events trigger component-specific functions
-4. Components request state transitions through MovementStateMachine
-5. State machine validates transitions and fires events
-6. Animation system receives state change notifications
-
-## Observer Pattern Implementation
-
-### State Change Notification System
-
-The system uses Unreal's dynamic multicast delegate system for state change notifications:
-
-#### FOnMovementStateChanged Delegate
-```cpp
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnMovementStateChanged, 
-    EMovementState, OldState, 
-    EMovementState, NewState);
-```
-
-#### MovementStateMachine Publisher
-```cpp
-// In UMovementStateMachine
-UPROPERTY(BlueprintAssignable, Category = "Movement State Machine")
-FOnMovementStateChanged OnStateChanged;
-
-// When state changes
-void UMovementStateMachine::PerformStateTransition(EMovementState NewState)
-{
-    EMovementState OldState = CurrentState;
-    // ... transition logic ...
-    OnStateChanged.Broadcast(OldState, NewState);
-}
-```
-
-#### PlayerAnimInstance Subscriber
-
-The animation instance demonstrates the observer pattern implementation:
-
-**Subscription Setup**:
-```cpp
-void UPlayerAnimInstance::SubscribeToMovementStateChanges()
-{
-    if (!PlayerCharacter || !PlayerCharacter->MovementStateMachine || bIsSubscribedToStateChanges)
-        return;
-    
-    PlayerCharacter->MovementStateMachine->OnStateChanged.AddDynamic(
-        this, &UPlayerAnimInstance::OnMovementStateChanged);
-    bIsSubscribedToStateChanges = true;
-    
-    // Initialize current state values
-    CurrentMovementState = PlayerCharacter->MovementStateMachine->GetCurrentState();
-    PreviousMovementState = PlayerCharacter->MovementStateMachine->GetPreviousState();
-}
-```
-
-**Event Handler**:
-```cpp
-UFUNCTION()
-void UPlayerAnimInstance::OnMovementStateChanged(EMovementState OldState, EMovementState NewState)
-{
-    // Update animation properties based on state change
-    PreviousMovementState = CurrentMovementState;
-    CurrentMovementState = NewState;
-    
-    // Update animation speed and other properties
-    if (PlayerCharacter && PlayerCharacter->GetCharacterMovement())
-    {
-        Speed = PlayerCharacter->GetCharacterMovement()->MaxWalkSpeed;
-        if (NewState == EMovementState::Idle || NewState == EMovementState::CrouchingIdle)
-        {
-            Speed *= 0.0f;
-        }
-    }
-}
-```
-
-**Cleanup**:
-```cpp
-void UPlayerAnimInstance::UnsubscribeFromMovementStateChanges()
-{
-    if (!bIsSubscribedToStateChanges || !PlayerCharacter || !PlayerCharacter->MovementStateMachine)
-        return;
-    
-    PlayerCharacter->MovementStateMachine->OnStateChanged.RemoveDynamic(
-        this, &UPlayerAnimInstance::OnMovementStateChanged);
-    bIsSubscribedToStateChanges = false;
-}
-```
-
-## Adding New Movement States
-
-### Step 1: Define the New State Enum
-
-Add your new state to the `EMovementState` enum in `MovementStateTypes.h`:
-
-```cpp
-enum class EMovementState : uint8
-{
-    // ... existing states ...
-    Dodging             UMETA(DisplayName = "Dodging"),
-    YourNewState        UMETA(DisplayName = "Your New State")  // Add this line
+    None              UMETA(DisplayName = "None"),
+    Idle              UMETA(DisplayName = "Idle"),
+    Walking           UMETA(DisplayName = "Walking"),
+    Sprinting         UMETA(DisplayName = "Sprinting"),
+    CrouchingIdle     UMETA(DisplayName = "Crouching Idle"),
+    CrouchingMoving   UMETA(DisplayName = "Crouching Moving"),
+    Jumping           UMETA(DisplayName = "Jumping"),
+    Falling           UMETA(DisplayName = "Falling"),
+    LandingInPlace    UMETA(DisplayName = "Landing In Place"),
+    LandingMoving     UMETA(DisplayName = "Landing Moving"),
+    Dodging           UMETA(DisplayName = "Dodging")
 };
 ```
 
-### Step 2: Create State Class Files
+### UMovementStateTypes Utilities
 
-Create new header and source files following the naming convention:
-- `YourNewStateMovementState.h`
-- `YourNewStateMovementState.cpp`
+Static helper class with:
+- `MovementStateToString(EMovementStateValue)` — enum to display string.
+- `IsGroundedState()` — returns `true` for Idle, Walking, Sprinting, CrouchingIdle, CrouchingMoving, LandingInPlace, LandingMoving, Dodging.
+- `IsAirborneState()` — returns `true` for Jumping, Falling.
+- `CanReceiveMovementInput()` — returns `true` for Idle, Walking, Sprinting, CrouchingIdle, CrouchingMoving, Jumping, Falling.
 
-### Step 3: Implement State Class
+### UMovementState (Base)
 
-**Header File Template**:
+**Location**: `Source/Arena/Public/Player/MovementStateMachine/MovementState.h`
+
+Abstract base for all movement states.
+
+**Lifecycle**:
+- `EnterState(PreviousState)` — Sets movement speed via `SetStateSpeed()`, adds the state's gameplay tag to the ASC, calls the Blueprint event `OnEnterState`.
+- `UpdateState(DeltaTime)` — Calls the Blueprint event `OnUpdateState`.
+- `ExitState(NextState)` — Removes the state's gameplay tag from the ASC, calls the Blueprint event `OnExitState`.
+
+**Transition hooks** (BlueprintNativeEvent):
+- `CanTransitionTo(NewState)` — Default returns `true`; subclasses override to restrict transitions.
+- `GetDesiredTransition()` — Default returns `None`; subclasses override for automatic transitions.
+
+**Speed management** (`GetSpeedForState`):
+| State | Default Speed |
+|---|---|
+| Dodging | `DodgeSystem->DodgeSpeed` (typically 600) |
+| CrouchingIdle / CrouchingMoving | `CrouchSystem->CrouchSpeed` (typically 150) |
+| Sprinting | `SprintSystem->SprintSpeed` (typically 600) |
+| All others | `BasicMovementSystem->BaseMovementSpeed` (typically 300) |
+
+### Concrete State Classes
+
+Located in `Source/Arena/Public/Player/MovementStateMachine/States/`:
+
+| State Class | Auto-Transitions To |
+|---|---|
+| `UIdleMovementState` | Walking, Sprinting, Jumping, CrouchingIdle |
+| `UWalkingMovementState` | Idle, Sprinting, Jumping, Dodging, CrouchingMoving |
+| `USprintingMovementState` | Walking, Idle, Jumping |
+| `UCrouchingIdleMovementState` | CrouchingMoving, Idle, Dodging |
+| `UCrouchingMovingMovementState` | CrouchingIdle, Walking, Dodging |
+| `UJumpingMovementState` | Falling |
+| `UFallingMovementState` | LandingInPlace, LandingMoving |
+| `ULandingInPlaceMovementState` | Idle |
+| `ULandingMovingMovementState` | Walking |
+| `UDodgingMovementState` | Idle, Walking (when dodge ends) |
+
+### State Transition Diagram
+
+```
+                    ┌──────────────┐
+         ┌─────────┤    Idle      ├──────────┐
+         │         └──────┬───────┘          │
+         │                │                  │
+         ▼                ▼                  ▼
+  ┌─────────────┐  ┌─────────────┐   ┌──────────────┐
+  │ CrouchIdle  │  │   Walking   │   │   Jumping    │
+  └──────┬──────┘  └──────┬──────┘   └──────┬───────┘
+         │                │                  │
+         ▼                ▼                  ▼
+  ┌─────────────┐  ┌─────────────┐   ┌──────────────┐
+  │ CrouchMove  │  │  Sprinting  │   │   Falling    │
+  └──────┬──────┘  └─────────────┘   └──────┬───────┘
+         │                                   │
+         │         ┌─────────────┐           │
+         └────────►│   Dodging   │◄──────────┘
+                   └──────┬──────┘     ┌─────────────┐
+                          │            │ LandInPlace  │
+                          └───────────►└─────────────┘
+                                       ┌─────────────┐
+                                       │ LandMoving  │
+                                       └─────────────┘
+```
+
+### Observer Pattern — OnStateChanged
+
+The state machine exposes a dynamic multicast delegate:
+
 ```cpp
-#pragma once
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnMovementStateChanged,
+    EMovementStateValue, OldState,
+    EMovementStateValue, NewState);
 
-#include "CoreMinimal.h"
-#include "../MovementState.h"
-#include "YourNewStateMovementState.generated.h"
+UPROPERTY(BlueprintAssignable, Category = "Movement State Machine")
+FOnMovementStateChanged OnStateChanged;
+```
 
+Any system can subscribe. The animation instance (`UPlayerAnimInstance`) is the primary subscriber:
+
+```cpp
+void UPlayerAnimInstance::SubscribeToMovementStateChanges()
+{
+    PlayerCharacter->MovementStateMachine->OnStateChanged.AddDynamic(
+        this, &UPlayerAnimInstance::OnMovementStateChanged);
+}
+```
+
+`UnsubscribeFromStateChanges(UObject*)` removes all bindings for a given subscriber.
+
+---
+
+## Animation System
+
+**Class**: `UPlayerAnimInstance` (inherits `UAnimInstance`)  
+**Location**: `Source/Arena/Public/Player/PlayerAnimation/PlayerAnimInstance.h`
+
+### Key Properties
+
+| Property | Type | Purpose |
+|---|---|---|
+| `Speed` | `float` | Character speed for blend spaces |
+| `CurrentMovementState` | `EMovementStateValue` | Current state for animation state machine |
+| `PreviousMovementState` | `EMovementStateValue` | Previous state for transition logic |
+| `CrouchingTransitionTime` | `float` | 0–100 blend value for crouching pose |
+| `CrouchingTransitionTarget` | `float` | Target value: 100 when crouched, 0 when standing |
+
+### Lifecycle
+
+1. **`NativeBeginPlay`**: Gets `APlayerCharacter` reference, initialises Speed/State to defaults, subscribes to state changes.
+2. **`OnMovementStateChanged`**: Updates state properties, snaps crouch transition value, reads `MaxWalkSpeed` for blend space.
+3. **`NativeUninitializeAnimation`**: Unsubscribes from state changes.
+
+---
+
+## Camera Setup
+
+`APlayerCharacter` creates a standard third-person camera rig in its constructor:
+
+```cpp
+CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("Camera Boom"));
+CameraBoom->SetupAttachment(RootComponent);
+CameraBoom->bUsePawnControlRotation = true;
+
+Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Player Camera"));
+Camera->SetupAttachment(CameraBoom);
+```
+
+The character uses `bUseControllerRotationYaw = false` with `CharacterMovement->bOrientRotationToMovement = true` so the character rotates to face the direction of movement while the camera follows the controller rotation.
+
+---
+
+## Input System
+
+Arena uses the Enhanced Input system. Each movement component exposes a `SetupInput(UEnhancedInputComponent*)` method called from `APlayerCharacter::SetupPlayerInputComponent`.
+
+Components bind their specific `UInputAction` properties (set via Blueprint/editor) to trigger events:
+- `ETriggerEvent::Started` / `ETriggerEvent::Triggered` for input start.
+- `ETriggerEvent::Completed` for input release.
+
+For ability inputs, `URPGSystemInputComponent::BindAbilityActions` iterates an `URPGInputConfig` data asset, filters by a parent gameplay tag, and binds each action to `AbilityInputPressed`/`AbilityInputReleased` on the ASC.
+
+---
+
+## Adding a New Movement State
+
+### Step 1 — Add the Enum Value
+
+In `MovementStateTypes.h`, add the new value to `EMovementStateValue`:
+
+```cpp
+enum class EMovementStateValue : uint8
+{
+    // ... existing values ...
+    Dodging           UMETA(DisplayName = "Dodging"),
+    YourNewState      UMETA(DisplayName = "Your New State")
+};
+```
+
+### Step 2 — Create the State Class
+
+Create `YourNewStateMovementState.h` and `.cpp` in `Source/Arena/Public/Player/MovementStateMachine/States/`:
+
+```cpp
 UCLASS(BlueprintType, Blueprintable)
 class ARENA_API UYourNewStateMovementState : public UMovementState
 {
     GENERATED_BODY()
 
 public:
-    UYourNewStateMovementState();
-    
-    virtual EMovementState GetStateType() const override { return EMovementState::YourNewState; }
-    virtual EMovementState GetDesiredTransition_Implementation() const override;
-    virtual bool CanTransitionTo_Implementation(EMovementState NewState) const override;
-    
-    virtual void EnterState(EMovementState PreviousState) override;
-    virtual void UpdateState(float DeltaTime) override;
-    virtual void ExitState(EMovementState NextState) override;
+    virtual EMovementStateValue GetStateType() const override
+    {
+        return EMovementStateValue::YourNewState;
+    }
 
-protected:
-    // State-specific properties
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Your New State")
-    float YourStateProperty = 1.0f;
+    virtual EMovementStateValue GetDesiredTransition_Implementation() const override;
+    virtual bool CanTransitionTo_Implementation(EMovementStateValue NewState) const override;
+
+    virtual void EnterState(EMovementStateValue PreviousState) override;
+    virtual void UpdateState(float DeltaTime) override;
+    virtual void ExitState(EMovementStateValue NextState) override;
 };
 ```
 
-**Source File Template**:
+### Step 3 — Register the State
+
+In `MovementStateMachine.cpp`, add to `InitializeDefaultStates()`:
+
 ```cpp
-#include "YourNewStateMovementState.h"
-#include "../../PlayerCharacter.h"
-
-UYourNewStateMovementState::UYourNewStateMovementState()
-{
-    // Initialize state-specific properties
-}
-
-EMovementState UYourNewStateMovementState::GetDesiredTransition_Implementation() const
-{
-    // Implement automatic transition logic
-    APlayerCharacter* Player = GetPlayerCharacter();
-    if (!Player) return EMovementState::None;
-    
-    // Example transition logic
-    if (SomeCondition())
-    {
-        return EMovementState::Idle;
-    }
-    
-    return EMovementState::None; // No transition desired
-}
-
-bool UYourNewStateMovementState::CanTransitionTo_Implementation(EMovementState NewState) const
-{
-    // Define which states this state can transition to
-    switch (NewState)
-    {
-    case EMovementState::Idle:
-    case EMovementState::Walking:
-        return true;
-    default:
-        return false;
-    }
-}
-
-void UYourNewStateMovementState::EnterState(EMovementState PreviousState)
-{
-    Super::EnterState(PreviousState);
-    
-    // Set appropriate movement speed
-    SetStateSpeed();
-    
-    // Perform enter logic
-}
-
-void UYourNewStateMovementState::UpdateState(float DeltaTime)
-{
-    Super::UpdateState(DeltaTime);
-    
-    // Perform per-frame logic
-}
-
-void UYourNewStateMovementState::ExitState(EMovementState NextState)
-{
-    Super::ExitState(NextState);
-    
-    // Perform cleanup logic
-}
+DefaultStateClasses.Add(EMovementStateValue::YourNewState, UYourNewStateMovementState::StaticClass());
 ```
 
-### Step 4: Register State in StateMachine
+### Step 4 — Update Utilities
 
-Add your state class to the default state classes map in `MovementStateMachine.cpp`:
+In `MovementStateTypes.cpp`, add the new state to `MovementStateToString`, `IsGroundedState`, `IsAirborneState`, and `CanReceiveMovementInput` as appropriate.
+
+### Step 5 — Add a Gameplay Tag
+
+In `RPGGameplayTags.h/.cpp`, declare and define a tag for the new state:
 
 ```cpp
-void UMovementStateMachine::InitializeDefaultStates()
-{
-    // ... existing state registrations ...
-    DefaultStateClasses.Add(EMovementState::YourNewState, UYourNewStateMovementState::StaticClass());
-}
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(YourNewState);
+UE_DEFINE_GAMEPLAY_TAG_COMMENT(YourNewState, "State.Movement.YourNewState", "Description");
 ```
 
-### Step 5: Add Utility Functions
+Then add the mapping in `UMovementState::GetTagForState`.
 
-Update `MovementStateTypes.cpp` to include your new state in utility functions:
+---
 
-```cpp
-FString UMovementStateTypes::MovementStateToString(EMovementState State)
-{
-    switch (State)
-    {
-        // ... existing cases ...
-        case EMovementState::YourNewState: return TEXT("YourNewState");
-        default: return TEXT("Unknown");
-    }
-}
+## Adding a New Observer
 
-bool UMovementStateTypes::IsGroundedState(EMovementState State)
-{
-    switch (State)
-    {
-        // ... existing grounded states ...
-        case EMovementState::YourNewState: return true; // if it's a grounded state
-        default: return false;
-    }
-}
-```
-
-## Implementing Observer Pattern Subscribers
-
-### Creating a New Subscriber Class
-
-To create a new class that observes movement state changes:
+To subscribe a new system to movement state changes:
 
 ```cpp
-// In your header file
 UCLASS()
-class ARENA_API UYourSubscriberClass : public UObject
+class UMySystem : public UObject
 {
     GENERATED_BODY()
 
 public:
-    // Subscription management
-    void SubscribeToMovementStateChanges(APlayerCharacter* PlayerCharacter);
-    void UnsubscribeFromMovementStateChanges();
+    void Subscribe(APlayerCharacter* PC)
+    {
+        PC->MovementStateMachine->OnStateChanged.AddDynamic(
+            this, &UMySystem::OnMovementStateChanged);
+    }
 
-    // Event handler - must be UFUNCTION() for dynamic delegates
     UFUNCTION()
-    void OnMovementStateChanged(EMovementState OldState, EMovementState NewState);
-
-private:
-    UPROPERTY()
-    TObjectPtr<APlayerCharacter> CachedPlayerCharacter;
-    
-    bool bIsSubscribed = false;
+    void OnMovementStateChanged(EMovementStateValue OldState, EMovementStateValue NewState)
+    {
+        // React to state change
+    }
 };
 ```
 
-```cpp
-// In your source file
-void UYourSubscriberClass::SubscribeToMovementStateChanges(APlayerCharacter* PlayerCharacter)
-{
-    if (!PlayerCharacter || !PlayerCharacter->MovementStateMachine || bIsSubscribed)
-        return;
-    
-    CachedPlayerCharacter = PlayerCharacter;
-    PlayerCharacter->MovementStateMachine->OnStateChanged.AddDynamic(
-        this, &UYourSubscriberClass::OnMovementStateChanged);
-    bIsSubscribed = true;
-}
+For cleanup, call `RemoveDynamic` or use `MovementStateMachine->UnsubscribeFromStateChanges(this)`.
 
-void UYourSubscriberClass::UnsubscribeFromMovementStateChanges()
-{
-    if (!bIsSubscribed || !CachedPlayerCharacter || !CachedPlayerCharacter->MovementStateMachine)
-        return;
-    
-    CachedPlayerCharacter->MovementStateMachine->OnStateChanged.RemoveDynamic(
-        this, &UYourSubscriberClass::OnMovementStateChanged);
-    bIsSubscribed = false;
-    CachedPlayerCharacter = nullptr;
-}
-
-void UYourSubscriberClass::OnMovementStateChanged(EMovementState OldState, EMovementState NewState)
-{
-    // React to state changes
-    switch (NewState)
-    {
-    case EMovementState::Dodging:
-        // Handle dodge start
-        break;
-    case EMovementState::Jumping:
-        // Handle jump start  
-        break;
-    // ... other states
-    }
-}
-```
-
-### Blueprint Subscriber Implementation
-
-You can also subscribe to state changes from Blueprint:
-
-1. **Create a Blueprint Event Handler**:
-   - Create a custom event that matches the `FOnMovementStateChanged` signature
-   - Name it appropriately (e.g., "OnMovementStateChanged")
-
-2. **Bind in BeginPlay**:
-   ```cpp
-   // In Blueprint or C++
-   PlayerCharacter->MovementStateMachine->OnStateChanged.AddDynamic(
-       this, &YourClass::YourEventFunction);
-   ```
-
-3. **Handle State Changes**:
-   - Implement your reaction logic in the event handler
-   - Use the OldState and NewState parameters to determine behavior
-
-## Input System Integration
-
-### Enhanced Input Setup
-
-The system uses Unreal Engine 5's Enhanced Input system:
-
-#### Input Action Assets
-Create Input Action assets in the Content Browser for each action:
-- `IA_Move` (Vector2D) - Movement input
-- `IA_Look` (Vector2D) - Camera look input  
-- `IA_Jump` (Boolean) - Jump input
-- `IA_Sprint` (Boolean) - Sprint input
-- `IA_Crouch` (Boolean) - Crouch input
-- `IA_Dodge` (Boolean) - Dodge input
-
-#### Input Mapping Context
-Create an Input Mapping Context asset that maps:
-- WASD → `IA_Move`
-- Mouse Movement → `IA_Look`
-- Space → `IA_Jump`
-- Left Shift → `IA_Sprint`
-- Left Ctrl → `IA_Crouch`
-- Alt → `IA_Dodge`
-
-#### Component Input Setup Pattern
-
-Each movement component follows this pattern:
-
-```cpp
-void UMovementComponent::SetupInput(UEnhancedInputComponent* EnhancedInputComponent)
-{
-    if (!EnhancedInputComponent)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("ComponentName: EnhancedInputComponent is null"));
-        return;
-    }
-
-    if (!InputAction)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("ComponentName: InputAction is not set"));
-        return;
-    }
-
-    // Bind input events
-    EnhancedInputComponent->BindActionValueLambda(InputAction, ETriggerEvent::Started,
-        [this](const FInputActionValue& Value) {
-            HandleInputStarted(Value);
-        });
-    
-    EnhancedInputComponent->BindActionValueLambda(InputAction, ETriggerEvent::Completed,
-        [this](const FInputActionValue& Value) {
-            HandleInputCompleted(Value);
-        });
-}
-```
-
-## Best Practices
-
-### Performance Considerations
-
-1. **Component Tick Management**:
-   - Disable ticking for components that don't need per-frame updates
-   - Use event-driven logic instead of polling when possible
-   - Cache frequently accessed references
-
-2. **State Machine Efficiency**:
-   - Minimize state transition validation overhead
-   - Use early returns in transition checks
-   - Avoid complex calculations in tick functions
-
-3. **Memory Management**:
-   - Use `TObjectPtr<>` for UPROPERTY object references
-   - Properly unsubscribe from delegates in destructors
-   - Clear timer handles when components are destroyed
-
-### Code Organization
-
-1. **Consistent Naming**:
-   - Follow Unreal naming conventions (A for Actors, U for UObject-derived, etc.)
-   - Use descriptive names for states and transitions
-   - Maintain consistent file naming patterns
-
-2. **Documentation**:
-   - Document state transition rules
-   - Comment complex transition logic
-   - Maintain up-to-date state diagrams
-
-3. **Blueprint Exposure**:
-   - Mark appropriate functions as `BlueprintCallable` or `BlueprintPure`
-   - Use proper categories for organization
-   - Provide tooltips for designer-facing functions
-
-### Debugging Support
-
-1. **Logging Levels**:
-   - Use `Error` for critical failures only
-   - Use `Warning` for important issues
-   - Avoid excessive logging in shipping builds
-
-2. **Debug Visualization**:
-   - Implement debug draws for movement directions
-   - Create debug info displays for current states
-   - Provide Blueprint-accessible debug functions
-
-3. **State Validation**:
-   - Add validation for impossible state transitions
-   - Implement fallback behaviors for edge cases
-   - Log transition attempts for debugging
-
-This architecture provides a robust, extensible foundation for character movement systems while maintaining clean separation of concerns and supporting both C++ and Blueprint development workflows.
+Blueprint subscribers can bind to `OnStateChanged` directly in the Event Graph.

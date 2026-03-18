@@ -208,3 +208,38 @@ TArray<FEquipmentAbilityDefinition> UEquipmentRollLibrary::RollActiveAbilities(
 	return Result;
 }
 
+TArray<FEquipmentAbilityDefinition> UEquipmentRollLibrary::ResolveAbilitiesByTags(
+	const FGameplayTagContainer& AbilityTags,
+	const UEquipmentStatEffects* StatData)
+{
+	TArray<FEquipmentAbilityDefinition> Result;
+
+	if (!StatData || AbilityTags.IsEmpty())
+	{
+		return Result;
+	}
+
+	for (int32 i = 0; i < AbilityTags.Num(); ++i)
+	{
+		const FGameplayTag& Tag = AbilityTags.GetByIndex(i);
+
+		for (const auto& Pair : StatData->MasterStatMap)
+		{
+			if (!Tag.MatchesTag(Pair.Key))
+			{
+				continue;
+			}
+
+			if (const FEquipmentAbilityDefinition* AbilityDef =
+				URPGAbilitySystemLibrary::GetDataTableRowByTag<FEquipmentAbilityDefinition>(Pair.Value, Tag))
+			{
+				Result.Add(*AbilityDef);
+			}
+
+			break;
+		}
+	}
+
+	return Result;
+}
+

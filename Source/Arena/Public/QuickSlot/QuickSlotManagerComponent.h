@@ -7,6 +7,8 @@
 #include "Components/ActorComponent.h"
 #include "QuickSlotManagerComponent.generated.h"
 
+DECLARE_DELEGATE_OneParam(FQuickSlotActivatedSignature, const FGameplayTag& /*QuickSlotTag*/);
+
 class URPGSystemInputComponent;
 class URPGInputConfig;
 
@@ -16,6 +18,8 @@ class UQuickSlotManagerComponent : public UActorComponent
 	GENERATED_BODY()
 
 public:
+	
+	FQuickSlotActivatedSignature QuickSlotActivatedDelegate;
 	
 	UQuickSlotManagerComponent();
 
@@ -28,8 +32,18 @@ public:
 	void UseQuickSlot(const FGameplayTag& QuickSlotTag);
 	
 	int64 GetQuickSlotID(const FGameplayTag& QuickSlotTag) const;
+
+	/**
+	 * Used to fast equip weapon when attacking while they are sheathed based on the last used weapon
+	 * @return 
+	 */
+	bool TryEquipWeapon();
 	
 private:
 	
+	FGameplayTag QuickEquipWeaponSlotTag;
+	
 	TMap<FGameplayTag, int64> QuickSlotTagMap;
+	
+	bool bCanTriggerActivation = true;
 };

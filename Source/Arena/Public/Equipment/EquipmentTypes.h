@@ -73,6 +73,16 @@ struct FEquipmentAbilityDefinition : public FTableRowBase
 	FGameplayTag AbilityTag = FGameplayTag();
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	bool bIsSkillAbility = false;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta = (EditCondition = "bIsSkillAbility", EditConditionHides))
+	TObjectPtr<UTexture2D> Icon = nullptr;
+	
+	/*Assigned Dynamically at Runtime*/
+	UPROPERTY(BlueprintReadOnly)
+	FGameplayTag SkillInputTag = FGameplayTag();
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	FText AbilityName = FText();
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
@@ -99,4 +109,5 @@ struct FEquipmentEffectPackage
 
 	UPROPERTY(BlueprintReadOnly)
 	TArray<FEquipmentAbilityDefinition> Abilities = TArray<FEquipmentAbilityDefinition>();
+	
 };

@@ -34,15 +34,30 @@ namespace RPGGameplayTags::Equip
 	UE_DEFINE_GAMEPLAY_TAG(Category_Consumable, "Item.Consumable");
 	UE_DEFINE_GAMEPLAY_TAG(ArmorSlot, "Equipment.Slot.Armor");
 	UE_DEFINE_GAMEPLAY_TAG(WeaponSlot, "Equipment.Slot.Weapon");
-	UE_DEFINE_GAMEPLAY_TAG(ConsumableQuickSlot1, "Equipment.Slot.QuickSlot.First");
-	UE_DEFINE_GAMEPLAY_TAG(ConsumableQuickSlot2, "Equipment.Slot.QuickSlot.Second");
-	UE_DEFINE_GAMEPLAY_TAG(ConsumableQuickSlot3, "Equipment.Slot.QuickSlot.Third");
+	UE_DEFINE_GAMEPLAY_TAG(ConsumableQuickSlot1, "Equipment.Slot.QuickSlot.Consumable.First");
+	UE_DEFINE_GAMEPLAY_TAG(ConsumableQuickSlot2, "Equipment.Slot.QuickSlot.Consumable.Second");
+	UE_DEFINE_GAMEPLAY_TAG(ConsumableQuickSlot3, "Equipment.Slot.QuickSlot.Consumable.Third");
+	UE_DEFINE_GAMEPLAY_TAG(WeaponQuickSlotCategory, "Equipment.Slot.QuickSlot.Weapon");
 	UE_DEFINE_GAMEPLAY_TAG(WeaponQuickSlot1, "Equipment.Slot.QuickSlot.Weapon.Primary");
 	UE_DEFINE_GAMEPLAY_TAG(WeaponQuickSlot2, "Equipment.Slot.QuickSlot.Weapon.Secondary");
 }
 
 namespace RPGGameplayTags::Input
 {
-	UE_DEFINE_GAMEPLAY_TAG(Ability, "Input.Ability");
+	UE_DEFINE_GAMEPLAY_TAG(Inventory, "Input.Inventory");
 	UE_DEFINE_GAMEPLAY_TAG(QuickSlot, "Equipment.Slot.QuickSlot");
+	UE_DEFINE_GAMEPLAY_TAG(Ability, "Input.Ability");
+	UE_DEFINE_GAMEPLAY_TAG(Attacks, "Input.Ability.Attacks");
+	UE_DEFINE_GAMEPLAY_TAG(Skill, "Input.Ability.Attacks.Skill");
+	UE_DEFINE_GAMEPLAY_TAG(SkillSlot1, "Input.Ability.Attacks.Skill.First");
+	UE_DEFINE_GAMEPLAY_TAG(SkillSlot2, "Input.Ability.Attacks.Skill.Second");
+	UE_DEFINE_GAMEPLAY_TAG(SkillSlot3, "Input.Ability.Attacks.Skill.Third");
+}
+
+namespace RPGGameplayTags::Event
+{
+	UE_DEFINE_GAMEPLAY_TAG(HitScanStart, "Event.HitScan.Start");
+	UE_DEFINE_GAMEPLAY_TAG(HitScanEnd, "Event.HitScan.End");
+	UE_DEFINE_GAMEPLAY_TAG(ContinueComboStart, "Event.ContinueCombo.Start");
+	UE_DEFINE_GAMEPLAY_TAG(ContinueComboEnd, "Event.ContinueCombo.End");
 }

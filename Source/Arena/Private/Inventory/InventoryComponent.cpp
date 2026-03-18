@@ -8,6 +8,8 @@
 #include "NativeGameplayTags.h"
 #include "AbilitySystemBlueprintLibrary.h"
 #include "AbilitySystem/RPGGameplayTags.h"
+#include "Engine/AssetManager.h"
+#include "Engine/StreamableManager.h"
 #include "Libraries/RPGAbilitySystemLibrary.h"
 #include "Libraries/EquipmentRollLibrary.h"
 #include "Equipment/EquipmentDefinition.h"
@@ -86,8 +88,15 @@ void FRPGInventoryList::RollEquipmentEntry(FRPGInventoryEntry& NewEntry, const F
 
 	if (EquipmentCDO->SlotTag.MatchesTag(RPGGameplayTags::Equip::WeaponSlot))
 	{
-		NewEntry.EffectPackage.Abilities = UEquipmentRollLibrary::RollActiveAbilities(
+		NewEntry.EffectPackage.Abilities = UEquipmentRollLibrary::ResolveAbilitiesByTags(
+			EquipmentCDO->BasicAbilitiesGranted, WeakStatsData.Get());
+
+		const TArray<FEquipmentAbilityDefinition> RolledAbilities = UEquipmentRollLibrary::RollActiveAbilities(
 			EquipmentCDO, WeakStatsData.Get(), Rarity->NumActiveAbilities);
+
+		// Optional abilities from rarity are independent of guaranteed basic abilities.
+		NewEntry.EffectPackage.Abilities.Append(RolledAbilities);
+		URPGAbilitySystemLibrary::AssignDynamicSkillInputTag(NewEntry);
 	}
 }
 
@@ -274,15 +283,21 @@ void FRPGInventoryList::AddEntryToQuickSlot(int64 ItemID, const FGameplayTag& Qu
 		{
 			SwappedEntry->bIsQuickSlotted = Entry->bIsQuickSlotted;
 			SwappedEntry->QuickSlotTag = Entry->QuickSlotTag;
-			if (!SwappedEntry->bIsQuickSlotted && SwappedEntry->bIsUsed)
+			if (!SwappedEntry->bIsQuickSlotted)
 			{
-				OwnerComponent->EquipmentItemUnequippedDelegate.Broadcast(SwappedEntry->ItemID);
+				if (SwappedEntry->bIsUsed)
+					OwnerComponent->EquipmentItemUnequippedDelegate.Broadcast(SwappedEntry->ItemID);
+				
+				// remove preload if weapon
+				OwnerComponent->RemovePreloadedItemRef(SwappedEntry->ItemID);
 			}
 			QuickSlotItemRelocatedDelegate.Broadcast(*SwappedEntry);
 		}
 		Entry->bIsQuickSlotted = true;
 		Entry->QuickSlotTag = QuickSlotTag;
 		QuickSlotItemRelocatedDelegate.Broadcast(*Entry);
+		if (QuickSlotTag.MatchesTag(RPGGameplayTags::Equip::WeaponQuickSlotCategory))
+			OwnerComponent->PreloadItem(Entry);
 	}
 }
 
@@ -299,6 +314,8 @@ void FRPGInventoryList::RemoveEntryFromQuickSlot(const int64 ItemID)
 			Entry->bIsQuickSlotted = false;
 			Entry->QuickSlotTag = FGameplayTag();
 			QuickSlotItemRelocatedDelegate.Broadcast(*Entry);
+
+			OwnerComponent->RemovePreloadedItemRef(ItemID);
 		}
 	}
 }
@@ -499,4 +516,60 @@ void UInventoryComponent::AddEntryToQuickSlot(int64 ItemID, const FGameplayTag& 
 void UInventoryComponent::RemoveEntryFromQuickSlot(int64 ItemID)
 {
 	InventoryList.RemoveEntryFromQuickSlot(ItemID);
+}
+
+void UInventoryComponent::PreloadItem(FRPGInventoryEntry* Entry)
+{
+	// If Handles already exist for the item, it means it's already preloaded, so we can skip
+	if (PreloadedItemHandles.Contains(Entry->ItemID))
+	{
+		return;
+	}
+	
+	// Saves the Handles of every ref also if already present in memory because it could be alive only through GCFlags
+	
+	FStreamableManager& Manager = UAssetManager::GetStreamableManager();
+	TArray<TSharedPtr<FStreamableHandle>>& Handles = PreloadedItemHandles.Add(Entry->ItemID);
+	
+	// Load Weapon Class (Needed to do sheathed attacks cause it's used as reference from abilities)
+	FMasterItemDefinition ItemDef = GetItemDefinitionByTag(Entry->ItemTag);
+	if (const UEquipmentDefinition* EquipmentCDO = GetDefault<UEquipmentDefinition>(ItemDef.EquipmentItemProps.EquipmentClass); IsValid(EquipmentCDO))
+	{
+		for (FEquipmentActorToSpawn ActorToSpawn : EquipmentCDO->ActorsToSpawn)
+		{
+			if (!ActorToSpawn.EquipmentClass.IsNull())
+			{
+				// GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
+				// 	FString::Printf(TEXT("Async Loading weapon actor")));
+				Handles.Add(Manager.RequestAsyncLoad(ActorToSpawn.EquipmentClass.ToSoftObjectPath()));
+			}
+		}
+	}
+	
+	// Load Abilities (So the ability can start while the weapon is sheathed)
+	for (FEquipmentAbilityDefinition AbilityDef: Entry->EffectPackage.Abilities)
+	{
+		if (!AbilityDef.AbilityClass.IsNull())
+		{
+			// GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
+			// 	FString::Printf(TEXT("Async Loading weapon ability")));
+			Handles.Add(Manager.RequestAsyncLoad(AbilityDef.AbilityClass.ToSoftObjectPath()));
+		}
+	}
+	
+	// Load Passive Effects (loading this aswell to be applied on sheathed attacks)
+	for (FEquipmentStatEffectDefinition StatEffectDef: Entry->EffectPackage.StatEffects)
+	{
+		if (!StatEffectDef.EffectClass.IsNull())
+		{
+			// GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
+			// 	FString::Printf(TEXT("Async Loading weapon passives")));
+			Handles.Add(Manager.RequestAsyncLoad(StatEffectDef.EffectClass.ToSoftObjectPath()));
+		}
+	}
+}
+
+void UInventoryComponent::RemovePreloadedItemRef(int64 ItemID)
+{
+	PreloadedItemHandles.Remove(ItemID);
 }

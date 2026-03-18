@@ -85,6 +85,7 @@ void ARPGPlayerController::ChangeMappingContext(const UInputMappingContext* NewM
 	{
 		Subsystem->ClearAllMappings();
 		Subsystem->AddMappingContext(NewMappingContext, 0);
+		MappingContextChangedDelegate.Broadcast(NewMappingContext);
 	}
 }
 
@@ -116,8 +117,29 @@ void ARPGPlayerController::SetDynamicProjectile_Implementation(const FGameplayTa
 	}
 }
 
+bool ARPGPlayerController::EnsureWeaponEquipped() const
+{
+	if (EquipmentComponent->GetEquipmentInstanceBySlot(RPGGameplayTags::Equip::WeaponSlot))
+	{
+		return true;
+	}
+	// If not already equipped, Equip a weapon from quickslot 
+	return QuickSlotManagerComponent->TryEquipWeapon();
+}
+
 void ARPGPlayerController::AbilityInputPressed(const FGameplayTag& InputTag)
 {
+	if (InputTag.MatchesTag(RPGGameplayTags::Input::Attacks))
+	{
+		const bool bHasWeapon = EnsureWeaponEquipped();
+		
+		if (InputTag.MatchesTag(RPGGameplayTags::Input::Skill))
+			SkillActivatedDelegate.Execute(InputTag);
+		
+		if (!bHasWeapon)
+			return ;
+	}
+		
 	if (IsValid(GetRPGAbilitySystemComponent()))
 	{
 		RPGAbilitySystemComponent->AbilityInputPressed(InputTag);

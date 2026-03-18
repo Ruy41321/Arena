@@ -1,191 +1,274 @@
-# Arena Character System Analysis
+# System Analysis
 
-## System Overview Analysis
+## Table of Contents
 
-After examining the Arena character system codebase, I can provide the following analysis of how the system has been structured:
+1. [Project Overview](#project-overview)
+2. [Module Configuration](#module-configuration)
+3. [Core Systems](#core-systems)
+4. [Networking Architecture](#networking-architecture)
+5. [Equipment System](#equipment-system)
+6. [Inventory System](#inventory-system)
+7. [UI Architecture](#ui-architecture)
+8. [File Layout Reference](#file-layout-reference)
 
-## Architecture Quality Assessment: ⭐⭐⭐⭐⭐
+---
 
-The Arena character system demonstrates **excellent software architecture** with professional-grade design patterns and implementation quality.
+## Project Overview
 
-### Strengths
+Arena is an Unreal Engine 5.7 C++ project structured as a single runtime module named `Arena`. It implements an action RPG framework with:
 
-#### 1. **Component-Based Architecture** ✅
-- **Clean Separation of Concerns**: Each movement ability (dodge, crouch, jump, sprint, basic movement) is isolated in its own component
-- **High Modularity**: Components can be easily added, removed, or modified without affecting others
-- **Single Responsibility**: Each component has a clear, focused purpose
-- **Easy Testing**: Individual components can be tested in isolation
+- **Gameplay Ability System (GAS)** for attributes, abilities, and effects.
+- A **component-based player character** with a finite state machine for movement.
+- A **rarity-based equipment system** with stat and ability rolling.
+- An **inventory system** with quick-slot support.
+- A **UI layer** using Model-View-Controller separation via widget controllers.
+- **Multiplayer support** with authority checks, server RPCs, and replicated state.
 
-#### 2. **Finite State Machine Design** ✅
-- **Centralized State Management**: UMovementStateMachine provides single source of truth for character state
-- **Automatic Transitions**: States can define their own transition logic through `GetDesiredTransition()`
-- **Validation Logic**: `CanTransitionTo()` prevents invalid state changes
-- **Extensible**: New states can be added easily by inheriting from UMovementState
+---
 
-#### 3. **Observer Pattern Implementation** ✅
-- **Decoupled Communication**: Animation system subscribes to state changes without tight coupling
-- **Event-Driven**: Uses Unreal's delegate system for efficient notifications
-- **Scalable**: Multiple systems can observe state changes independently
-- **Proper Cleanup**: Subscription management prevents memory leaks
+## Module Configuration
 
-#### 4. **Enhanced Input Integration** ✅
-- **Modern Input System**: Uses UE5's Enhanced Input instead of legacy input
-- **Delegated Setup**: Each component manages its own input bindings
-- **Flexible Mapping**: Input actions can be easily remapped without code changes
-- **Consistent Pattern**: All components follow the same input setup approach
+**File**: `Arena.uproject`
 
-#### 5. **Blueprint Accessibility** ✅
-- **Designer-Friendly**: All major functions exposed to Blueprint with proper categories
-- **Runtime Modification**: State machine and components can be configured in editor
-- **Debug Support**: Blueprint-accessible functions for debugging and testing
-- **Documentation**: Tooltips and proper metadata for all exposed functions
-
-### Technical Implementation Quality
-
-#### State Machine Design
-The state machine implementation is particularly well-designed:
-
-```cpp
-// Excellent state lifecycle management
-virtual void EnterState(EMovementState PreviousState);
-virtual void UpdateState(float DeltaTime);
-virtual void ExitState(EMovementState NextState);
-
-// Smart transition validation
-virtual bool CanTransitionTo_Implementation(EMovementState NewState) const;
-virtual EMovementState GetDesiredTransition_Implementation() const;
+```
+Engine: 5.7
+Module: Arena (Runtime, Default loading phase)
+Dependencies: Engine, GameplayAbilities, UMG, CoreUObject, EnhancedInput
+Plugins: GameplayAbilities, GameplayStateTree, ModelingToolsEditorMode (editor only)
 ```
 
-#### Component Cooperation
-Components demonstrate smart inter-component communication:
+**Build dependencies** (`Arena.Build.cs`) include `GameplayAbilities`, `GameplayTags`, `GameplayTasks`, `EnhancedInput`, `UMG`, and `Niagara`.
 
-```cpp
-// Sprint automatically uncrouches when starting
-if (CurrentState == EMovementState::CrouchingIdle || CurrentState == EMovementState::CrouchingMoving)
-{
-    if (!PlayerCharacter->CrouchSystem->CanUncrouchSafely())
-    {
-        bIsSprinting = false;
-        return;
-    }
-    PlayerCharacter->CrouchSystem->CrouchPressed(Value);
-}
+---
+
+## Core Systems
+
+### Character Hierarchy
+
+```
+ACharacter (Engine)
+  └─ ACharacterBase            [IAbilitySystemInterface]
+       ├─ APlayerCharacter     [IRPGAbilitySystemInterface]
+       └─ AEnemyBase
 ```
 
-#### Observer Pattern Usage
-The animation system demonstrates proper observer pattern implementation:
+`ACharacterBase` provides:
+- GAS integration (`URPGAbilitySystemComponent`, `URPGAttributeSet`).
+- Virtual initialisation hooks (`InitAbilityActorInfo`, `BindCallbacksToDependencies`, `InitClassDefaults`, `BroadcastInitialValues`).
+- Attribute change delegates (`OnHealthChanged`, `OnStaminaChanged`, `OnShieldChanged`).
+- Stamina management via the `OutOfStamina` gameplay tag.
 
-```cpp
-// Clean subscription management
-void SubscribeToMovementStateChanges();
-void UnsubscribeFromMovementStateChanges();
+`APlayerCharacter` adds:
+- Five movement components (Basic, Dodge, Crouch, Jump, Sprint).
+- `UMovementStateMachine` for state management.
+- Camera rig (spring arm + camera).
+- `DynamicProjectileSpawnPoint` for ability projectile spawning.
+- GAS ownership delegated to `ARPGPlayerState`.
 
-// Proper event handling
-UFUNCTION()
-void OnMovementStateChanged(EMovementState OldState, EMovementState NewState);
+`AEnemyBase` owns its ASC directly and uses `Minimal` replication mode.
+
+### Gameplay Ability System
+
+See [GASArchitecture.md](GASArchitecture.md) for full details. Key points:
+
+- **Attribute set**: Health, MaxHealth, Shield, MaxShield, Stamina, MaxStamina, DodgeStaminaCost, CritChance, CritDamageMod, IncomingDamage (meta).
+- **Damage pipeline**: Ability → `FDamageEffectInfo` → `ApplyDamageEffect` → `ExecCalc_Damage` (with crit roll) → `IncomingDamage` → `PostGameplayEffectExecute` → shield absorption → Health reduction.
+- **Shield absorption**: Hybrid linear/exponential model with shield-break mechanic.
+- **Custom effect context**: `FRPGGameplayEffectContext` with serialised `bCriticalHit` flag.
+- **Global override**: `URPGAbilitySystemGlobals` ensures all effects use the custom context.
+
+### Movement State Machine
+
+See [CharacterSystemArchitecture.md](CharacterSystemArchitecture.md) for full details. Key points:
+
+- 10 states defined in `EMovementStateValue`: None, Idle, Walking, Sprinting, CrouchingIdle, CrouchingMoving, Jumping, Falling, LandingInPlace, LandingMoving, Dodging.
+- Each state is a `UMovementState` subclass with `EnterState`, `UpdateState`, `ExitState` lifecycle.
+- Automatic transitions evaluated every tick via `GetDesiredTransition`.
+- Movement gameplay tags (`State.Movement.*`) are added/removed on the ASC during state entry/exit.
+- `OnStateChanged` delegate notifies animation, UI, and other systems.
+
+### Input System
+
+Arena uses Enhanced Input with a tag-based configuration layer:
+
+- `URPGInputConfig`: Data asset mapping `UInputAction` → `FGameplayTag`.
+- `URPGSystemInputComponent`: Template method `BindAbilityActions` that filters actions by tag and binds them to `AbilityInputPressed`/`AbilityInputReleased` on the ASC.
+- Movement component inputs are bound directly in `SetupPlayerInputComponent` by each component's `SetupInput` method.
+
+### Animation
+
+`UPlayerAnimInstance` subscribes to `UMovementStateMachine::OnStateChanged` and updates:
+- `Speed` — used for movement blend spaces.
+- `CurrentMovementState` / `PreviousMovementState` — used by animation state machines.
+- `CrouchingTransitionTime` — 0–100 blend value for crouching pose.
+
+---
+
+## Networking Architecture
+
+### Player GAS Replication
+
+- ASC lives on `ARPGPlayerState` with **Mixed** replication mode.
+- Network update frequency: 100 Hz primary, 66 Hz minimum.
+- `PossessedBy` (server) initialises abilities and attributes; `OnRep_PlayerState` (client) initialises actor info.
+- Abilities are predicted client-side; effects are replicated.
+
+### Enemy GAS Replication
+
+- ASC lives on `AEnemyBase` with **Minimal** replication mode.
+- `bInitAttributes` is replicated; its `OnRep` triggers `BroadcastInitialValues` on clients.
+
+### Equipment Replication
+
+- `FRPGEquipmentList` uses `FFastArraySerializer` for efficient delta replication.
+- Each `FRPGEquipmentEntry` is an `FFastArraySerializerItem` with pre/post replication callbacks.
+- `GrantedHandles` (ability and effect handles) are **not replicated** — they are recreated on the owning client.
+- `EquipItem` and `UnEquipItem` have authority checks; non-authority calls delegate to server RPCs.
+
+### Dodge Replication
+
+- `bIsDodging` is replicated on `UDodgeSystemComponent`.
+- `StartDodge` has a Server RPC for non-authority clients.
+
+---
+
+## Equipment System
+
+### Overview
+
+The equipment system manages equipping/unequipping items, applying stat effects and abilities through GAS, and spawning visual actors.
+
+### Key Classes
+
+| Class | Location | Purpose |
+|---|---|---|
+| `UEquipmentManagerComponent` | `Public/Equipment/` | Manages the equipment list, handles equip/unequip flow |
+| `UEquipmentDefinition` | `Public/Equipment/` | Data asset defining an equipment item's properties |
+| `UEquipmentInstance` | `Public/Equipment/` | Runtime instance of equipped equipment |
+| `AEquipmentActor` | `Public/Equipment/` | Visual representation spawned in the world |
+| `FRPGEquipmentEntry` | `Public/Equipment/` | Replicated entry in the equipment list |
+| `FEquipmentEffectPackage` | `Public/Equipment/` | Bundle of stat effects and abilities |
+| `UEquipmentRollLibrary` | `Public/Libraries/` | Static library for rarity and stat rolling |
+| `URarityDefinition` | `Public/Equipment/Rarity/` | Rarity tier configuration |
+
+### Equip Flow
+
+```
+EquipItem(UInventoryItem)
+  ├─ [Non-authority] → ServerEquipItem RPC
+  └─ [Authority]
+       ├─ BuildEquipmentEntry()
+       │    ├─ Get UEquipmentDefinition CDO
+       │    ├─ RollRarity()            → FRarityDefinition
+       │    ├─ RollPassiveStats()      → TArray<FEquipmentStatEffectDefinition>
+       │    ├─ RollActiveAbilities()   → TArray<FEquipmentAbilityDefinition>
+       │    └─ Assemble FRPGEquipmentEntry
+       └─ FRPGEquipmentList::AddEntry()
+            ├─ Handle slot conflict (remove existing)
+            ├─ Create UEquipmentInstance
+            ├─ ASC->AddEquipmentEffects()
+            ├─ ASC->AddEquipmentAbility()
+            └─ Instance->SpawnEquipmentActors()
 ```
 
-### Movement States Implemented
+### Stat Rolling
 
-The system includes a comprehensive set of movement states:
+`UEquipmentRollLibrary` uses weighted random selection:
 
-| State | Purpose | Transitions |
-|-------|---------|-------------|
-| **Idle** | No movement input | → Walking, Sprinting, Jumping, Crouching |
-| **Walking** | Normal movement | → Idle, Sprinting, Jumping, Dodging, Crouching |
-| **Sprinting** | Fast movement | → Walking, Idle, Jumping |
-| **CrouchingIdle** | Crouched stationary | → CrouchingMoving, Idle, Dodging |
-| **CrouchingMoving** | Crouched movement | → CrouchingIdle, Walking, Dodging |
-| **Jumping** | Jump execution | → Falling |
-| **Falling** | In air (gravity) | → LandingInPlace, LandingMoving |
-| **LandingInPlace** | Just landed, no input | → Idle |
-| **LandingMoving** | Just landed, with input | → Walking |
-| **Dodging** | Evasive maneuver | → Idle, Walking (auto-transition) |
+1. Each `UEquipmentDefinition` defines `PossibleStatRolls` (gameplay tags).
+2. Tags are looked up in the master stat DataTable via `UEquipmentStatEffects`.
+3. Each candidate has a `ProbabilityToSelect` weight.
+4. `WeightedRandomSelect` accumulates weights and selects based on a random roll.
+5. Selected stats get their `CurrentValue` randomised between `MinStatLevel` and `MaxStatLevel`.
+6. The number of stats to roll is determined by the rarity tier.
 
-### Component Responsibilities
+### Async Loading
 
-#### UBasicMovementComponent
-- WASD movement input processing
-- Mouse look camera control
-- Movement input state tracking
-- Movement smoothing and sensitivity
+Both stat effects and abilities use `TSoftClassPtr` with `FStreamableManager::RequestAsyncLoad`. This avoids synchronous loads of GameplayEffect and Ability classes that may not be in memory.
 
-#### UDodgeSystemComponent
-- Dodge initiation and direction calculation
-- Input-influenced dodge direction blending
-- Cooldown and duration management
-- Integration with crouch state
+---
 
-#### UCrouchSystemComponent
-- Crouch/uncrouch input handling
-- Capsule height smooth transitions
-- Collision checking for safe uncrouching
-- Speed adjustment for crouched movement
+## Inventory System
 
-#### UJumpSystemComponent
-- Jump input processing
-- Landing state detection and timing
-- Integration with CharacterMovementComponent
-- Jump cooldown management
+### Key Classes
 
-#### USprintSystemComponent
-- Sprint input toggle handling
-- Integration with crouch system
-- Sprint interruption logic
-- State-aware sprint validation
+| Class | Location | Purpose |
+|---|---|---|
+| `UInventoryComponent` | `Public/Inventory/` | Manages the item array and CRUD operations |
+| `UInventoryItem` | `Public/Inventory/InventoryItem/` | Represents a single item instance |
+| `FItemDisplayEntry` | `Public/Inventory/` | Lightweight struct for UI display |
+| `UItemTypesToTables` | `Public/Inventory/` | Maps item types to DataTables |
+| `IInventoryInterface` | `Public/Interfaces/` | Interface to access the inventory component |
 
-### Code Quality Observations
+### Quick Slots
 
-#### Excellent Practices
-1. **Proper Error Handling**: Components validate owner types and log meaningful errors
-2. **Resource Management**: Proper timer cleanup and delegate unsubscription
-3. **Performance Conscious**: Components disable ticking when not needed
-4. **Consistent Patterns**: All components follow similar structure and naming
-5. **Unreal Conventions**: Proper use of TObjectPtr, UPROPERTY, and naming conventions
+`UQuickSlotManagerComponent` manages quick-slot assignments using gameplay tags (`Equipment.Slot.QuickSlot.*`). It provides an interface (`IQuickSlotInterface`) for accessing quick-slot functionality from any actor.
 
-#### Minor Areas for Improvement (Already Addressed)
-1. ✅ **Excessive Debug Logging**: Cleaned up verbose logs that cluttered output
-2. ✅ **Development Comments**: Removed standard Unreal template comments
-3. ✅ **Language Consistency**: Converted Italian comments to English
+---
 
-## Comparison to Industry Standards
+## UI Architecture
 
-This character system architecture would be **competitive in AAA game development**:
+### MVC Structure
 
-### Similarities to Professional Systems
-- **Modular Design**: Similar to systems used in games like Assassin's Creed, The Witcher
-- **State Machine**: Industry-standard approach for character controllers
-- **Component Architecture**: Matches modern engine design (Unity ECS, Unreal Component-based)
-- **Observer Patterns**: Standard for animation-gameplay communication
+```
+Model (Data Source)           Controller               View (Widget)
+───────────────────          ──────────────           ──────────────
+ACharacterBase          ←→   UWidgetController    →   URPGSystemWidget
+  OnHealthChanged            UHUDOverlayController     UHUDOverlayWidget
+  OnStaminaChanged           UInventoryDashController   UInventoryDashboardWidget
+  OnShieldChanged
+UEquipmentManagerComponent
+UInventoryComponent
+```
 
-### Advanced Features
-- **Input-Influenced Dodge**: More sophisticated than basic directional dodges
-- **Smart Component Cooperation**: Automatic cross-component behavior (sprint uncrouching)
-- **Flexible State Definition**: States define their own transition rules
-- **Blueprint Integration**: Excellent workflow for designers
+### UWidgetController (Base)
 
-## Recommendations for Future Development
+Located at `Source/Arena/Public/UI/WidgetControllers/WidgetController.h`:
 
-### Immediate Next Steps
-1. **Combat Integration**: Add combat states (attacking, blocking, hurt)
-2. **Animation Notify Integration**: Use animation events to trigger state transitions
-3. **Debug Visualization**: Add visual debug displays for current state and transitions
-4. **Performance Profiling**: Measure state machine performance in complex scenarios
+- `SetOwningActor(AActor*)` — connects to game data.
+- `BindCallbacksToDependencies()` — subscribes to data changes.
+- `BindDelegatesToWidget()` — Blueprint Native Event that connects controller outputs to widget inputs.
+- `BroadcastInitialValues()` — pushes current values on setup.
+- `UnbindAllEventsFromDelegates()` — cleanup.
 
-### Long-term Enhancements
-1. **Network Replication**: Prepare state machine for multiplayer
-2. **State History**: Track state transition history for debugging
-3. **Conditional Transitions**: Add complex condition support for state transitions
-4. **Editor Tools**: Create custom editor tools for state machine visualization
+### MainHUD
 
-## Conclusion
+`AMainHUD` (inherits `AHUD`) is the entry point for the HUD. It creates and manages the widget hierarchy and associated controllers.
 
-The Arena character system demonstrates **professional-level architecture** with excellent use of:
-- Component-based design patterns
-- Finite state machine implementation
-- Observer pattern for decoupled communication
-- Modern Unreal Engine 5 practices
+---
 
-The code is **maintainable**, **extensible**, and **performant**. The cleanup performed has removed development clutter while preserving all critical functionality and error handling.
+## File Layout Reference
 
-This system provides a solid foundation for a commercial-quality game project and follows industry best practices throughout.
+```
+Source/Arena/
+├── Arena.Build.cs / Arena.h / Arena.cpp         Module definition
+├── Public/
+│   ├── AbilitySystem/                           GAS classes (see GASArchitecture.md)
+│   ├── Actors/                                  Effect actors
+│   ├── Character/                               CharacterBase, EnemyBase
+│   ├── Data/                                    Data assets (ClassInfo, ProjectileInfo, StatEffects)
+│   ├── Equipment/                               Equipment system (Definition, Instance, Manager, Types)
+│   │   └── Rarity/                              Rarity definitions
+│   ├── GameMode/                                RPGGameMode
+│   ├── Input/                                   RPGInputConfig, RPGSystemInputComponent
+│   ├── Interfaces/                              UE Interfaces (Ability, Equipment, Inventory, QuickSlot)
+│   ├── Inventory/                               Inventory system
+│   │   └── InventoryItem/                       Inventory item class
+│   ├── Libraries/                               Blueprint function libraries
+│   ├── Player/
+│   │   ├── Components/                          Movement components (5 subdirectories)
+│   │   ├── MovementStateMachine/                State machine + base state + types
+│   │   │   └── States/                          10 concrete movement states
+│   │   ├── PlayerAnimation/                     PlayerAnimInstance
+│   │   ├── PlayerController/                    RPGPlayerController
+│   │   └── PlayerState/                         RPGPlayerState (ASC owner)
+│   ├── Projectiles/                             ProjectileBase
+│   ├── QuickSlot/                               QuickSlotManagerComponent
+│   ├── UI/
+│   │   ├── HUD/                                 MainHUD, HUDOverlay, Inventory dashboard
+│   │   ├── RPGSystemWidget.h                    Base widget class
+│   │   └── WidgetControllers/                   MVC controllers
+│   └── Utils/                                   Utility helpers
+└── Private/
+    └── (mirrors Public/ with .cpp implementations)
+```

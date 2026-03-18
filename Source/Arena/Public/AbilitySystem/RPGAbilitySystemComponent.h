@@ -35,7 +35,7 @@ public:
 	void RemoveEquipmentEffects(FRPGEquipmentEntry* EquipmentEntry);
 
 	void AddEquipmentAbility(FRPGEquipmentEntry* EquipmentEntry);
-	void RemoveEquipmentAbility(const FRPGEquipmentEntry* EquipmentEntry);
+	void RemoveEquipmentAbility(FRPGEquipmentEntry* EquipmentEntry);
 
 private:
 	

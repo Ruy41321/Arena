@@ -7,6 +7,8 @@
 #include "GameMode/RPGGameMode.h"
 #include "AbilitySystemBlueprintLibrary.h"
 #include "AbilitySystem/RPGGameplayTags.h"
+#include "Equipment/EquipmentTypes.h"
+#include "Inventory/InventoryComponent.h"
 #include "Kismet/GameplayStatics.h"
 
 UCharacterClassInfo* URPGAbilitySystemLibrary::GetCharacterClassDefaultInfo(const UObject* WorldContextObject)
@@ -31,6 +33,9 @@ UProjectileInfo* URPGAbilitySystemLibrary::GetProjectileInfo(const UObject* Worl
 
 void URPGAbilitySystemLibrary::ApplyDamageEffect(const FDamageEffectInfo& DamageEffectInfo)
 {
+	if (!IsValid(DamageEffectInfo.SourceASC) or !IsValid(DamageEffectInfo.TargetASC))
+		return;
+	
 	FGameplayEffectContextHandle ContextHandle = DamageEffectInfo.SourceASC->MakeEffectContext();
 	ContextHandle.AddSourceObject(DamageEffectInfo.AvatarActor);
 	
@@ -39,10 +44,7 @@ void URPGAbilitySystemLibrary::ApplyDamageEffect(const FDamageEffectInfo& Damage
 
 	UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(SpecHandle, RPGGameplayTags::Combat::Data_Damage, DamageEffectInfo.BaseDamage);
 
-	if (IsValid(DamageEffectInfo.TargetASC))
-	{
-		DamageEffectInfo.TargetASC->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
-	}
+	DamageEffectInfo.TargetASC->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
 }
 
 void URPGAbilitySystemLibrary::K2_SetLooseTagCountStatic(UAbilitySystemComponent* ASC, FGameplayTag Tag, int32 NewCount)
@@ -50,5 +52,26 @@ void URPGAbilitySystemLibrary::K2_SetLooseTagCountStatic(UAbilitySystemComponent
 	if (IsValid(ASC))
 	{
 		ASC->SetLooseGameplayTagCount(Tag, NewCount);
+	}
+}
+
+void URPGAbilitySystemLibrary::AssignDynamicSkillInputTag(FRPGInventoryEntry& NewEntry)
+{
+	TArray<FGameplayTag> SkillInputTag = {
+		RPGGameplayTags::Input::SkillSlot1, 
+		RPGGameplayTags::Input::SkillSlot2, 
+		RPGGameplayTags::Input::SkillSlot3
+	};
+	
+	uint8 i = 0;
+	for (FEquipmentAbilityDefinition& Ability : NewEntry.EffectPackage.Abilities)
+	{
+		// Assign a dynamic Input Tag to Skill Abilities in order of as
+		if (Ability.bIsSkillAbility)
+			Ability.SkillInputTag = SkillInputTag[i++];
+			
+		// Bind Maximum the num of SkillInputTag available
+		if (i == SkillInputTag.Num())
+			break;
 	}
 }

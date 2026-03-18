@@ -3,6 +3,7 @@
 
 #include "UI/HUD/MainHUD.h"
 
+#include "AbilitySystem/RPGGameplayTags.h"
 #include "Player/PlayerController/RPGPlayerController.h"
 #include "UI/HUD/HUDOverlay/HUDOverlayWidget.h"
 #include "UI/HUD/Inventory/InventoryDashboardWidget.h"
@@ -68,6 +69,7 @@ void AMainHUD::ToggleInventory()
 	if (!IsValid(InventoryDashboardWidget))
 	{
 		CreateInventoryWidget();
+		HUDOverlayWidget->OnQuickSlotActivated(RPGGameplayTags::Input::Inventory);
 		InventoryDashboardWidget->OpenInventoryDashboard();
 	}
 	else if (InventoryDashboardWidget->bIsOpen)
@@ -76,6 +78,7 @@ void AMainHUD::ToggleInventory()
 	}
 	else
 	{
+		HUDOverlayWidget->OnQuickSlotActivated(RPGGameplayTags::Input::Inventory);
 		InventoryDashboardWidget->OpenInventoryDashboard();
 	}
 }

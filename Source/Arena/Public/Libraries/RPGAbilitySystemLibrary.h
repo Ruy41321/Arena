@@ -7,6 +7,7 @@
 #include "GameplayTagContainer.h"
 #include "RPGAbilitySystemLibrary.generated.h"
 
+struct FRPGInventoryEntry;
 class UCharacterClassInfo;
 class UProjectileInfo;
 struct FDamageEffectInfo;
@@ -35,6 +36,7 @@ public:
 	template<typename T>
 	static T* GetDataTableRowByTag(const UDataTable* DataTable, const FGameplayTag& Tag);
 
+	static void AssignDynamicSkillInputTag(FRPGInventoryEntry& NewEntry);
 };
 
 template<typename T>

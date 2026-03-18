@@ -17,8 +17,25 @@ class ARENA_API URPGGameplayAbility : public UGameplayAbility
 	
 
 public:
-	
+	/**
+	 * Input Tag used to bind the action, It doesn't matter for skills because they are bind dynamically
+	 */
 	UPROPERTY(EditDefaultsOnly, category = "Custom Values | Input")
 	FGameplayTag InputTag;
 
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
+	void OnAbilityActivatedAgain(float TimeWaited);
+	virtual void OnAbilityActivatedAgain_Implementation(float TimeWaited);
+	
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
+	void OnAbilityReleased(float TimeWaited);
+	virtual void OnAbilityReleased_Implementation(float TimeWaited);
+	
+	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+
+private:
+	
+	void BindInputPressEvent();
+	void BindInputReleaseEvent();
+	
 };

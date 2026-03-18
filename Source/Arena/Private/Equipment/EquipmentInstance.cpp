@@ -28,7 +28,7 @@ void UEquipmentInstance::SpawnEquipmentActors(const TArray<FEquipmentActorToSpaw
 		{
 			if (IsValid(ActorToSpawn.EquipmentClass.Get()))
 			{
-				AEquipmentActor* NewActor = GetWorld()->SpawnActorDeferred<AEquipmentActor>(ActorToSpawn.EquipmentClass.Get(), FTransform::Identity, OwningCharacter);
+				AEquipmentActor* NewActor = GetWorld()->SpawnActorDeferred<AEquipmentActor>(ActorToSpawn.EquipmentClass.Get(), FTransform::Identity, OwningCharacter, OwningCharacter);
 
 				NewActor->FinishSpawning(FTransform::Identity);
 				NewActor->AttachToComponent(OwningCharacter->GetMesh(), FAttachmentTransformRules::KeepRelativeTransform, ActorToSpawn.AttachName);
@@ -42,7 +42,7 @@ void UEquipmentInstance::SpawnEquipmentActors(const TArray<FEquipmentActorToSpaw
 						if (!WeakThis.IsValid())
 							return;
 
-						AEquipmentActor* NewActor = WeakThis->GetWorld()->SpawnActorDeferred<AEquipmentActor>(ActorToSpawn.EquipmentClass.Get(), FTransform::Identity, OwningCharacter);
+						AEquipmentActor* NewActor = WeakThis->GetWorld()->SpawnActorDeferred<AEquipmentActor>(ActorToSpawn.EquipmentClass.Get(), FTransform::Identity, OwningCharacter, OwningCharacter);
 
 						NewActor->FinishSpawning(FTransform::Identity);
 						NewActor->AttachToComponent(OwningCharacter->GetMesh(), FAttachmentTransformRules::KeepRelativeTransform, ActorToSpawn.AttachName);
@@ -59,6 +59,11 @@ void UEquipmentInstance::DestroySpawnedActors()
 	{
 		Actor->Destroy();
 	}
+}
+
+TArray<AActor*> UEquipmentInstance::GetSpawnedActors()
+{
+	return SpawnedActors;
 }
 
 ACharacter* UEquipmentInstance::GetCharacter()

@@ -55,6 +55,16 @@ public:
 		const UEquipmentStatEffects* StatData,
 		int32 NumAbilities);
 
+	/**
+	 * Resolves explicit ability tags into ability definitions.
+	 * @param AbilityTags Container of ability tags to resolve.
+	 * @param StatData    The master stat data asset containing DataTables per tag category.
+	 * @return Array of resolved ability definitions (one per matching tag row).
+	 */
+	static TArray<FEquipmentAbilityDefinition> ResolveAbilitiesByTags(
+		const FGameplayTagContainer& AbilityTags,
+		const UEquipmentStatEffects* StatData);
+
 private:
 
 	/**

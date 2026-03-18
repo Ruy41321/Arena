@@ -21,6 +21,10 @@ class UInventoryDashboardController;
 class URPGAbilitySystemComponent;
 class UEquipmentManagerComponent;
 class UQuickSlotManagerComponent;
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FMappingContextChangedSignature, const UInputMappingContext*, NewMappingContext);
+DECLARE_DELEGATE_OneParam(FSkillActivatedSignature, FGameplayTag)
+
 /**
  * 
  */
@@ -55,12 +59,19 @@ public:
 	
 	URPGAbilitySystemComponent* GetRPGAbilitySystemComponent();
 	
+	UPROPERTY(BlueprintAssignable)
+	FMappingContextChangedSignature MappingContextChangedDelegate;
+	
+	FSkillActivatedSignature SkillActivatedDelegate;
+	
 protected:
 
 	virtual void BeginPlay() override;
 
 	UFUNCTION(BlueprintCallable)
 	void ChangeMappingContext(const UInputMappingContext* NewMappingContext) const;
+
+	bool EnsureWeaponEquipped() const;
 	
 	void AbilityInputPressed(const FGameplayTag& InputTag);
 	void AbilityInputReleased(const FGameplayTag& InputTag);
