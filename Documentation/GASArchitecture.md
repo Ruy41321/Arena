@@ -20,44 +20,44 @@
 
 ## Overview
 
-Arena uses Unreal Engine's **Gameplay Ability System (GAS)** to manage character attributes (Health, Stamina, Shield), combat logic, equipment effects, and ability activation. The GAS integration is built on several custom classes that extend the default engine types:
+Makhia uses Unreal Engine's **Gameplay Ability System (GAS)** to manage character attributes (Health, Stamina, Shield), combat logic, equipment effects, and ability activation. The GAS integration is built on several custom classes that extend the default engine types:
 
 | Custom Class | Engine Base | Purpose |
 |---|---|---|
-| `URPGAbilitySystemComponent` | `UAbilitySystemComponent` | Manages abilities, effects, and equipment integration |
-| `URPGAttributeSet` | `UAttributeSet` | Defines character attributes with replication |
-| `URPGGameplayAbility` | `UGameplayAbility` | Base ability with input tag binding |
-| `URPGDamageAbility` | `URPGGameplayAbility` | Abilities that deal damage |
-| `UProjectileAbility` | `URPGDamageAbility` | Abilities that spawn projectiles |
-| `FRPGGameplayEffectContext` | `FGameplayEffectContext` | Extended context with critical hit tracking |
-| `URPGAbilitySystemGlobals` | `UAbilitySystemGlobals` | Overrides default effect context allocation |
+| `UMKHAbilitySystemComponent` | `UAbilitySystemComponent` | Manages abilities, effects, and equipment integration |
+| `UMKHAttributeSet` | `UAttributeSet` | Defines character attributes with replication |
+| `UMKHGameplayAbility` | `UGameplayAbility` | Base ability with input tag binding |
+| `UMKHDamageAbility` | `UMKHGameplayAbility` | Abilities that deal damage |
+| `UProjectileAbility` | `UMKHDamageAbility` | Abilities that spawn projectiles |
+| `FMKHGameplayEffectContext` | `FGameplayEffectContext` | Extended context with critical hit tracking |
+| `UMKHAbilitySystemGlobals` | `UAbilitySystemGlobals` | Overrides default effect context allocation |
 
 ---
 
 ## Directory Structure
 
 ```
-Source/Arena/
+Source/Makhia/
 ├── Public/AbilitySystem/
-│   ├── RPGAbilitySystemComponent.h
-│   ├── RPGAbilitySystemGlobals.h
-│   ├── RPGAbilityTypes.h            # FRPGGameplayEffectContext, FProjectileParams, FDamageEffectInfo
-│   ├── RPGGameplayTags.h            # Native gameplay tag declarations
+│   ├── MKHAbilitySystemComponent.h
+│   ├── MKHAbilitySystemGlobals.h
+│   ├── MKHAbilityTypes.h            # FMKHGameplayEffectContext, FProjectileParams, FDamageEffectInfo
+│   ├── MKHGameplayTags.h            # Native gameplay tag declarations
 │   ├── Abilities/
-│   │   ├── RPGGameplayAbility.h     # Base ability with InputTag
-│   │   ├── RPGDamageAbility.h       # Damage-dealing ability base
+│   │   ├── MKHGameplayAbility.h     # Base ability with InputTag
+│   │   ├── MKHDamageAbility.h       # Damage-dealing ability base
 │   │   └── ProjectileAbility.h      # Projectile-spawning ability
 │   ├── Attributes/
-│   │   └── RPGAttributeSet.h        # Character attributes
+│   │   └── MKHAttributeSet.h        # Character attributes
 │   └── ExecCalc/
 │       ├── ExecCalc_Damage.h        # Damage calculation with critical hits
 │       └── ExecCalc_DodgeCost.h     # Stamina cost for dodging
 ├── Private/AbilitySystem/
 │   └── (mirrors Public/ with .cpp implementations)
 ├── Public/Interfaces/
-│   └── RPGAbilitySystemInterface.h  # Interface for GAS-aware actors
+│   └── MKHAbilitySystemInterface.h  # Interface for GAS-aware actors
 ├── Public/Libraries/
-│   └── RPGAbilitySystemLibrary.h    # Static helper functions
+│   └── MKHAbilitySystemLibrary.h    # Static helper functions
 └── Public/Data/
     ├── CharacterClassInfo.h         # Per-class ability/attribute defaults
     └── ProjectileInfo.h             # Projectile configuration data
@@ -71,14 +71,14 @@ GAS components are initialised at different points depending on whether the char
 
 ### Player Characters
 
-For player characters the ASC and attribute set live on the **Player State** (`ARPGPlayerState`), not on the character itself. This follows the recommended GAS pattern for multiplayer games where the Player State persists across respawns.
+For player characters the ASC and attribute set live on the **Player State** (`AMKHPlayerState`), not on the character itself. This follows the recommended GAS pattern for multiplayer games where the Player State persists across respawns.
 
 ```
-ARPGPlayerState (constructor)
-  ├─ Creates URPGAbilitySystemComponent (Replicated, Mixed mode)
-  └─ Creates URPGAttributeSet
+AMKHPlayerState (constructor)
+  ├─ Creates UMKHAbilitySystemComponent (Replicated, Mixed mode)
+  └─ Creates UMKHAttributeSet
 
-APlayerCharacter::PossessedBy()          [Server]
+AMKHPlayerCharacter::PossessedBy()          [Server]
   └─ InitAbilityActorInfo()
        ├─ Gets ASC and AttributeSet from PlayerState
        ├─ Calls ASC->InitAbilityActorInfo(PlayerState, this)
@@ -90,7 +90,7 @@ APlayerCharacter::PossessedBy()          [Server]
             ├─ ASC->AddCharacterPassiveAbilities(StartingPassives)
             └─ ASC->InitializeDefaultAttributes(DefaultAttributes)
 
-APlayerCharacter::OnRep_PlayerState()    [Client]
+AMKHPlayerCharacter::OnRep_PlayerState()    [Client]
   └─ InitAbilityActorInfo()              (same flow, minus InitClassDefaults)
 ```
 
@@ -100,8 +100,8 @@ Enemies own their ASC and attribute set directly:
 
 ```
 AEnemyBase (constructor)
-  ├─ Creates URPGAbilitySystemComponent (Replicated, Minimal mode)
-  └─ Creates URPGAttributeSet
+  ├─ Creates UMKHAbilitySystemComponent (Replicated, Minimal mode)
+  └─ Creates UMKHAttributeSet
 
 AEnemyBase::BeginPlay()
   ├─ BindCallbacksToDependencies()
@@ -118,8 +118,8 @@ AEnemyBase::BeginPlay()
 
 ## Ability System Component
 
-**Class**: `URPGAbilitySystemComponent` (inherits `UAbilitySystemComponent`)  
-**Location**: `Source/Arena/Public/AbilitySystem/RPGAbilitySystemComponent.h`
+**Class**: `UMKHAbilitySystemComponent` (inherits `UAbilitySystemComponent`)  
+**Location**: `Source/Makhia/Public/AbilitySystem/MKHAbilitySystemComponent.h`
 
 ### Public API
 
@@ -148,8 +148,8 @@ Broadcast after `InitializeDefaultAttributes` completes. Used by `AEnemyBase` to
 
 ## Attribute Set
 
-**Class**: `URPGAttributeSet` (inherits `UAttributeSet`)  
-**Location**: `Source/Arena/Public/AbilitySystem/Attributes/RPGAttributeSet.h`
+**Class**: `UMKHAttributeSet` (inherits `UAttributeSet`)  
+**Location**: `Source/Makhia/Public/AbilitySystem/Attributes/MKHAttributeSet.h`
 
 ### Attributes
 
@@ -197,14 +197,14 @@ A **Shield Break** occurs if the incoming damage exceeds `CurrentShield × 2.0`,
 
 ```
 UGameplayAbility
-  └─ URPGGameplayAbility          (adds InputTag)
-       └─ URPGDamageAbility       (adds BaseDamage + DamageEffect + CaptureDamageEffectInfo)
+  └─ UMKHGameplayAbility          (adds InputTag)
+       └─ UMKHDamageAbility       (adds BaseDamage + DamageEffect + CaptureDamageEffectInfo)
             └─ UProjectileAbility (adds projectile spawning)
 ```
 
-### URPGGameplayAbility
+### UMKHGameplayAbility
 
-**Location**: `Source/Arena/Public/AbilitySystem/Abilities/RPGGameplayAbility.h`
+**Location**: `Source/Makhia/Public/AbilitySystem/Abilities/MKHGameplayAbility.h`
 
 The base class for all custom abilities. Its only addition is:
 
@@ -215,9 +215,9 @@ FGameplayTag InputTag;
 
 This tag is added to the ability spec's dynamic source tags on grant. When the player presses an input bound to this tag, `AbilityInputPressed` finds the matching spec and activates it.
 
-### URPGDamageAbility
+### UMKHDamageAbility
 
-**Location**: `Source/Arena/Public/AbilitySystem/Abilities/RPGDamageAbility.h`
+**Location**: `Source/Makhia/Public/AbilitySystem/Abilities/MKHDamageAbility.h`
 
 Adds damage configuration:
 
@@ -227,13 +227,13 @@ Adds damage configuration:
 
 ### UProjectileAbility
 
-**Location**: `Source/Arena/Public/AbilitySystem/Abilities/ProjectileAbility.h`
+**Location**: `Source/Makhia/Public/AbilitySystem/Abilities/ProjectileAbility.h`
 
 Spawns projectile actors. Key details:
 
 - **Instancing**: `InstancedPerActor` — each character gets its own ability instance.
 - **`OnGiveAbility`**: Loads projectile parameters from `UProjectileInfo` using the `ProjectileToSpawnTag`.
-- **`SpawnProjectile`** (BlueprintCallable): Spawns a `AProjectileBase` at the character's dynamic spawn point (obtained via `IRPGAbilitySystemInterface`), applies projectile parameters and damage info, then calls `FinishSpawning`.
+- **`SpawnProjectile`** (BlueprintCallable): Spawns a `AMKHMKHProjectileBase` at the character's dynamic spawn point (obtained via `IMKHAbilitySystemInterface`), applies projectile parameters and damage info, then calls `FinishSpawning`.
 
 ---
 
@@ -241,21 +241,21 @@ Spawns projectile actors. Key details:
 
 ### ExecCalc_Damage
 
-**Location**: `Source/Arena/Public/AbilitySystem/ExecCalc/ExecCalc_Damage.h`
+**Location**: `Source/Makhia/Public/AbilitySystem/ExecCalc/ExecCalc_Damage.h`
 
 Handles damage calculation including critical hits:
 
-1. **Get Base Damage**: Read from `SetByCaller` using `RPGGameplayTags::Combat::Data_Damage`.
+1. **Get Base Damage**: Read from `SetByCaller` using `MKHGameplayTags::Combat::Data_Damage`.
 2. **Capture Source Attributes**: `CritChance`, `CritDamageMod`.
 3. **Capture Target Attributes**: `Shield` (for context).
 4. **Critical Hit Roll**: Random 0–100 compared against `CritChance`. On crit: `Damage *= (1 + CritDamageMod)`.
-5. **Store Result**: Sets `bCriticalHit` on the `FRPGGameplayEffectContext` and outputs the final value to `IncomingDamage`.
+5. **Store Result**: Sets `bCriticalHit` on the `FMKHGameplayEffectContext` and outputs the final value to `IncomingDamage`.
 
-The actual health/shield split happens later in `URPGAttributeSet::PostGameplayEffectExecute`.
+The actual health/shield split happens later in `UMKHAttributeSet::PostGameplayEffectExecute`.
 
 ### ExecCalc_DodgeCost
 
-**Location**: `Source/Arena/Public/AbilitySystem/ExecCalc/ExecCalc_DodgeCost.h`
+**Location**: `Source/Makhia/Public/AbilitySystem/ExecCalc/ExecCalc_DodgeCost.h`
 
 Deducts stamina for dodge actions:
 
@@ -268,8 +268,8 @@ Deducts stamina for dodge actions:
 
 ## Custom Effect Context
 
-**Struct**: `FRPGGameplayEffectContext` (inherits `FGameplayEffectContext`)  
-**Location**: `Source/Arena/Public/AbilitySystem/RPGAbilityTypes.h`
+**Struct**: `FMKHGameplayEffectContext` (inherits `FGameplayEffectContext`)  
+**Location**: `Source/Makhia/Public/AbilitySystem/MKHAbilityTypes.h`
 
 Extends the default effect context with:
 
@@ -279,13 +279,13 @@ Extends the default effect context with:
 
 ### Global Allocation
 
-`URPGAbilitySystemGlobals` overrides `AllocGameplayEffectContext` to return `FRPGGameplayEffectContext` instances instead of the default type. This ensures every effect in the game uses the extended context.
+`UMKHAbilitySystemGlobals` overrides `AllocGameplayEffectContext` to return `FMKHGameplayEffectContext` instances instead of the default type. This ensures every effect in the game uses the extended context.
 
 ---
 
 ## Gameplay Tags
 
-**Location**: `Source/Arena/Public/AbilitySystem/RPGGameplayTags.h`
+**Location**: `Source/Makhia/Public/AbilitySystem/MKHGameplayTags.h`
 
 Tags are declared using `UE_DECLARE_GAMEPLAY_TAG_EXTERN` and defined in the `.cpp` file. They are organized into namespaces:
 
@@ -348,7 +348,7 @@ The complete damage flow from ability activation to health reduction:
        │
 2. CaptureDamageEffectInfo() fills FDamageEffectInfo
        │
-3. URPGAbilitySystemLibrary::ApplyDamageEffect()
+3. UMKHAbilitySystemLibrary::ApplyDamageEffect()
        ├─ Creates effect context with source actor
        ├─ Creates outgoing spec from DamageEffect class
        ├─ Sets BaseDamage via SetByCaller (Combat.Data.Damage tag)
@@ -359,10 +359,10 @@ The complete damage flow from ability activation to health reduction:
        ├─ Captures CritChance and CritDamageMod from source
        ├─ Rolls for critical hit
        ├─ Applies crit multiplier: Damage *= (1 + CritDamageMod)
-       ├─ Stores bCriticalHit in FRPGGameplayEffectContext
+       ├─ Stores bCriticalHit in FMKHGameplayEffectContext
        └─ Outputs result to IncomingDamage attribute
               │
-5. URPGAttributeSet::PostGameplayEffectExecute()
+5. UMKHAttributeSet::PostGameplayEffectExecute()
        └─ HandleIncomingDamage()
               ├─ Calculates shield absorption rate
               ├─ Checks for shield break condition
@@ -384,7 +384,7 @@ UEquipmentManagerComponent::EquipItem(InventoryItem)
        ├─ Rolls rarity via EquipmentRollLibrary::RollRarity()
        ├─ Rolls stat effects via EquipmentRollLibrary::RollPassiveStats()
        └─ Rolls abilities via EquipmentRollLibrary::RollActiveAbilities()
-  └─ FRPGEquipmentList::AddEntry()
+  └─ FMKHEquipmentList::AddEntry()
        ├─ Creates UEquipmentInstance
        ├─ ASC->AddEquipmentEffects()     (applies GE stat modifiers)
        ├─ ASC->AddEquipmentAbility()     (grants abilities)
@@ -415,11 +415,11 @@ Abilities are activated through a tag-based input system using Enhanced Input.
 
 ### Configuration
 
-`URPGInputConfig` is a data asset that maps `UInputAction` assets to `FGameplayTag` values:
+`UMKHInputConfig` is a data asset that maps `UInputAction` assets to `FGameplayTag` values:
 
 ```cpp
 USTRUCT()
-struct FRPGInputAction
+struct FMKHInputAction
 {
     TObjectPtr<UInputAction> InputAction;
     FGameplayTag InputTag;
@@ -428,16 +428,16 @@ struct FRPGInputAction
 
 ### Binding
 
-`URPGSystemInputComponent` (inherits `UEnhancedInputComponent`) provides a template method `BindAbilityActions` that:
+`UMKHSystemInputComponent` (inherits `UEnhancedInputComponent`) provides a template method `BindAbilityActions` that:
 
-1. Iterates all actions in an `URPGInputConfig`.
+1. Iterates all actions in an `UMKHInputConfig`.
 2. Filters by a parent tag (e.g., `Input.Ability`).
 3. Binds `ETriggerEvent::Started` → `AbilityInputPressed(Tag)`.
 4. Binds `ETriggerEvent::Completed` → `AbilityInputReleased(Tag)`.
 
 ### Activation
 
-When a bound input fires, `URPGAbilitySystemComponent::AbilityInputPressed` scans all activatable abilities for one whose dynamic source tags include the pressed `InputTag`, then calls `TryActivateAbility`.
+When a bound input fires, `UMKHAbilitySystemComponent::AbilityInputPressed` scans all activatable abilities for one whose dynamic source tags include the pressed `InputTag`, then calls `TryActivateAbility`.
 
 ---
 
@@ -445,7 +445,7 @@ When a bound input fires, `URPGAbilitySystemComponent::AbilityInputPressed` scan
 
 ### UCharacterClassInfo
 
-**Location**: `Source/Arena/Public/Data/CharacterClassInfo.h`
+**Location**: `Source/Makhia/Public/Data/CharacterClassInfo.h`
 
 A `UDataAsset` that maps `FGameplayTag` character class identifiers to their default configuration:
 
@@ -465,11 +465,11 @@ class UCharacterClassInfo : public UDataAsset
 };
 ```
 
-Stored on `ARPGGameMode` and accessed via `URPGAbilitySystemLibrary::GetCharacterClassDefaultInfo`.
+Stored on `AMKHGameMode` and accessed via `UMKHAbilitySystemLibrary::GetCharacterClassDefaultInfo`.
 
 ### UProjectileInfo
 
-**Location**: `Source/Arena/Public/Data/ProjectileInfo.h`
+**Location**: `Source/Makhia/Public/Data/ProjectileInfo.h`
 
 Maps `FGameplayTag` to `FProjectileParams`:
 
@@ -486,3 +486,5 @@ class UProjectileInfo : public UDataAsset
 - `ProjectileMesh` — the static mesh for the projectile.
 - `InitialSpeed`, `GravityScale` — physics configuration.
 - `bShouldBounce`, `Bounciness` — bounce behaviour.
+
+

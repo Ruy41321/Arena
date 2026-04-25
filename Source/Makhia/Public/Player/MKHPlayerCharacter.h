@@ -1,0 +1,99 @@
+// Copyright (c) 2025 Luigi Pennisi. All rights reserved.
+
+#pragma once
+
+#include "CoreMinimal.h"
+#include "Player/MovementStateMachine/MovementStateTypes.h"
+#include "Interfaces/MKHAbilitySystemInterface.h"
+#include "Character/CharacterBase.h"
+#include "MKHPlayerCharacter.generated.h"
+
+// Forward declarations for Enhanced Input
+class UInputMappingContext;
+class UInputAction;
+class UCameraComponent;
+class USpringArmComponent;
+
+class UDodgeSystemComponent;
+class UCrouchSystemComponent;
+class UBasicMovementComponent;
+class UJumpSystemComponent;
+class USprintSystemComponent;
+class UMovementStateMachine;
+
+
+UCLASS()
+class MAKHIA_API AMKHPlayerCharacter : public ACharacterBase
+{
+	GENERATED_BODY()
+
+public:
+	AMKHPlayerCharacter();
+
+	virtual void Tick(float DeltaTime) override;
+	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+	
+	/** Sets the character's maximum walk speed */
+	UFUNCTION(BlueprintCallable, Category = "Movement")
+	void SetMaxWalkSpeed(float NewSpeed);
+
+	// Movement State Machine helper functions
+	UFUNCTION(BlueprintPure, Category = "Movement State Machine")
+	EMovementStateValue GetCurrentMovementState() const;
+
+	UFUNCTION(BlueprintPure, Category = "Movement State Machine")
+	EMovementStateValue GetPreviousMovementState() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Movement State Machine")
+	bool TransitionToMovementState(EMovementStateValue NewState, bool bForceTransition = false);
+
+	UFUNCTION(BlueprintPure, Category = "Movement State Machine")
+	FString GetCurrentMovementStateAsString() const;
+
+	/** Get the movement state machine component */
+	UFUNCTION(BlueprintPure, Category = "Movement State Machine")
+	UMovementStateMachine* GetMovementStateMachine() const { return MovementStateMachine.Get(); }
+
+	/** Unsubscribe from movement state change events */
+	UFUNCTION(BlueprintCallable, Category = "Movement State Machine")
+	void UnsubscribeFromMovementStateChanges(UObject* Subscriber);
+
+	virtual void PossessedBy(AController* NewController) override;
+	virtual void OnRep_PlayerState() override;
+
+protected:
+	virtual void BeginPlay() override;
+	virtual void InitAbilityActorInfo() override;
+	virtual void Landed(const FHitResult& Hit) override;
+
+	virtual void BindCallbacksToDependencies() override;
+	virtual void InitClassDefaults() override;
+	virtual void BroadcastInitialValues() override;
+
+public:
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Dodge System")
+	TObjectPtr<UDodgeSystemComponent> DodgeSystem;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Crouch System")
+	TObjectPtr<UCrouchSystemComponent> CrouchSystem;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Basic Movement")
+	TObjectPtr<UBasicMovementComponent> BasicMovementSystem;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Jump System")
+	TObjectPtr<UJumpSystemComponent> JumpSystem;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Sprint System")
+	TObjectPtr<USprintSystemComponent> SprintSystem;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Movement State Machine")
+	TObjectPtr<UMovementStateMachine> MovementStateMachine;
+		
+protected:
+	// Camera
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, category = "Camera")
+	TObjectPtr<UCameraComponent> Camera;
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Camera")
+	TObjectPtr<USpringArmComponent> CameraBoom;
+
+};

@@ -15,7 +15,7 @@
 
 ## Project Overview
 
-Arena is an Unreal Engine 5.7 C++ project structured as a single runtime module named `Arena`. It implements an action RPG framework with:
+Makhia is an Unreal Engine 5.7 C++ project structured as a single runtime module named `Makhia`. It implements an action MKH framework with:
 
 - **Gameplay Ability System (GAS)** for attributes, abilities, and effects.
 - A **component-based player character** with a finite state machine for movement.
@@ -28,16 +28,16 @@ Arena is an Unreal Engine 5.7 C++ project structured as a single runtime module 
 
 ## Module Configuration
 
-**File**: `Arena.uproject`
+**File**: `Makhia.uproject`
 
 ```
 Engine: 5.7
-Module: Arena (Runtime, Default loading phase)
+Module: Makhia (Runtime, Default loading phase)
 Dependencies: Engine, GameplayAbilities, UMG, CoreUObject, EnhancedInput
 Plugins: GameplayAbilities, GameplayStateTree, ModelingToolsEditorMode (editor only)
 ```
 
-**Build dependencies** (`Arena.Build.cs`) include `GameplayAbilities`, `GameplayTags`, `GameplayTasks`, `EnhancedInput`, `UMG`, and `Niagara`.
+**Build dependencies** (`Makhia.Build.cs`) include `GameplayAbilities`, `GameplayTags`, `GameplayTasks`, `EnhancedInput`, `UMG`, and `Niagara`.
 
 ---
 
@@ -48,22 +48,22 @@ Plugins: GameplayAbilities, GameplayStateTree, ModelingToolsEditorMode (editor o
 ```
 ACharacter (Engine)
   └─ ACharacterBase            [IAbilitySystemInterface]
-       ├─ APlayerCharacter     [IRPGAbilitySystemInterface]
+       ├─ AMKHPlayerCharacter     [IMKHAbilitySystemInterface]
        └─ AEnemyBase
 ```
 
 `ACharacterBase` provides:
-- GAS integration (`URPGAbilitySystemComponent`, `URPGAttributeSet`).
+- GAS integration (`UMKHAbilitySystemComponent`, `UMKHAttributeSet`).
 - Virtual initialisation hooks (`InitAbilityActorInfo`, `BindCallbacksToDependencies`, `InitClassDefaults`, `BroadcastInitialValues`).
 - Attribute change delegates (`OnHealthChanged`, `OnStaminaChanged`, `OnShieldChanged`).
 - Stamina management via the `OutOfStamina` gameplay tag.
 
-`APlayerCharacter` adds:
+`AMKHPlayerCharacter` adds:
 - Five movement components (Basic, Dodge, Crouch, Jump, Sprint).
 - `UMovementStateMachine` for state management.
 - Camera rig (spring arm + camera).
 - `DynamicProjectileSpawnPoint` for ability projectile spawning.
-- GAS ownership delegated to `ARPGPlayerState`.
+- GAS ownership delegated to `AMKHPlayerState`.
 
 `AEnemyBase` owns its ASC directly and uses `Minimal` replication mode.
 
@@ -74,8 +74,8 @@ See [GASArchitecture.md](GASArchitecture.md) for full details. Key points:
 - **Attribute set**: Health, MaxHealth, Shield, MaxShield, Stamina, MaxStamina, DodgeStaminaCost, CritChance, CritDamageMod, IncomingDamage (meta).
 - **Damage pipeline**: Ability → `FDamageEffectInfo` → `ApplyDamageEffect` → `ExecCalc_Damage` (with crit roll) → `IncomingDamage` → `PostGameplayEffectExecute` → shield absorption → Health reduction.
 - **Shield absorption**: Hybrid linear/exponential model with shield-break mechanic.
-- **Custom effect context**: `FRPGGameplayEffectContext` with serialised `bCriticalHit` flag.
-- **Global override**: `URPGAbilitySystemGlobals` ensures all effects use the custom context.
+- **Custom effect context**: `FMKHGameplayEffectContext` with serialised `bCriticalHit` flag.
+- **Global override**: `UMKHAbilitySystemGlobals` ensures all effects use the custom context.
 
 ### Movement State Machine
 
@@ -89,15 +89,15 @@ See [CharacterSystemArchitecture.md](CharacterSystemArchitecture.md) for full de
 
 ### Input System
 
-Arena uses Enhanced Input with a tag-based configuration layer:
+Makhia uses Enhanced Input with a tag-based configuration layer:
 
-- `URPGInputConfig`: Data asset mapping `UInputAction` → `FGameplayTag`.
-- `URPGSystemInputComponent`: Template method `BindAbilityActions` that filters actions by tag and binds them to `AbilityInputPressed`/`AbilityInputReleased` on the ASC.
+- `UMKHInputConfig`: Data asset mapping `UInputAction` → `FGameplayTag`.
+- `UMKHSystemInputComponent`: Template method `BindAbilityActions` that filters actions by tag and binds them to `AbilityInputPressed`/`AbilityInputReleased` on the ASC.
 - Movement component inputs are bound directly in `SetupPlayerInputComponent` by each component's `SetupInput` method.
 
 ### Animation
 
-`UPlayerAnimInstance` subscribes to `UMovementStateMachine::OnStateChanged` and updates:
+`UMKHMKHPlayerAnimInstance` subscribes to `UMovementStateMachine::OnStateChanged` and updates:
 - `Speed` — used for movement blend spaces.
 - `CurrentMovementState` / `PreviousMovementState` — used by animation state machines.
 - `CrouchingTransitionTime` — 0–100 blend value for crouching pose.
@@ -108,7 +108,7 @@ Arena uses Enhanced Input with a tag-based configuration layer:
 
 ### Player GAS Replication
 
-- ASC lives on `ARPGPlayerState` with **Mixed** replication mode.
+- ASC lives on `AMKHPlayerState` with **Mixed** replication mode.
 - Network update frequency: 100 Hz primary, 66 Hz minimum.
 - `PossessedBy` (server) initialises abilities and attributes; `OnRep_PlayerState` (client) initialises actor info.
 - Abilities are predicted client-side; effects are replicated.
@@ -120,8 +120,8 @@ Arena uses Enhanced Input with a tag-based configuration layer:
 
 ### Equipment Replication
 
-- `FRPGEquipmentList` uses `FFastArraySerializer` for efficient delta replication.
-- Each `FRPGEquipmentEntry` is an `FFastArraySerializerItem` with pre/post replication callbacks.
+- `FMKHEquipmentList` uses `FFastArraySerializer` for efficient delta replication.
+- Each `FMKHEquipmentEntry` is an `FFastArraySerializerItem` with pre/post replication callbacks.
 - `GrantedHandles` (ability and effect handles) are **not replicated** — they are recreated on the owning client.
 - `EquipItem` and `UnEquipItem` have authority checks; non-authority calls delegate to server RPCs.
 
@@ -146,7 +146,7 @@ The equipment system manages equipping/unequipping items, applying stat effects 
 | `UEquipmentDefinition` | `Public/Equipment/` | Data asset defining an equipment item's properties |
 | `UEquipmentInstance` | `Public/Equipment/` | Runtime instance of equipped equipment |
 | `AEquipmentActor` | `Public/Equipment/` | Visual representation spawned in the world |
-| `FRPGEquipmentEntry` | `Public/Equipment/` | Replicated entry in the equipment list |
+| `FMKHEquipmentEntry` | `Public/Equipment/` | Replicated entry in the equipment list |
 | `FEquipmentEffectPackage` | `Public/Equipment/` | Bundle of stat effects and abilities |
 | `UEquipmentRollLibrary` | `Public/Libraries/` | Static library for rarity and stat rolling |
 | `URarityDefinition` | `Public/Equipment/Rarity/` | Rarity tier configuration |
@@ -162,8 +162,8 @@ EquipItem(UInventoryItem)
        │    ├─ RollRarity()            → FRarityDefinition
        │    ├─ RollPassiveStats()      → TArray<FEquipmentStatEffectDefinition>
        │    ├─ RollActiveAbilities()   → TArray<FEquipmentAbilityDefinition>
-       │    └─ Assemble FRPGEquipmentEntry
-       └─ FRPGEquipmentList::AddEntry()
+       │    └─ Assemble FMKHEquipmentEntry
+       └─ FMKHEquipmentList::AddEntry()
             ├─ Handle slot conflict (remove existing)
             ├─ Create UEquipmentInstance
             ├─ ASC->AddEquipmentEffects()
@@ -213,7 +213,7 @@ Both stat effects and abilities use `TSoftClassPtr` with `FStreamableManager::Re
 ```
 Model (Data Source)           Controller               View (Widget)
 ───────────────────          ──────────────           ──────────────
-ACharacterBase          ←→   UWidgetController    →   URPGSystemWidget
+ACharacterBase          ←→   UWidgetController    →   UMKHSystemWidget
   OnHealthChanged            UHUDOverlayController     UHUDOverlayWidget
   OnStaminaChanged           UInventoryDashController   UInventoryDashboardWidget
   OnShieldChanged
@@ -223,7 +223,7 @@ UInventoryComponent
 
 ### UWidgetController (Base)
 
-Located at `Source/Arena/Public/UI/WidgetControllers/WidgetController.h`:
+Located at `Source/Makhia/Public/UI/WidgetControllers/WidgetController.h`:
 
 - `SetOwningActor(AActor*)` — connects to game data.
 - `BindCallbacksToDependencies()` — subscribes to data changes.
@@ -240,8 +240,8 @@ Located at `Source/Arena/Public/UI/WidgetControllers/WidgetController.h`:
 ## File Layout Reference
 
 ```
-Source/Arena/
-├── Arena.Build.cs / Arena.h / Arena.cpp         Module definition
+Source/Makhia/
+├── Makhia.Build.cs / Makhia.h / Makhia.cpp         Module definition
 ├── Public/
 │   ├── AbilitySystem/                           GAS classes (see GASArchitecture.md)
 │   ├── Actors/                                  Effect actors
@@ -249,8 +249,8 @@ Source/Arena/
 │   ├── Data/                                    Data assets (ClassInfo, ProjectileInfo, StatEffects)
 │   ├── Equipment/                               Equipment system (Definition, Instance, Manager, Types)
 │   │   └── Rarity/                              Rarity definitions
-│   ├── GameMode/                                RPGGameMode
-│   ├── Input/                                   RPGInputConfig, RPGSystemInputComponent
+│   ├── GameMode/                                MKHGameMode
+│   ├── Input/                                   MKHInputConfig, MKHSystemInputComponent
 │   ├── Interfaces/                              UE Interfaces (Ability, Equipment, Inventory, QuickSlot)
 │   ├── Inventory/                               Inventory system
 │   │   └── InventoryItem/                       Inventory item class
@@ -259,16 +259,18 @@ Source/Arena/
 │   │   ├── Components/                          Movement components (5 subdirectories)
 │   │   ├── MovementStateMachine/                State machine + base state + types
 │   │   │   └── States/                          10 concrete movement states
-│   │   ├── PlayerAnimation/                     PlayerAnimInstance
-│   │   ├── PlayerController/                    RPGPlayerController
-│   │   └── PlayerState/                         RPGPlayerState (ASC owner)
-│   ├── Projectiles/                             ProjectileBase
+│   │   ├── PlayerAnimation/                     MKHPlayerAnimInstance
+│   │   ├── PlayerController/                    MKHPlayerController
+│   │   └── PlayerState/                         MKHPlayerState (ASC owner)
+│   ├── Projectiles/                             MKHProjectileBase
 │   ├── QuickSlot/                               QuickSlotManagerComponent
 │   ├── UI/
 │   │   ├── HUD/                                 MainHUD, HUDOverlay, Inventory dashboard
-│   │   ├── RPGSystemWidget.h                    Base widget class
+│   │   ├── MKHSystemWidget.h                    Base widget class
 │   │   └── WidgetControllers/                   MVC controllers
 │   └── Utils/                                   Utility helpers
 └── Private/
     └── (mirrors Public/ with .cpp implementations)
 ```
+
+

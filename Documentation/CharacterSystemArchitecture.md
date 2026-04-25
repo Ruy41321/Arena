@@ -5,7 +5,7 @@
 1. [Overview](#overview)
 2. [Class Hierarchy](#class-hierarchy)
 3. [ACharacterBase](#acharacterbase)
-4. [APlayerCharacter](#aplayercharacter)
+4. [AMKHPlayerCharacter](#AMKHPlayerCharacter)
 5. [AEnemyBase](#aenemybase)
 6. [Movement Components](#movement-components)
 7. [Movement State Machine](#movement-state-machine)
@@ -19,7 +19,7 @@
 
 ## Overview
 
-The Arena character system uses a **component-based architecture** combined with a **finite state machine** for movement management and an **observer pattern** for state-change notifications. This design separates each movement ability into its own component, delegates state management to a dedicated state machine, and notifies dependent systems (such as animation) through delegates.
+The Makhia character system uses a **component-based architecture** combined with a **finite state machine** for movement management and an **observer pattern** for state-change notifications. This design separates each movement ability into its own component, delegates state management to a dedicated state machine, and notifies dependent systems (such as animation) through delegates.
 
 Key principles:
 - **Single Responsibility**: Each component handles exactly one movement mechanic.
@@ -34,7 +34,7 @@ Key principles:
 ```
 ACharacter (Engine)
   └─ ACharacterBase                  [IAbilitySystemInterface]
-       ├─ APlayerCharacter           [IRPGAbilitySystemInterface]
+       ├─ AMKHPlayerCharacter           [IMKHAbilitySystemInterface]
        └─ AEnemyBase
 ```
 
@@ -42,7 +42,7 @@ ACharacter (Engine)
 
 ## ACharacterBase
 
-**Location**: `Source/Arena/Public/Character/CharacterBase.h`
+**Location**: `Source/Makhia/Public/Character/CharacterBase.h`
 
 The abstract base class shared by players and enemies. It provides the GAS integration point and common attribute-change delegates.
 
@@ -58,8 +58,8 @@ The abstract base class shared by players and enemies. It provides the GAS integ
 UPROPERTY(EditAnywhere, Category = "Custom Values | Character Info")
 FGameplayTag CharacterTag;                              // Identifies the character class for data lookup
 
-TObjectPtr<URPGAbilitySystemComponent> RPGAbilitySystemComponent;
-TObjectPtr<URPGAttributeSet> RPGAttributeSet;
+TObjectPtr<UMKHAbilitySystemComponent> MKHAbilitySystemComponent;
+TObjectPtr<UMKHAttributeSet> MKHAttributeSet;
 ```
 
 ### Delegates
@@ -72,11 +72,11 @@ TObjectPtr<URPGAttributeSet> RPGAttributeSet;
 
 ---
 
-## APlayerCharacter
+## AMKHPlayerCharacter
 
-**Location**: `Source/Arena/Public/Player/PlayerCharacter.h`
+**Location**: `Source/Makhia/Public/Player/MKHPlayerCharacter.h`
 
-The player-controlled character. It owns the movement components, state machine, and camera, and delegates GAS ownership to `ARPGPlayerState`.
+The player-controlled character. It owns the movement components, state machine, and camera, and delegates GAS ownership to `AMKHPlayerState`.
 
 ### Components Created in Constructor
 
@@ -101,13 +101,13 @@ TObjectPtr<USceneComponent> DynamicProjectileSpawnPoint;
 
 ### GAS Initialisation
 
-The ASC and attribute set are obtained from `ARPGPlayerState` in `InitAbilityActorInfo()`:
+The ASC and attribute set are obtained from `AMKHPlayerState` in `InitAbilityActorInfo()`:
 
 ```
 PossessedBy() [Server]
   └─ InitAbilityActorInfo()
-       ├─ ASC = PlayerState->GetRPGAbilitySystemComponent()
-       ├─ AttributeSet = PlayerState->GetRPGAttributeSet()
+       ├─ ASC = PlayerState->GetMKHAbilitySystemComponent()
+       ├─ AttributeSet = PlayerState->GetMKHAttributeSet()
        ├─ ASC->InitAbilityActorInfo(PlayerState, this)
        ├─ BindCallbacksToDependencies()
        ├─ MovementStateMachine->SyncCurrentStateTagToASC()
@@ -135,7 +135,7 @@ OnRep_PlayerState() [Client]
 
 ## AEnemyBase
 
-**Location**: `Source/Arena/Public/Character/EnemyBase.h`
+**Location**: `Source/Makhia/Public/Character/EnemyBase.h`
 
 AI-controlled characters. Unlike the player, enemies own their ASC directly.
 
@@ -143,7 +143,7 @@ AI-controlled characters. Unlike the player, enemies own their ASC directly.
 
 | Aspect | Player | Enemy |
 |---|---|---|
-| ASC Owner | `ARPGPlayerState` | `AEnemyBase` itself |
+| ASC Owner | `AMKHPlayerState` | `AEnemyBase` itself |
 | ASC Actor Info | `InitAbilityActorInfo(PlayerState, this)` | `InitAbilityActorInfo(this, this)` |
 | Replication Mode | `Mixed` | `Minimal` |
 | Init Trigger | `PossessedBy` / `OnRep_PlayerState` | `BeginPlay` |
@@ -154,11 +154,11 @@ Enemies replicate a `bInitAttributes` flag so clients can broadcast initial valu
 
 ## Movement Components
 
-All movement components inherit from `UActorComponent` and follow a consistent pattern: each component receives input, manages its own state, and coordinates with other components through the shared `APlayerCharacter` reference.
+All movement components inherit from `UActorComponent` and follow a consistent pattern: each component receives input, manages its own state, and coordinates with other components through the shared `AMKHPlayerCharacter` reference.
 
 ### UBasicMovementComponent
 
-**Location**: `Source/Arena/Public/Player/Components/BasicMovement/BasicMovementComponent.h`
+**Location**: `Source/Makhia/Public/Player/Components/BasicMovement/BasicMovementComponent.h`
 
 - Processes WASD/gamepad movement input and mouse/gamepad look input.
 - Tracks whether the character has active movement input (used by other systems).
@@ -166,7 +166,7 @@ All movement components inherit from `UActorComponent` and follow a consistent p
 
 ### UDodgeSystemComponent
 
-**Location**: `Source/Arena/Public/Player/Components/Dodge/DodgeSystemComponent.h`
+**Location**: `Source/Makhia/Public/Player/Components/Dodge/DodgeSystemComponent.h`
 
 - Handles dodge initiation, direction blending, and cooldown.
 - Checks the current movement state against a dodgeable-state whitelist (`Idle`, `CrouchingIdle`, `CrouchingMoving`, `Walking`, `Sprinting`).
@@ -176,7 +176,7 @@ All movement components inherit from `UActorComponent` and follow a consistent p
 
 ### UCrouchSystemComponent
 
-**Location**: `Source/Arena/Public/Player/Components/Crouch/CrouchSystemComponent.h`
+**Location**: `Source/Makhia/Public/Player/Components/Crouch/CrouchSystemComponent.h`
 
 - Toggles crouching with collision-safe uncrouch checks.
 - Smoothly adjusts capsule height transitions.
@@ -185,16 +185,16 @@ All movement components inherit from `UActorComponent` and follow a consistent p
 
 ### UJumpSystemComponent
 
-**Location**: `Source/Arena/Public/Player/Components/Jump/JumpSystemComponent.h`
+**Location**: `Source/Makhia/Public/Player/Components/Jump/JumpSystemComponent.h`
 
 - Handles jump input and delegates to `ACharacter::Jump()`.
 - Tracks landing state and timing for animation.
 - Manages jump cooldown.
-- Receives `Landed()` callbacks from `APlayerCharacter`.
+- Receives `Landed()` callbacks from `AMKHPlayerCharacter`.
 
 ### USprintSystemComponent
 
-**Location**: `Source/Arena/Public/Player/Components/Sprint/SprintSystemComponent.h`
+**Location**: `Source/Makhia/Public/Player/Components/Sprint/SprintSystemComponent.h`
 
 - Toggles sprinting on/off.
 - Automatically uncrouches when sprint starts (with collision check).
@@ -203,7 +203,7 @@ All movement components inherit from `UActorComponent` and follow a consistent p
 
 ### Component Cooperation
 
-Components coordinate through the shared `APlayerCharacter` reference:
+Components coordinate through the shared `AMKHPlayerCharacter` reference:
 
 **Sprint ↔ Crouch**: Sprint auto-uncrouches if `CanUncrouchSafely()` returns true; otherwise sprint is cancelled.
 
@@ -217,7 +217,7 @@ Components coordinate through the shared `APlayerCharacter` reference:
 
 ### UMovementStateMachine
 
-**Location**: `Source/Arena/Public/Player/MovementStateMachine/MovementStateMachine.h`
+**Location**: `Source/Makhia/Public/Player/MovementStateMachine/MovementStateMachine.h`
 
 An `UActorComponent` that manages a map of `EMovementStateValue` → `UMovementState*` objects.
 
@@ -231,7 +231,7 @@ An `UActorComponent` that manages a map of `EMovementStateValue` → `UMovementS
 
 ### EMovementStateValue
 
-**Location**: `Source/Arena/Public/Player/MovementStateMachine/MovementStateTypes.h`
+**Location**: `Source/Makhia/Public/Player/MovementStateMachine/MovementStateTypes.h`
 
 ```cpp
 UENUM(BlueprintType)
@@ -261,7 +261,7 @@ Static helper class with:
 
 ### UMovementState (Base)
 
-**Location**: `Source/Arena/Public/Player/MovementStateMachine/MovementState.h`
+**Location**: `Source/Makhia/Public/Player/MovementStateMachine/MovementState.h`
 
 Abstract base for all movement states.
 
@@ -284,7 +284,7 @@ Abstract base for all movement states.
 
 ### Concrete State Classes
 
-Located in `Source/Arena/Public/Player/MovementStateMachine/States/`:
+Located in `Source/Makhia/Public/Player/MovementStateMachine/States/`:
 
 | State Class | Auto-Transitions To |
 |---|---|
@@ -339,13 +339,13 @@ UPROPERTY(BlueprintAssignable, Category = "Movement State Machine")
 FOnMovementStateChanged OnStateChanged;
 ```
 
-Any system can subscribe. The animation instance (`UPlayerAnimInstance`) is the primary subscriber:
+Any system can subscribe. The animation instance (`UMKHMKHPlayerAnimInstance`) is the primary subscriber:
 
 ```cpp
-void UPlayerAnimInstance::SubscribeToMovementStateChanges()
+void UMKHMKHPlayerAnimInstance::SubscribeToMovementStateChanges()
 {
     PlayerCharacter->MovementStateMachine->OnStateChanged.AddDynamic(
-        this, &UPlayerAnimInstance::OnMovementStateChanged);
+        this, &UMKHMKHPlayerAnimInstance::OnMovementStateChanged);
 }
 ```
 
@@ -355,8 +355,8 @@ void UPlayerAnimInstance::SubscribeToMovementStateChanges()
 
 ## Animation System
 
-**Class**: `UPlayerAnimInstance` (inherits `UAnimInstance`)  
-**Location**: `Source/Arena/Public/Player/PlayerAnimation/PlayerAnimInstance.h`
+**Class**: `UMKHMKHPlayerAnimInstance` (inherits `UAnimInstance`)  
+**Location**: `Source/Makhia/Public/Player/PlayerAnimation/MKHMKHPlayerAnimInstance.h`
 
 ### Key Properties
 
@@ -370,7 +370,7 @@ void UPlayerAnimInstance::SubscribeToMovementStateChanges()
 
 ### Lifecycle
 
-1. **`NativeBeginPlay`**: Gets `APlayerCharacter` reference, initialises Speed/State to defaults, subscribes to state changes.
+1. **`NativeBeginPlay`**: Gets `AMKHPlayerCharacter` reference, initialises Speed/State to defaults, subscribes to state changes.
 2. **`OnMovementStateChanged`**: Updates state properties, snaps crouch transition value, reads `MaxWalkSpeed` for blend space.
 3. **`NativeUninitializeAnimation`**: Unsubscribes from state changes.
 
@@ -378,7 +378,7 @@ void UPlayerAnimInstance::SubscribeToMovementStateChanges()
 
 ## Camera Setup
 
-`APlayerCharacter` creates a standard third-person camera rig in its constructor:
+`AMKHPlayerCharacter` creates a standard third-person camera rig in its constructor:
 
 ```cpp
 CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("Camera Boom"));
@@ -395,13 +395,13 @@ The character uses `bUseControllerRotationYaw = false` with `CharacterMovement->
 
 ## Input System
 
-Arena uses the Enhanced Input system. Each movement component exposes a `SetupInput(UEnhancedInputComponent*)` method called from `APlayerCharacter::SetupPlayerInputComponent`.
+Makhia uses the Enhanced Input system. Each movement component exposes a `SetupInput(UEnhancedInputComponent*)` method called from `AMKHPlayerCharacter::SetupPlayerInputComponent`.
 
 Components bind their specific `UInputAction` properties (set via Blueprint/editor) to trigger events:
 - `ETriggerEvent::Started` / `ETriggerEvent::Triggered` for input start.
 - `ETriggerEvent::Completed` for input release.
 
-For ability inputs, `URPGSystemInputComponent::BindAbilityActions` iterates an `URPGInputConfig` data asset, filters by a parent gameplay tag, and binds each action to `AbilityInputPressed`/`AbilityInputReleased` on the ASC.
+For ability inputs, `UMKHSystemInputComponent::BindAbilityActions` iterates an `UMKHInputConfig` data asset, filters by a parent gameplay tag, and binds each action to `AbilityInputPressed`/`AbilityInputReleased` on the ASC.
 
 ---
 
@@ -422,11 +422,11 @@ enum class EMovementStateValue : uint8
 
 ### Step 2 — Create the State Class
 
-Create `YourNewStateMovementState.h` and `.cpp` in `Source/Arena/Public/Player/MovementStateMachine/States/`:
+Create `YourNewStateMovementState.h` and `.cpp` in `Source/Makhia/Public/Player/MovementStateMachine/States/`:
 
 ```cpp
 UCLASS(BlueprintType, Blueprintable)
-class ARENA_API UYourNewStateMovementState : public UMovementState
+class Makhia_API UYourNewStateMovementState : public UMovementState
 {
     GENERATED_BODY()
 
@@ -459,7 +459,7 @@ In `MovementStateTypes.cpp`, add the new state to `MovementStateToString`, `IsGr
 
 ### Step 5 — Add a Gameplay Tag
 
-In `RPGGameplayTags.h/.cpp`, declare and define a tag for the new state:
+In `MKHGameplayTags.h/.cpp`, declare and define a tag for the new state:
 
 ```cpp
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(YourNewState);
@@ -481,7 +481,7 @@ class UMySystem : public UObject
     GENERATED_BODY()
 
 public:
-    void Subscribe(APlayerCharacter* PC)
+    void Subscribe(AMKHPlayerCharacter* PC)
     {
         PC->MovementStateMachine->OnStateChanged.AddDynamic(
             this, &UMySystem::OnMovementStateChanged);
@@ -498,3 +498,5 @@ public:
 For cleanup, call `RemoveDynamic` or use `MovementStateMachine->UnsubscribeFromStateChanges(this)`.
 
 Blueprint subscribers can bind to `OnStateChanged` directly in the Event Graph.
+
+
