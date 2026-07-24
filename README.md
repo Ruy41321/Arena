@@ -15,7 +15,7 @@ This repository is a **public mirror** of my private development environment. It
 - **Secondary Goals:** Do practice, implement a robust and scalable codebase, maintain high performance standards, and build a fully scalable architecture to allow a future bigger project to start from here.
 
 ## ▶️ Youtube Video Showcase
-[![Video Showcase](/Extra/MakhiaGIF.gif)](https://www.youtube.com/watch?v=bmqSQdtn0Ck)  
+[![Video Showcase](/Extra/MakhiaGIF.gif)](https://www.youtube.com/watch?v=YK1ubb74XVQ)  
 *(Click the gif to watch the full video on YouTube)*
 
 ## Why a Public Mirror?
