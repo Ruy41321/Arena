@@ -8,6 +8,7 @@
 #include "Player/Components/Crouch/CrouchSystemComponent.h"
 #include "Player/Components/Sprint/SprintSystemComponent.h"
 #include "Player/Components/BasicMovement/BasicMovementComponent.h"
+#include "Player/Components/Blocking/BlockingSystemComponent.h"
 #include "AbilitySystemComponent.h"
 #include "AbilitySystem/MKHGameplayTags.h"
 
@@ -121,12 +122,16 @@ float UMovementState::GetSpeedForState(EMovementStateValue StateType) const
 			return Player->SprintSystem->GetRunSpeed();
 		return 600.0f; // Fallback sprint speed
 		
-	case EMovementStateValue::Idle:
-	case EMovementStateValue::Walking:
-	case EMovementStateValue::Jumping:
-	case EMovementStateValue::Falling:
-	case EMovementStateValue::LandingInPlace:
-	case EMovementStateValue::LandingMoving:
+	case EMovementStateValue::Blocking:
+		// Get block speed from BlockingSystem
+		if (Player->BlockingSystem)
+			return Player->BlockingSystem->GetBlockingSpeed();
+		return 100.0f; // Fallback block speed
+		
+	case EMovementStateValue::Attacking:
+	case EMovementStateValue::Dead:
+		return 0.0f;
+		
 	default:
 		// Get walk speed from BasicMovementSystem
 		if (Player->BasicMovementSystem)
@@ -151,6 +156,9 @@ FGameplayTag UMovementState::GetTagForState(EMovementStateValue StateType)
 	case EMovementStateValue::LandingInPlace:  return LandingInPlace;
 	case EMovementStateValue::LandingMoving:   return LandingMoving;
 	case EMovementStateValue::Dodging:         return Dodging;
+	case EMovementStateValue::Blocking:        return Blocking;
+	case EMovementStateValue::Attacking:       return Attacking;
+	case EMovementStateValue::Dead:            return Dead;
 	default:                                   return FGameplayTag();
 	}
 }

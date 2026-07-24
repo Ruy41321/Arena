@@ -27,9 +27,12 @@ public:
 	/** Registers properties for network replication */
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	
-	/** Clamps attributes before they are modified */
+	/** Clamps the transient CurrentValue before it is modified (duration/infinite modifiers, direct sets). */
 	virtual void PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue) override;
-	
+
+	/** Clamps the persistent BaseValue before it is modified (instant effects, ApplyModToAttribute). */
+	virtual void PreAttributeBaseChange(const FGameplayAttribute& Attribute, float& NewValue) const override;
+
 	/** Adjusts base/current values when max values change */
 	virtual void PostAttributeChange(const FGameplayAttribute& Attribute, float OldValue, float NewValue) override;
 	
@@ -63,6 +66,15 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "Attributes|Shield", ReplicatedUsing = OnRep_MaxShield)
 	FGameplayAttributeData MaxShield;
 	ATTRIBUTE_ACCESSORS(UMKHAttributeSet, MaxShield)
+
+	/**
+	 * Fraction of an incoming hit the Shield would currently keep away from Health, for HUD/tooltips
+	 * ("Armor: 67%"). Depends on the current Health/Shield state, see Documentation/ShieldDamageScaling.md.
+	 *
+	 * @return Damage reduction in [0, 1).
+	 */
+	UFUNCTION(BlueprintPure, Category = "Attributes|Shield")
+	float GetShieldDamageReduction() const;
 
 	// -------------------------------------------------------------------
 	// Stamina Attributes
@@ -98,6 +110,63 @@ public:
 	ATTRIBUTE_ACCESSORS(UMKHAttributeSet, CritDamageMod);
 
 	// -------------------------------------------------------------------
+	// Buff / Debuff Attributes
+	// Values are decimal fractions (0.3 = 30%). Applied dynamically by
+	// gameplay effects coming from consumable items or skills, consumed by
+	// UExecCalc_Damage when computing the final damage.
+	// -------------------------------------------------------------------
+
+	/** Bonus added to the attack's damage multiplier before scaling the weapon's base damage (offensive buff, on the Source). */
+	UPROPERTY(BlueprintReadOnly, Category = "Attributes|BuffDebuff", ReplicatedUsing = OnRep_AdditiveBaseDamage)
+	FGameplayAttributeData AdditiveBaseDamage;
+	ATTRIBUTE_ACCESSORS(UMKHAttributeSet, AdditiveBaseDamage)
+
+	/** Cap for AdditiveBaseDamage. Defaults to 0.5 (50%). */
+	UPROPERTY(BlueprintReadOnly, Category = "Attributes|BuffDebuff", ReplicatedUsing = OnRep_MaxAdditiveBaseDamage)
+	FGameplayAttributeData MaxAdditiveBaseDamage = 0.5f;
+	ATTRIBUTE_ACCESSORS(UMKHAttributeSet, MaxAdditiveBaseDamage)
+
+	/** Fractional increase of the outgoing damage (offensive buff, on the Source). Balanced against Weaken. */
+	UPROPERTY(BlueprintReadOnly, Category = "Attributes|BuffDebuff", ReplicatedUsing = OnRep_Empower)
+	FGameplayAttributeData Empower;
+	ATTRIBUTE_ACCESSORS(UMKHAttributeSet, Empower)
+
+	/** Cap for Empower. Defaults to 0.5 (50%). */
+	UPROPERTY(BlueprintReadOnly, Category = "Attributes|BuffDebuff", ReplicatedUsing = OnRep_MaxEmpower)
+	FGameplayAttributeData MaxEmpower = 0.5f;
+	ATTRIBUTE_ACCESSORS(UMKHAttributeSet, MaxEmpower)
+
+	/** Fractional decrease of the outgoing damage (offensive debuff, on the Source). Balanced against Empower. */
+	UPROPERTY(BlueprintReadOnly, Category = "Attributes|BuffDebuff", ReplicatedUsing = OnRep_Weaken)
+	FGameplayAttributeData Weaken;
+	ATTRIBUTE_ACCESSORS(UMKHAttributeSet, Weaken)
+
+	/** Cap for Weaken. Defaults to 0.5 (50%). */
+	UPROPERTY(BlueprintReadOnly, Category = "Attributes|BuffDebuff", ReplicatedUsing = OnRep_MaxWeaken)
+	FGameplayAttributeData MaxWeaken = 0.5f;
+	ATTRIBUTE_ACCESSORS(UMKHAttributeSet, MaxWeaken)
+
+	/** Fractional decrease of the incoming damage (defensive buff, on the Target). Balanced against Exposed. */
+	UPROPERTY(BlueprintReadOnly, Category = "Attributes|BuffDebuff", ReplicatedUsing = OnRep_Reinforced)
+	FGameplayAttributeData Reinforced;
+	ATTRIBUTE_ACCESSORS(UMKHAttributeSet, Reinforced)
+
+	/** Cap for Reinforced. Defaults to 0.5 (50%). */
+	UPROPERTY(BlueprintReadOnly, Category = "Attributes|BuffDebuff", ReplicatedUsing = OnRep_MaxReinforced)
+	FGameplayAttributeData MaxReinforced = 0.5f;
+	ATTRIBUTE_ACCESSORS(UMKHAttributeSet, MaxReinforced)
+
+	/** Fractional increase of the incoming damage (defensive debuff, on the Target). Balanced against Reinforced. */
+	UPROPERTY(BlueprintReadOnly, Category = "Attributes|BuffDebuff", ReplicatedUsing = OnRep_Exposed)
+	FGameplayAttributeData Exposed;
+	ATTRIBUTE_ACCESSORS(UMKHAttributeSet, Exposed)
+
+	/** Cap for Exposed. Defaults to 0.5 (50%). */
+	UPROPERTY(BlueprintReadOnly, Category = "Attributes|BuffDebuff", ReplicatedUsing = OnRep_MaxExposed)
+	FGameplayAttributeData MaxExposed = 0.5f;
+	ATTRIBUTE_ACCESSORS(UMKHAttributeSet, MaxExposed)
+
+	// -------------------------------------------------------------------
 	// Meta Attributes
 	// -------------------------------------------------------------------
 
@@ -106,32 +175,94 @@ public:
 	FGameplayAttributeData IncomingDamage;
 	ATTRIBUTE_ACCESSORS(UMKHAttributeSet, IncomingDamage);
 
+	/** Meta attribute for incoming stamina damage computation. Not replicated. */
+	UPROPERTY(BlueprintReadOnly, Category = "Attributes|Meta")
+	FGameplayAttributeData IncomingStaminaDamage;
+	ATTRIBUTE_ACCESSORS(UMKHAttributeSet, IncomingStaminaDamage);
+
 private:
 
-	/** 
-	 * Processes the incoming damage attribute, applying it to shields and health. 
-	 * @param Data Gameplay Effect callback data containing the damage modification. 
+	/**
+	 * Latches once the death event has been sent for the current life, and is cleared when Health is
+	 * restored above zero.
+	 */
+	bool bOutOfHealth = false;
+
+	/** True once Health has been positive at least once, so the character can actually die. */
+	bool bHasBeenAlive = false;
+
+	/**
+	 * Clamps clampable attributes (Health, Stamina, Shield) to their [0, Max] range.
+	 * Shared by PreAttributeChange (CurrentValue) and PreAttributeBaseChange (BaseValue)
+	 * so both the transient and the persistent value respect the same bounds.
+	 *
+	 * @param Attribute  The attribute being modified.
+	 * @param NewValue   The incoming value, clamped in place if the attribute is clampable.
+	 */
+	void ClampAttribute(const FGameplayAttribute& Attribute, float& NewValue) const;
+
+	/**
+	 * Processes the incoming damage attribute, applying it to shields and health.
+	 * @param Data Gameplay Effect callback data containing the damage modification.
 	 */
 	void HandleIncomingDamage(const FGameplayEffectModCallbackData& Data);
 
 	/**
-	 * Calculates the fraction of incoming damage that is absorbed by the Shield (0.0 - ~1.0).
-	 *
-	 * Example with Reference = 100:
-	 * Shield=0     ->   0.00 % absorption  (no shield, Ratio=0)
-	 * Shield=50    ->  25.00 % absorption  (Ratio=0.5, linear phase)
-	 * Shield=100   ->  50.00 % absorption  (Ratio=1, transition point)
-	 * Shield=150   ->  75.00 % absorption  (Ratio=1.5, exponential phase)
-	 * Shield=175   ->  82.32 % absorption  (Ratio=1.75)
-	 * Shield=200   ->  87.5 % absorption  (Ratio=2)
-	 * Shield=âˆž     -> approaches 100 %     (exponential asymptote)
-	 *
-	 * Tweak ShieldAbsorption_ReferenceShield in the .cpp to shift the curve left/right.
-	 *
-	 * @param CurrentShield  Current shield value of the target.
-	 * @return               Absorption fraction in [0, ~1.0).
+	 * Processes the incoming stamina damage attribute, reducing stamina and handling guard breaks.
 	 */
-	static float CalculateShieldAbsorption(float CurrentShield);
+	void HandleIncomingStaminaDamage(const FGameplayEffectModCallbackData& Data);
+
+	/** Builds the shared gameplay event payload (context, instigator, target, magnitude) used by hit/dodge/block/guard-break notifications. */
+	static FGameplayEventData BuildCombatEventData(const FGameplayEffectContextHandle& ContextHandle, UAbilitySystemComponent* SourceASC, UAbilitySystemComponent* TargetASC, float Magnitude);
+
+	/** Sends a combat gameplay event to the recipient ASC, if valid. */
+	static void SendCombatEvent(UAbilitySystemComponent* RecipientASC, const FGameplayTag& EventTag, const FGameplayEventData& EventData);
+
+	/**
+	 * Applies the on-hit status effects carried by the effect context: target effects to the
+	 * hit target, self on-hit effects back to the attacker. Runs after the damage pipeline,
+	 * so self on-hit buffs never affect the damage of the hit that triggered them.
+	 * Lives here rather than in ExecCalc_Damage so executions stay pure computation.
+	 */
+	void ApplyStatusEffectsFromContext(const FGameplayEffectContextHandle& ContextHandle, UAbilitySystemComponent* SourceASC, UAbilitySystemComponent* TargetASC) const;
+
+	/**
+	 * Sends Event::Death when Health reaches zero.
+	 *
+	 * @param ASC  The owning ability system component.
+	 */
+	void TrySendDeathEvent(UAbilitySystemComponent* ASC);
+
+	/**
+	 * Splits an incoming hit between Health and the Shield pool, so that the two bars drain at a
+	 * fixed ratio of their own maximum and the shield always empties first, whatever the state.
+	 *
+	 * The algorithm, its invariants and the balance tables live in Documentation/ShieldDamageScaling.md.
+	 *
+	 * @param Damage           Raw incoming damage.
+	 * @param OutHealthDamage  Unrounded damage to subtract from Health.
+	 * @param OutShieldDamage  Unrounded damage to subtract from Shield, never above the remaining pool.
+	 */
+	void CalculateDamageSplit(float Damage, float& OutHealthDamage, float& OutShieldDamage) const;
+
+	/**
+	 * How many times faster the shield spends its pool than Health, in percentage of their own maximum.
+	 * Rises above the base ratio when the shield is proportionally healthier, to rebalance the two bars.
+	 *
+	 * @param ShieldFraction  Current Shield / MaxShield.
+	 * @param HealthFraction  Current Health / MaxHealth.
+	 * @return                Drain ratio, at least ShieldWear_DrainRatio.
+	 */
+	static float CalculateShieldDrainRatio(float ShieldFraction, float HealthFraction);
+
+	/**
+	 * Pool cost per point of absorbed damage: a battered shield turns its remaining points into
+	 * protection less efficiently, which makes the mitigation decay as the pool empties.
+	 *
+	 * @param ShieldFraction  Current Shield / MaxShield.
+	 * @return                Wear factor in [1, 1 + ShieldWear_DegradationPenalty].
+	 */
+	static float CalculateShieldWearFactor(float ShieldFraction);
 
 	/** Scales a current attribute proportionally when its associated max attribute changes. */
 	void AdjustAttributeForMaxChange(
@@ -139,12 +270,19 @@ private:
 		float OldMaxValue,
 		float NewMaxValue) const;
 
-	/** Helper to apply damage mitigating through the shield using CalculateShieldAbsorption()*/
-	void ApplyShieldDamageMitigation(UAbilitySystemComponent* ASC, float Damage, float CurrentShield) const;
+	/**
+	 * Clamps both the base and current value of an attribute to [0, NewMaxValue].
+	 * Used for buff/debuff attributes when their cap changes: unlike vital stats
+	 * (Health/Stamina/Shield) they are not scaled proportionally, only re-clamped.
+	 */
+	static void ClampAttributeDataToMax(FGameplayAttributeData& AttributeData, float NewMaxValue);
 
-	/** Helper to handle full shield breaks.
-	 * 
-	 * All damage beyond the shield value flows through to Health unmitigated.
+	/** Applies a normally mitigated hit, splitting it between Health and the Shield pool. */
+	void ApplyShieldDamageMitigation(UAbilitySystemComponent* ASC, float Damage) const;
+
+	/**
+	 * Applies a shield break: the hit is still mitigated by the armor that was in place,
+	 * then the whole pool shatters, leaving the character unprotected for the next hits.
 	 */
 	void ApplyShieldBreak(UAbilitySystemComponent* ASC, float Damage, float CurrentShield) const;
 
@@ -174,4 +312,34 @@ private:
 
 	UFUNCTION()
 	void OnRep_CritDamageMod(const FGameplayAttributeData& OldCritDamageMod);
+
+	UFUNCTION()
+	void OnRep_AdditiveBaseDamage(const FGameplayAttributeData& OldAdditiveBaseDamage);
+
+	UFUNCTION()
+	void OnRep_MaxAdditiveBaseDamage(const FGameplayAttributeData& OldMaxAdditiveBaseDamage);
+
+	UFUNCTION()
+	void OnRep_Empower(const FGameplayAttributeData& OldEmpower);
+
+	UFUNCTION()
+	void OnRep_MaxEmpower(const FGameplayAttributeData& OldMaxEmpower);
+
+	UFUNCTION()
+	void OnRep_Weaken(const FGameplayAttributeData& OldWeaken);
+
+	UFUNCTION()
+	void OnRep_MaxWeaken(const FGameplayAttributeData& OldMaxWeaken);
+
+	UFUNCTION()
+	void OnRep_Reinforced(const FGameplayAttributeData& OldReinforced);
+
+	UFUNCTION()
+	void OnRep_MaxReinforced(const FGameplayAttributeData& OldMaxReinforced);
+
+	UFUNCTION()
+	void OnRep_Exposed(const FGameplayAttributeData& OldExposed);
+
+	UFUNCTION()
+	void OnRep_MaxExposed(const FGameplayAttributeData& OldMaxExposed);
 };

@@ -35,6 +35,14 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Jump System", meta = (ToolTip = "Called when character lands"))
 	void OnLanded(const FHitResult& Hit);
 
+	/**
+	 * Interrupts an in-progress jump, used when an external system (e.g. a Stun/Stagger
+	 * crowd-control effect) must cancel upward movement. Stops the sustained jump input
+	 * and cancels any remaining upward velocity so the character immediately begins to fall.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Jump System", meta = (ToolTip = "Interrupts an in-progress jump"))
+	void InterruptJump();
+
 	/** Returns true if character is currently in landing state */
 	UFUNCTION(BlueprintPure, Category = "Jump System", meta = (ToolTip = "Check if character is landing"))
 	bool IsLanding() const { return bIsLanding; }
@@ -72,6 +80,15 @@ private:
 
 	/** Gets valid MKHPlayerCharacter with fallback */
 	AMKHPlayerCharacter* GetValidPlayerCharacter() const;
+
+	/**
+	 * Checks whether the character is currently under a crowd-control effect
+	 * (Stunned or Staggered) that must suppress movement actions such as jumping.
+	 *
+	 * @param PlayerCharacter  The owning player character to query.
+	 * @return True if a crowd-control tag is active on the character's ability system.
+	 */
+	bool IsCrowdControlled(const AMKHPlayerCharacter* PlayerCharacter) const;
 	
 public:
 	/** Input action for jump */

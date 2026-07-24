@@ -11,10 +11,10 @@ public class Makhia : ModuleRules
 		PublicDependencyModuleNames.AddRange(new string[] {
 			"Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput",
 			"GameplayAbilities", "GameplayTasks", "GameplayTags", "NetCore",
-			"OnlineSubsystemEIK"
+			"OnlineSubsystemEIK", "OnlineSubsystem", "OnlineSubsystemUtils", "DeveloperSettings"
 		});
 
-		PrivateDependencyModuleNames.AddRange(new string[] {  });
+		PrivateDependencyModuleNames.AddRange(new string[] { "AnimGraphRuntime", "AudioModulation", "UMG", "Slate", "SlateCore" });
 
 		// Uncomment if you are using Slate UI
 		// PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });

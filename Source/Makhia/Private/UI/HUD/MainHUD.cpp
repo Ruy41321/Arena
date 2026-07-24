@@ -4,19 +4,35 @@
 #include "UI/HUD/MainHUD.h"
 
 #include "AbilitySystem/MKHGameplayTags.h"
+#include "GameFramework/PlayerState.h"
+#include "GameMode/MKHGameState.h"
+#include "MKHLogChannels.h"
+#include "Player/MKHPlayerCharacter.h"
 #include "Player/PlayerController/MKHPlayerController.h"
+#include "UI/HUD/GameMenu/MKHGameMenuWidget.h"
 #include "UI/HUD/HUDOverlay/HUDOverlayWidget.h"
 #include "UI/HUD/Inventory/InventoryDashboardWidget.h"
+#include "UI/HUD/MatchOver/MatchOverWidget.h"
 #include "UI/WidgetControllers/HUDOverlayController.h"
 #include "UI/WidgetControllers/InventoryDashboardController.h"
+#include "UI/WidgetControllers/MKHGameMenuController.h"
 
 void AMainHUD::BeginPlay()
 {
 	Super::BeginPlay();
 	
+	// Every widget this HUD builds is owned by the player controller and every focus change is routed
+	// through it, so without a valid one there is nothing this HUD can legally do.
 	PlayerController = Cast<AMKHPlayerController>(GetOwningPlayerController());
-	
+	if (!IsValid(PlayerController))
+	{
+		UE_LOG(LogMKHAbility, Warning, TEXT("AMainHUD::BeginPlay: owning player controller is not an AMKHPlayerController, HUD stays uninitialized."));
+		return;
+	}
+
+	PlayerController->ChangeFocus(EFocusOption::Game);
 	CreateHUDOverlayWidget();
+	BindMatchOverEvent();
 }
 
 UHUDOverlayController* AMainHUD::GetHUDOverlayWidgetController()
@@ -40,11 +56,28 @@ void AMainHUD::CreateHUDOverlayWidget()
 		Controller->SetHUDOverlayWidget(HUDOverlayWidget);
 		Controller->BroadcastInitialValues();
 		HUDOverlayWidget->AddToViewport();
+
+		// The overlay's match-info sub-widget reacts only to OnMatchPhaseChanged transitions. On the
+		// listen-server host the initial phase may already have been broadcast before this widget bound,
+		// so replay the current phase now that it is on screen and listening.
+		if (UWorld* World = GetWorld())
+		{
+			if (AMKHGameState* GameState = World->GetGameState<AMKHGameState>())
+			{
+				GameState->BroadcastCurrentPhase();
+			}
+		}
 	}
 }
 
 void AMainHUD::DestroyHUDOverlayWidget()
 {
+	// BlueprintCallable, so it can legitimately arrive twice or before the overlay was ever created.
+	if (!IsValid(HUDOverlayWidget))
+	{
+		return;
+	}
+
 	HUDOverlayWidget->RemoveFromParent();
 	HUDOverlayWidget = nullptr;
 	GetHUDOverlayWidgetController()->UnbindAllEventsFromDelegates();
@@ -64,23 +97,93 @@ UInventoryDashboardController* AMainHUD::GetInventoryWidgetController()
 	return InventoryDashboardController;
 }
 
-void AMainHUD::ToggleInventory()
+void AMainHUD::ToggleGameMenu()
 {
-	if (!IsValid(InventoryDashboardWidget))
-	{
-		CreateInventoryWidget();
-		HUDOverlayWidget->OnQuickSlotActivated(MKHGameplayTags::Input::Inventory);
-		InventoryDashboardWidget->OpenInventoryDashboard();
-	}
-	else if (InventoryDashboardWidget->bIsOpen)
+	if (IsValid(InventoryDashboardWidget) && InventoryDashboardWidget->bIsOpen)
 	{
 		InventoryDashboardWidget->CloseInventoryDashboard();
+		return;
+	}
+	
+	if (!IsValid(GameMenuWidget))
+	{
+		CreateGameMenuWidget();
+		GameMenuWidget->OpenGameMenu();
+	}
+	else if (GameMenuWidget->IsOpen())
+	{
+		GameMenuWidget->CloseGameMenu();
 	}
 	else
 	{
-		HUDOverlayWidget->OnQuickSlotActivated(MKHGameplayTags::Input::Inventory);
-		InventoryDashboardWidget->OpenInventoryDashboard();
+		GameMenuWidget->OpenGameMenu();
 	}
+}
+
+void AMainHUD::CreateGameMenuWidget()
+{
+	if (UUserWidget* Widget = CreateWidget<UMKHGameMenuWidget>(PlayerController, GameMenuWidgetClass))
+	{
+		GameMenuWidget = Cast<UMKHGameMenuWidget>(Widget);
+		UMKHGameMenuController* Controller = GetGameMenuWidgetController();
+		Controller->SetGameMenuWidget(GameMenuWidget);
+		BindGameMenuWidgetDelegates();
+		Controller->BroadcastInitialValues();
+		GameMenuWidget->AddToViewport();
+	}
+}
+
+void AMainHUD::DestroyGameMenuWidget()
+{
+	if (IsValid(GameMenuWidget))
+	{
+		GameMenuWidget->DestroyGameMenu();
+	}
+}
+
+UMKHGameMenuController* AMainHUD::GetGameMenuWidgetController()
+{
+	if (!IsValid(GameMenuController))
+	{
+		GameMenuController = NewObject<UMKHGameMenuController>(PlayerController, GameMenuControllerClass);
+		GameMenuController->SetOwningActor(PlayerController);
+
+		GameMenuController->BindCallbacksToDependencies();
+	}
+	return GameMenuController;
+}
+
+void AMainHUD::ToggleInventory()
+{
+	if (IsValid(GameMenuWidget) && GameMenuWidget->IsOpen())
+	{
+		GameMenuWidget->CloseGameMenu();
+	}
+	
+	if (IsValid(InventoryDashboardWidget) && InventoryDashboardWidget->bIsOpen)
+	{
+		InventoryDashboardWidget->CloseInventoryDashboard();
+		return;
+	}
+
+	if (!IsValid(InventoryDashboardWidget))
+	{
+		CreateInventoryWidget();
+		if (!IsValid(InventoryDashboardWidget))
+		{
+			UE_LOG(LogMKHAbility, Warning, TEXT("AMainHUD::ToggleInventory: the inventory dashboard could not be created."));
+			return;
+		}
+	}
+
+	// The overlay is optional here: it only mirrors the quick-slot highlight, so a missing one
+	// must not keep the dashboard from opening.
+	if (IsValid(HUDOverlayWidget))
+	{
+		HUDOverlayWidget->OnQuickSlotActivated(MKHGameplayTags::Input::Inventory);
+	}
+
+	InventoryDashboardWidget->OpenInventoryDashboard();
 }
 
 void AMainHUD::CreateInventoryWidget()
@@ -109,20 +212,161 @@ void AMainHUD::BindInventoryWidgetDelegates()
 	InventoryDashboardWidget->OnOpenInventoryDashboardDelegate.AddLambda(
 		[this]()
 		{
-			PlayerController->ChangeFocus("Inventory");
+			PlayerController->ChangeFocus(EFocusOption::UI);
 		});
 	InventoryDashboardWidget->OnCloseInventoryDashboardDelegate.AddLambda(
 		[this]()
 		{
-			PlayerController->ChangeFocus("Game");
+			PlayerController->ChangeFocus(EFocusOption::Game);
 		});
 	InventoryDashboardWidget->OnDestructionInventoryDashboardDelegate.AddLambda(
 		[this]()
 		{
-			InventoryDashboardWidget->UnbindAllEventsFromDelegates();
+			// This runs while the widget's destruction delegate is mid-broadcast. Clearing that delegate
+			// here would free this very lambda's capture storage (use-after-free on the next line), so
+			// the widget's own delegates are left alone — they die with the widget on GC.
 			InventoryDashboardWidget = nullptr;
-			GetInventoryWidgetController()->UnbindAllEventsFromDelegates();
-			GetInventoryWidgetController()->SetInventoryWidget(nullptr);
-			PlayerController->ChangeFocus("Game");
+
+			if (IsValid(InventoryDashboardController))
+			{
+				InventoryDashboardController->UnbindAllEventsFromDelegates();
+				InventoryDashboardController->SetInventoryWidget(nullptr);
+			}
+			if (IsValid(PlayerController))
+			{
+				PlayerController->ChangeFocus(EFocusOption::Game);
+			}
+		});
+}
+
+void AMainHUD::BindMatchOverEvent()
+{
+	UWorld* World = GetWorld();
+	if (!IsValid(World))
+	{
+		return;
+	}
+
+	if (AMKHGameState* GameState = World->GetGameState<AMKHGameState>())
+	{
+		GameState->OnMatchOver.AddDynamic(this, &AMainHUD::OnMatchOver);
+		GameState->OnInitialPreparationStarted.AddDynamic(this, &AMainHUD::OnMatchRestarted);
+		return;
+	}
+
+	// On clients the game state has usually not replicated yet when the HUD spawns, so defer the
+	// binding until the world receives it.
+	World->GameStateSetEvent.AddWeakLambda(this,
+		[this](AGameStateBase* NewGameState)
+		{
+			if (AMKHGameState* MKHGameState = Cast<AMKHGameState>(NewGameState))
+			{
+				MKHGameState->OnMatchOver.AddDynamic(this, &AMainHUD::OnMatchOver);
+				MKHGameState->OnInitialPreparationStarted.AddDynamic(this, &AMainHUD::OnMatchRestarted);
+			}
+		});
+}
+
+void AMainHUD::OnMatchRestarted()
+{
+	// No-op on the first match of a session: the panel only exists after a match has ended.
+	// DestroyMatchOverWidget broadcasts the panel's destroy delegate, which restores game focus.
+	DestroyMatchOverWidget();
+}
+
+void AMainHUD::OnMatchOver(AMKHPlayerCharacter* WinningPlayer, bool bIsDraw)
+{
+	// Any menu still open would sit on top of the result panel and keep stealing the focus.
+	DestroyGameMenuWidget();
+	DestroyInventoryWidget();
+
+	const APlayerState* WinningPlayerState = IsValid(WinningPlayer) ? WinningPlayer->GetPlayerState() : nullptr;
+
+	// Comparing player states rather than pawns: the losing pawn is often already destroyed by now.
+	const bool bLocalPlayerWon = IsValid(PlayerController)
+		&& WinningPlayerState != nullptr
+		&& WinningPlayerState == PlayerController->PlayerState;
+
+	CreateMatchOverWidget();
+	if (!IsValid(MatchOverWidget))
+	{
+		return;
+	}
+
+	MatchOverWidget->ShowMatchResult(bLocalPlayerWon, bIsDraw);
+}
+
+void AMainHUD::CreateMatchOverWidget()
+{
+	if (IsValid(MatchOverWidget))
+	{
+		return;
+	}
+
+	if (UUserWidget* Widget = CreateWidget<UMatchOverWidget>(PlayerController, MatchOverWidgetClass))
+	{
+		MatchOverWidget = Cast<UMatchOverWidget>(Widget);
+		BindMatchOverWidgetDelegates();
+		MatchOverWidget->AddToViewport();
+	}
+}
+
+void AMainHUD::DestroyMatchOverWidget()
+{
+	if (IsValid(MatchOverWidget))
+	{
+		MatchOverWidget->DestroyMatchOverPanel();
+	}
+}
+
+void AMainHUD::BindMatchOverWidgetDelegates()
+{
+	MatchOverWidget->FOnShowMatchOverDelegate.AddLambda(
+		[this]()
+		{
+			PlayerController->ChangeFocus(EFocusOption::UI);
+		});
+	MatchOverWidget->FOnDestroyMatchOverDelegate.AddLambda(
+		[this]()
+		{
+			// Never clear the panel's delegates from here: this lambda is stored inside the delegate
+			// currently broadcasting, and clearing it frees this lambda's own capture (use-after-free).
+			MatchOverWidget = nullptr;
+
+			if (IsValid(PlayerController))
+			{
+				PlayerController->ChangeFocus(EFocusOption::Game);
+			}
+		});
+}
+
+void AMainHUD::BindGameMenuWidgetDelegates()
+{
+	GameMenuWidget->FOnOpenGameMenuDelegate.AddLambda(
+		[this]()
+		{
+			PlayerController->ChangeFocus(EFocusOption::UI);
+		});
+	GameMenuWidget->FOnCloseGameMenuDelegate.AddLambda(
+		[this]()
+		{
+			PlayerController->ChangeFocus(EFocusOption::Game);
+		});
+	GameMenuWidget->FOnDestroyGameMenuDelegate.AddLambda(
+		[this]()
+		{
+			// Never clear the menu's delegates from here: this lambda is stored inside the delegate
+			// currently broadcasting, and clearing it frees this lambda's own capture (use-after-free).
+			GameMenuWidget = nullptr;
+
+			if (IsValid(GameMenuController))
+			{
+				GameMenuController->UnbindAllEventsFromDelegates();
+				GameMenuController->SetGameMenuWidget(nullptr);
+			}
+			if (IsValid(PlayerController))
+			{
+				PlayerController->ChangeFocus(EFocusOption::Game);
+			}
 		});
 }

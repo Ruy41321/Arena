@@ -1,11 +1,11 @@
 // Copyright (c) 2025 Luigi Pennisi. All rights reserved.
 
 #include "Player/PlayerAnimation/MKHPlayerAnimInstance.h"
+
+#include "KismetAnimationLibrary.h"
 #include "Player/MovementStateMachine/MovementStateMachine.h"
 #include "Player/Components/Crouch/CrouchSystemComponent.h"
 #include "Player/MKHPlayerCharacter.h"
-#include "Utils/Utils.h"
-#include "GameFramework/CharacterMovementComponent.h"
 
 void UMKHPlayerAnimInstance::NativeUninitializeAnimation()
 {
@@ -18,28 +18,25 @@ void UMKHPlayerAnimInstance::NativeUninitializeAnimation()
 void UMKHPlayerAnimInstance::NativeBeginPlay()
 {
 	Super::NativeBeginPlay();
-	MKHPlayerCharacter = dynamic_cast<AMKHPlayerCharacter *>(TryGetPawnOwner());
-	Speed = 0.0f;
+	MKHPlayerCharacter = Cast<AMKHPlayerCharacter>(TryGetPawnOwner());
 	CurrentMovementState = EMovementStateValue::None;
 	PreviousMovementState = EMovementStateValue::None;
 	CrouchingTransitionTarget = 0.0f;
 	
-	// Subscribe to movement state changes
 	SubscribeToMovementStateChanges();
 }
 
 void UMKHPlayerAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 {
 	Super::NativeUpdateAnimation(DeltaSeconds);
-	//if (!MKHPlayerCharacter)
-	//	return;
-	//	
-	// Only smooth interpolation for crouching animations - no more velocity polling!
-	// CrouchingTransitionTarget is updated in OnMovementStateChanged when needed
-	//if (FMath::Abs(CrouchingTransitionTarget - CrouchingTransitionTime) > 0.1f)
-	//{
-	//	FUtils::HandleGenericInterpolation(CrouchingTransitionTime, CrouchingTransitionTarget, CrouchingRate, DeltaSeconds, 0.1f);
-	//}
+	
+	if (!IsValid(MKHPlayerCharacter))
+		return;
+	
+	CurrentSpeed = MKHPlayerCharacter->GetVelocity().Size();
+	Direction = UKismetAnimationLibrary::CalculateDirection(MKHPlayerCharacter->GetVelocity(), MKHPlayerCharacter->GetActorRotation());
+	
+	bIsHoldingWeapon = MKHPlayerCharacter->bIsHoldingWeapon;
 }
 
 void UMKHPlayerAnimInstance::OnMovementStateChanged(EMovementStateValue OldState, EMovementStateValue NewState)
@@ -53,16 +50,6 @@ void UMKHPlayerAnimInstance::OnMovementStateChanged(EMovementStateValue OldState
 	{
 		CrouchingTransitionTarget = MKHPlayerCharacter->CrouchSystem->IsCrouched() ? 100.0f : 0.0f;
 		CrouchingTransitionTime = CrouchingTransitionTarget; // Snap immediately to target for instant transitions
-	}
-	
-	// Update Speed based on current movement state and MaxWalkSpeed for Blend Space locomotion
-	if (MKHPlayerCharacter && MKHPlayerCharacter->GetCharacterMovement())
-	{
-		Speed = MKHPlayerCharacter->GetCharacterMovement()->MaxWalkSpeed;
-		if (NewState == EMovementStateValue::Idle || NewState == EMovementStateValue::CrouchingIdle)
-		{
-			Speed = 0.0f;
-		}
 	}
 }
 

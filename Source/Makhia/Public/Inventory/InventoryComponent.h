@@ -14,6 +14,7 @@ class UInventoryItem;
 class UInventoryComponent;
 class UItemTypesToTables;
 class UEquipmentStatEffects;
+struct FRarityDefinition;
 struct FStreamableHandle;
 struct FStreamableManager;
 
@@ -60,7 +61,15 @@ struct FRPGInventoryEntry : public FFastArraySerializerItem
 	/** Quick slot tag associated with this item when quick-slotted. */
 	UPROPERTY(BlueprintReadOnly, NotReplicated)
 	FGameplayTag QuickSlotTag = FGameplayTag();
-	
+
+	/** Cooldown duration (seconds) applied when this consumable is used. Copied from the item definition on creation. */
+	UPROPERTY(BlueprintReadOnly)
+	float ConsumableCooldownTime = 0.f;
+
+	/** Cooldown gameplay tag applied when this consumable is used. Copied from the item definition on creation. */
+	UPROPERTY(BlueprintReadOnly)
+	FGameplayTag ConsumableCooldownTag = FGameplayTag();
+
 	/** Returns whether this entry represents a valid item. */
 	bool IsValid() const
 	{
@@ -173,6 +182,16 @@ private:
 	/** Fills the equipment-specific fields of NewEntry (rarity, stats, abilities). */
 	void RollEquipmentEntry(FRPGInventoryEntry& NewEntry, const FMasterItemDefinition& ItemDef);
 
+	/**
+	 * Resolves the rarity definition for an entry: if the entry already carries a
+	 * pre-defined rarity tag (from its item definition) the matching table row is
+	 * looked up directly, otherwise a rarity is rolled from the rarity table.
+	 *
+	 * @param Entry The inventory entry whose RarityTag drives the resolution.
+	 * @return The resolved rarity row, or nullptr if none could be resolved.
+	 */
+	const FRarityDefinition* ResolveEntryRarity(const FRPGInventoryEntry& Entry) const;
+
 	/** Marks an entry dirty and broadcasts it if running with authority. */
 	void BroadcastNewEntry(FRPGInventoryEntry& NewEntry);
 
@@ -268,6 +287,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Inventory|Queries")
 	FRPGInventoryEntry FindInventoryEntryByID(int64 ItemID);
 
+	/** Returns whether the inventory contains at least the requested quantity for the specified item ID. */
+	UFUNCTION(BlueprintPure, Category = "Inventory|Queries")
+	bool HasEnough(int64 ItemID, int32 NumItems = 1) const;
+
 	/** Retrieves all inventory entries. */
 	TArray<FRPGInventoryEntry> GetInventoryEntries() const;
 
@@ -292,8 +315,26 @@ protected:
 	// Internal Actions
 	// -------------------------------------------------------------------------
 
-	/** Tries to use a consumable item and applies its effect if valid. */
+	/** Tries to use a consumable item and applies its effect if valid and not on cooldown. */
 	void TryUseConsumable(FRPGInventoryEntry* Entry, const FMasterItemDefinition& ItemDef, class UAbilitySystemComponent* OwnerASC, int32 NumItems);
+
+	/**
+	 * Checks whether the entry's consumable cooldown is currently active on the owner ASC.
+	 *
+	 * @param Entry    The inventory entry whose cooldown tag is queried.
+	 * @param OwnerASC Ability system component of the owning actor.
+	 * @return True if the cooldown tag is valid and currently granted to the ASC.
+	 */
+	bool IsConsumableOnCooldown(const FRPGInventoryEntry& Entry, const UAbilitySystemComponent* OwnerASC) const;
+
+	/**
+	 * Applies the entry's consumable cooldown to the owner ASC via the generic set-by-caller
+	 * cooldown effect, granting the entry's cooldown tag for its cooldown duration.
+	 *
+	 * @param Entry    The inventory entry providing cooldown time and tag.
+	 * @param OwnerASC Ability system component of the owning actor.
+	 */
+	void ApplyConsumableCooldown(const FRPGInventoryEntry& Entry, UAbilitySystemComponent* OwnerASC) const;
 
 	/** Tries to use an equipment item, broadcasting usage delegates. */
 	void TryUseEquipment(FRPGInventoryEntry* Entry, const FMasterItemDefinition& ItemDef);

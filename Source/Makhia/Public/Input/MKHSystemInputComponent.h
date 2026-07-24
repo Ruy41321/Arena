@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "EnhancedInputComponent.h"
+#include "AbilitySystem/MKHGameplayTags.h"
 #include "Input/MKHInputConfig.h"
 #include "MKHSystemInputComponent.generated.h"
 
@@ -37,13 +38,35 @@ void UMKHSystemInputComponent::BindAbilityActions(UMKHInputConfig* InputConfig, 
 				if (PressedFunc)
 				{
 					FGameplayTag Tag = Action.InputTag;
-					BindActionValueLambda(Action.InputAction, ETriggerEvent::Started,
-						[Object, PressedFunc, Tag](const FInputActionValue&)
+					BindActionValueLambda(Action.InputAction, ETriggerEvent::Triggered,
+						[Object, PressedFunc, ReleasedFunc, Tag](const FInputActionValue& Value)
 						{
+							if (Tag.MatchesTag(MKHGameplayTags::Input::Block))
+							{
+								// Custom bind for block action
+								
+								if (Value.Get<bool>())
+								{
+									(Object->*PressedFunc)(Tag);
+								}
+								else if (ReleasedFunc)
+								{
+									(Object->*ReleasedFunc)(Tag);
+								}
+								return;
+							}
+							// Default bind
 							(Object->*PressedFunc)(Tag);
 						});
 				}
 			}
+			
+			// Do not bind on complete for block action
+			if (Action.InputTag.MatchesTag(MKHGameplayTags::Input::Block))
+			{
+				continue;
+			}
+			
 			if constexpr (!std::is_same_v<ReleasedFuncType, std::nullptr_t>)
 			{
 				if (ReleasedFunc)

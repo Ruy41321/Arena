@@ -3,16 +3,58 @@
 
 #include "AbilitySystem/MKHAbilitySystemComponent.h"
 
+#include "MKHLogChannels.h"
 #include "AbilitySystemBlueprintLibrary.h"
+#include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
+#include "AbilitySystem/MKHAbilityGrantPayload.h"
 #include "AbilitySystem/MKHGameplayTags.h"
 #include "AbilitySystem/Abilities/MKHGameplayAbility.h"
-#include "AbilitySystem/Abilities/MKHDamageAbility.h"
-#include "AbilitySystem/Abilities/MKHProjectileAbility.h"
 #include "Equipment/EquipmentManagerComponent.h"
 #include "Equipment/EquipmentTypes.h"
 #include "Interfaces/EquipmentInterface.h"
 #include "Engine/StreamableManager.h"
 #include "Engine/AssetManager.h"
+#include "Player/PlayerController/MKHPlayerController.h"
+#include "TimerManager.h"
+#include "Engine/World.h"
+
+void UMKHAbilitySystemComponent::BeginPlay()
+{
+	Super::BeginPlay();
+	
+	BindToActivateQueuedAbility();
+}
+
+void UMKHAbilitySystemComponent::OnGiveAbility(FGameplayAbilitySpec& AbilitySpec)
+{
+	Super::OnGiveAbility(AbilitySpec);
+
+	// The retry MUST be deferred to the next tick: this callback runs mid FastArray delta
+	// serialize, where specs removed by the server are still physically inside
+	// ActivatableAbilities (they are deleted only after all add/change callbacks).
+	// Activating synchronously here can pick the removed weapon's stale spec, whose
+	// instance is already destroyed, and lose the buffered input.
+	const bool bMatchesQueuedInput = !QueuedAbilityTags.IsEmpty()
+		&& AbilitySpec.GetDynamicSpecSourceTags().HasTagExact(QueuedAbilityTags.Top());
+
+	if ((bWeaponSwapInFlight || bMatchesQueuedInput) && !bQueuedFlushScheduled)
+	{
+		if (UWorld* World = GetWorld(); IsValid(World))
+		{
+			bQueuedFlushScheduled = true;
+			World->GetTimerManager().SetTimerForNextTick(this, &UMKHAbilitySystemComponent::FlushQueuedAbilityAfterGrant);
+		}
+	}
+}
+
+void UMKHAbilitySystemComponent::FlushQueuedAbilityAfterGrant()
+{
+	bQueuedFlushScheduled = false;
+
+	// The ability list is coherent again: stale specs are gone, granted specs are in place.
+	NotifyWeaponSwapCompleted();
+	OnActivateQueuedAbility(nullptr);
+}
 
 void UMKHAbilitySystemComponent::AddCharacterAbilities(const TArray<TSubclassOf<UGameplayAbility>>& AbilitiesToGrant)
 {
@@ -53,11 +95,195 @@ void UMKHAbilitySystemComponent::InitializeDefaultAttributes(const TSubclassOf<U
 	OnAttributesGiven.Broadcast();
 }
 
-void UMKHAbilitySystemComponent::AbilityInputPressed(const FGameplayTag& InputTag)
+bool UMKHAbilitySystemComponent::IsOtherWeaponAtk(const FGameplayTag& InputTag) const
+{
+	using namespace MKHGameplayTags;
+	
+	return QueuedAbilityTags.Num() > 0 
+		&& QueuedAbilityTags[0].MatchesTag(Input::WeaponQuickSlotCategory)
+		&& InputTag.MatchesTag(Input::Attacks);
+}
+
+bool UMKHAbilitySystemComponent::ShouldQueueAbility(const FGameplayAbilitySpec& Spec, const FGameplayTag& InputTag) const
+{
+	using namespace MKHGameplayTags;
+
+	// Don't queue the ability if it's not active the InputBufferWindow, it's not a weapon swap,
+	// and it's not an attack that must wait for an in-flight weapon swap round trip.
+	if (!HasMatchingGameplayTag(Combat::InputBufferWindow) &&
+		!(InputTag.MatchesTag(Input::WeaponQuickSlotCategory)) &&
+		!IsAttackWaitingForWeaponSwap(InputTag))
+		return false;
+
+	// If the ability is already active don't queue it
+	if (Spec.IsActive())
+		return false;
+
+	/**
+	 * Don't queue the ability if it can be activated instantaneously,
+	 * but don't check for this if it's an attack when it's already queued a weapon swap
+	 * or a swap is still in flight, because it would be an attack of the other weapon:
+	 * the locally matching spec still belongs to the weapon being removed.
+	 */
+	if (!IsOtherWeaponAtk(InputTag) && !IsAttackWaitingForWeaponSwap(InputTag)
+		&& Spec.Ability->CanActivateAbility(Spec.Handle, AbilityActorInfo.Get()))
+		return false;
+
+	return true;
+}
+
+bool UMKHAbilitySystemComponent::IsAttackWaitingForWeaponSwap(const FGameplayTag& InputTag) const
+{
+	return bWeaponSwapInFlight && InputTag.MatchesTag(MKHGameplayTags::Input::Attacks);
+}
+
+void UMKHAbilitySystemComponent::QueueAbility(const FGameplayTag& InputTag)
+{	
+	using namespace MKHGameplayTags;
+		
+	/**
+	 * Possible combination after this condition:
+	 * 1. Consumable
+	 * 2. Consumable -> WeaponSwap/Sheathe
+	 */
+	if (InputTag.MatchesTag(Input::ConsumableQuickSlotCategory))
+	{
+		QueuedAbilityTags.RemoveAll([&](const FGameplayTag& Tag) {
+			return Tag.MatchesTag(Input::ConsumableQuickSlotCategory) || Tag.MatchesTag(Input::Attacks);
+		});
+		QueuedAbilityTags.Push(InputTag);
+		return;
+	}
+	
+	/**
+	* Possible combination after this condition:
+	 * 1. Weapon Swap/Sheathe
+	 * 2. Consumable -> WeaponSwap/Sheathe
+	 */
+	if (InputTag.MatchesTag(Input::WeaponQuickSlotCategory) || InputTag.MatchesTag(Input::SheatheWeapon))
+	{
+		QueuedAbilityTags.RemoveAll([&](const FGameplayTag& Tag) {
+			return Tag.MatchesTag(Input::WeaponQuickSlotCategory) || Tag.MatchesTag(Input::SheatheWeapon)
+			|| Tag.MatchesTag(Input::Attacks);
+		});
+		QueuedAbilityTags.Insert(InputTag, 0);
+		return;
+	}
+	
+	/**
+	 * Possible combination after this condition:
+	 * 1. Atk
+	 * 2. Weapon Swap -> Atk
+	 * 3. Consumable -> Weapon Swap
+	 */
+	if (InputTag.MatchesTag(Input::Attacks))
+	{
+		if (QueuedAbilityTags.Num() > 0)
+		{
+			if (QueuedAbilityTags[0].MatchesTag(Input::WeaponQuickSlotCategory))
+			{
+				if (!QueuedAbilityTags.Top().MatchesTag(Input::ConsumableQuickSlotCategory))
+					QueuedAbilityTags.Insert(InputTag, 0);
+				return;
+			}
+		}
+		QueuedAbilityTags.Empty(2);
+		QueuedAbilityTags.Push(InputTag);
+	}
+}
+
+void UMKHAbilitySystemComponent::BindToActivateQueuedAbility()
+{
+	GenericGameplayEventCallbacks.FindOrAdd(MKHGameplayTags::Event::ActivateQueuedAbility).AddUObject(this, &UMKHAbilitySystemComponent::OnActivateQueuedAbility);
+}
+
+void UMKHAbilitySystemComponent::OnActivateQueuedAbility(const FGameplayEventData* Payload)
+{
+	if (QueuedAbilityTags.IsEmpty())
+		return;
+
+	// Keep the buffered attack queued while a weapon swap round trip is in flight:
+	// the locally matching spec still belongs to the removed weapon. OnGiveAbility
+	// retries this queue once the swapped weapon's abilities replicate down.
+	if (IsAttackWaitingForWeaponSwap(QueuedAbilityTags.Top()))
+		return;
+
+	AActor* Avatar = GetAvatarActor();
+	AController* Controller = Avatar ? Avatar->GetInstigatorController() : nullptr;
+    
+	if (AMKHPlayerController* MKHPC = Cast<AMKHPlayerController>(Controller))
+	{
+		MKHPC->AbilityInputPressed(QueuedAbilityTags.Pop());
+	}
+}
+
+void UMKHAbilitySystemComponent::Server_RemovePriorityTag_Implementation(FGameplayTag PriorityTag)
+{
+	using namespace MKHGameplayTags;
+
+	// Only the input-arbitration priority tags may be cleared by the owning client.
+	if (PriorityTag != Ability::Priority1 && PriorityTag != Ability::Priority2)
+		return;
+
+	// Guarded: the server's own MakeCancellable notify or EndAbility may already have
+	// consumed the tag, and the count must never underflow.
+	if (HasMatchingGameplayTag(PriorityTag))
+	{
+		RemoveLooseGameplayTag(PriorityTag);
+	}
+}
+
+void UMKHAbilitySystemComponent::NotifyWeaponSwapRequested()
+{
+	// On the authority the swap resolves synchronously inside UseItem: no gating needed.
+	if (!AbilityActorInfo.IsValid() || AbilityActorInfo->IsNetAuthority())
+		return;
+
+	bWeaponSwapInFlight = true;
+
+	if (UWorld* World = GetWorld(); IsValid(World))
+	{
+		World->GetTimerManager().SetTimer(WeaponSwapTimeoutHandle, this,
+			&UMKHAbilitySystemComponent::HandleWeaponSwapTimeout, WeaponSwapTimeoutSeconds, false);
+	}
+}
+
+void UMKHAbilitySystemComponent::NotifyWeaponSwapCompleted()
+{
+	bWeaponSwapInFlight = false;
+
+	if (UWorld* World = GetWorld(); IsValid(World))
+	{
+		World->GetTimerManager().ClearTimer(WeaponSwapTimeoutHandle);
+	}
+}
+
+void UMKHAbilitySystemComponent::HandleWeaponSwapTimeout()
+{
+	UE_LOG(LogMKHAbility, Warning, TEXT("UMKHAbilitySystemComponent::HandleWeaponSwapTimeout - Weapon swap result never replicated on %s, discarding stale queued attacks."),
+		*GetNameSafe(GetAvatarActor()));
+
+	bWeaponSwapInFlight = false;
+
+	// The buffered attack targeted the weapon we never received: drop it rather than
+	// activating the wrong weapon's ability.
+	QueuedAbilityTags.RemoveAll([](const FGameplayTag& Tag)
+	{
+		return Tag.MatchesTag(MKHGameplayTags::Input::Attacks);
+	});
+}
+
+void UMKHAbilitySystemComponent::AbilityInputPressed(const FGameplayTag& InputTag, bool bForceQueue)
 {
 	if (!InputTag.IsValid())
 		return;
 
+	if (bForceQueue)
+	{
+		QueueAbility(InputTag);
+		return;
+	}
+	
 	ABILITYLIST_SCOPE_LOCK();
 
 	const bool bIsQuickSlotInput = IsQuickSlotInput(InputTag);
@@ -66,13 +292,19 @@ void UMKHAbilitySystemComponent::AbilityInputPressed(const FGameplayTag& InputTa
 	{
 		if (!DoesSpecMatchInput(Spec, InputTag, bIsQuickSlotInput))
 			continue;
-
-		if (bIsQuickSlotInput)
+		
+		if (ShouldQueueAbility(Spec, InputTag))
 		{
-			SendQuickSlotEvent(InputTag);
+			QueueAbility(InputTag);
 		}
-
-		HandleAbilityInputPressedForSpec(Spec);
+		else
+		{
+			if (bIsQuickSlotInput)
+				SendQuickSlotEvent(InputTag);
+			else
+				HandleAbilityInputPressedForSpec(Spec);
+		}
+		break;
 	}
 }
 
@@ -94,6 +326,7 @@ void UMKHAbilitySystemComponent::AbilityInputReleased(const FGameplayTag& InputT
 			continue;
 		
 		HandleAbilityInputReleasedForSpec(Spec);
+		break;
 	}
 }
 
@@ -109,6 +342,12 @@ bool UMKHAbilitySystemComponent::DoesSpecMatchInput(const FGameplayAbilitySpec& 
 	if (bIsQuickSlotInput)
 		TagToConfront = MKHGameplayTags::Input::QuickSlot;
 
+	// Deliberate over-match: when a weapon swap is queued, the attack targets a weapon whose
+	// spec doesn't exist locally yet, so nothing can match it by tag. Returning true here
+	// lets AbilityInputPressed fall through to ShouldQueueAbility, which queues it instead.
+	if (IsOtherWeaponAtk(InputTag))
+		return true;
+
 	return Spec.GetDynamicSpecSourceTags().HasTagExact(TagToConfront);
 }
 
@@ -123,7 +362,7 @@ void UMKHAbilitySystemComponent::HandleAbilityInputPressedForSpec(const FGamepla
 {
 	if (!Spec.IsActive())
 	{
-		TryActivateAbility(Spec.Handle);
+        TryActivateAbility(Spec.Handle);
 		return;
 	}
 
@@ -136,6 +375,9 @@ void UMKHAbilitySystemComponent::HandleAbilityInputPressedForSpec(const FGamepla
 
 void UMKHAbilitySystemComponent::HandleAbilityInputReleasedForSpec(const FGameplayAbilitySpec& Spec)
 {
+	if (!Spec.IsActive())
+		return;
+	
 	if (const UGameplayAbility* PrimaryInstance = Spec.GetPrimaryInstance(); IsValid(PrimaryInstance))
 	{
 		InvokeReplicatedEvent(EAbilityGenericReplicatedEvent::InputReleased, Spec.Handle,
@@ -218,6 +460,18 @@ void UMKHAbilitySystemComponent::GetCooldownRemainingForTag(const FGameplayTag C
 			CooldownDuration = TotalDurations[0];
 		}
 	}
+}
+
+bool UMKHAbilitySystemComponent::HasGrantedAbilityForInputTag(const FGameplayTag& InputTag) const
+{
+	for (const FGameplayAbilitySpec& Spec : GetActivatableAbilities())
+	{
+		if (Spec.GetDynamicSpecSourceTags().HasTagExact(InputTag))
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
 TWeakObjectPtr<UEquipmentManagerComponent> UMKHAbilitySystemComponent::GetWeakEquipmentManager() const
@@ -339,30 +593,31 @@ FGameplayAbilitySpecHandle UMKHAbilitySystemComponent::GrantEquipmentAbility(con
 {
 	FGameplayAbilitySpec Spec = FGameplayAbilitySpec(AbilityDef.AbilityClass.Get(), 1.f);
 
-	if (UMKHGameplayAbility* RPGAbility = Cast<UMKHGameplayAbility>(Spec.Ability))
+	// Per-item data goes on a payload (Spec.SourceObject), never on Spec.Ability — that's
+	// the class CDO, shared by every owner of this class. See UMKHAbilityGrantPayload.
+	const UMKHGameplayAbility* AbilityCDO = Cast<UMKHGameplayAbility>(Spec.Ability);
+
+	// Skills get their input tag rolled at item creation; other abilities keep the class default.
+	const FGameplayTag InputTag = (AbilityDef.bIsSkillAbility || !AbilityCDO)
+		? AbilityDef.SkillInputTag
+		: AbilityCDO->InputTag;
+
+	if (InputTag.IsValid())
 	{
-		if (AbilityDef.bIsSkillAbility)
-		{
-			// Ovveride the input tag for skills because they are set dynamically
-			RPGAbility->InputTag = AbilityDef.SkillInputTag; // AbilityDef.SkillInputTag is set when the skill is rolled
-		}
-		Spec.GetDynamicSpecSourceTags().AddTag(RPGAbility->InputTag);
+		Spec.GetDynamicSpecSourceTags().AddTag(InputTag);
 	}
 
-	if (UMKHProjectileAbility* ProjectileAbility = Cast<UMKHProjectileAbility>(Spec.Ability))
+	UMKHAbilityGrantPayload* Payload = NewObject<UMKHAbilityGrantPayload>(this);
+	Payload->InputTag = InputTag;
+	Payload->ProjectileToSpawnTag = AbilityDef.ContextTag;
+	Payload->AttacksData = AbilityDef.AttacksData;
+	Payload->bIsSkillAbility = AbilityDef.bIsSkillAbility;
+	if (AbilityDef.bIsSkillAbility)
 	{
-		ProjectileAbility->ProjectileToSpawnTag = AbilityDef.ContextTag;
+		Payload->CooldownTime = AbilityDef.CooldownTime;
+		Payload->CooldownTags = AbilityDef.CooldownTag.GetSingleTagContainer();
 	}
-
-	if (UMKHDamageAbility* DamageAbility = Cast<UMKHDamageAbility>(Spec.Ability))
-	{
-		DamageAbility->SetDamagePercent(AbilityDef.DamagePercent);
-		DamageAbility->SetIsSkillAbility(AbilityDef.bIsSkillAbility);
-		if (AbilityDef.bIsSkillAbility)
-		{
-			DamageAbility->SetCooldownData(AbilityDef.CooldownTime, AbilityDef.CooldownTag.GetSingleTagContainer());
-		}
-	}
+	Spec.SourceObject = Payload;
 
 	return GiveAbility(Spec);
 }

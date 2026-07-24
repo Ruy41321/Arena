@@ -41,15 +41,22 @@ void ACharacterBase::BindCallbacksToDependencies()
 {
 	if (IsValid(MKHAbilitySystemComponent) && IsValid(MKHAttributeSet))
 	{
+		// Rebind-safe: actor info re-initialization (e.g. the controller replicating after
+		// the player state) runs this again, and stale bindings must not accumulate double
+		// broadcasts. Weak lambdas make RemoveAll(this) effective and stop callbacks from
+		// outliving this character (the delegates live on the PlayerState-owned ASC).
+		MKHAbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UMKHAttributeSet::GetHealthAttribute()).RemoveAll(this);
+		MKHAbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UMKHAttributeSet::GetShieldAttribute()).RemoveAll(this);
+
 		// Health
-		MKHAbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UMKHAttributeSet::GetHealthAttribute()).AddLambda(
+		MKHAbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UMKHAttributeSet::GetHealthAttribute()).AddWeakLambda(this,
 			[this](const FOnAttributeChangeData& Data)
 			{
 				OnHealthChanged.Broadcast(Data.OldValue, Data.NewValue, MKHAttributeSet->GetMaxHealth());
 			});
 
 		// Shield
-		MKHAbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UMKHAttributeSet::GetShieldAttribute()).AddLambda(
+		MKHAbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UMKHAttributeSet::GetShieldAttribute()).AddWeakLambda(this,
 			[this](const FOnAttributeChangeData& Data)
 			{
 				OnShieldChanged.Broadcast(Data.OldValue, Data.NewValue, MKHAttributeSet->GetMaxShield());

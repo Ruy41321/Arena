@@ -35,6 +35,12 @@ void USprintSystemComponent::BeginPlay()
 		UE_LOG(LogTemp, Error, TEXT("SprintSystemComponent: Owner is not a MKHPlayerCharacter! Owner class: %s"),
 			GetOwner() ? *GetOwner()->GetClass()->GetName() : TEXT("NULL"));
 	}
+
+	if (bSprintAsDefault)
+	{
+		bIsSprinting = true;
+		bSprintInterrupted = false;
+	}
 }
 
 void USprintSystemComponent::SetupInput(UEnhancedInputComponent* EnhancedInputComponent)
@@ -78,9 +84,11 @@ void USprintSystemComponent::SprintPressed(const FInputActionValue& Value, const
 	const bool bSprintValue = bOverrideSprint ? bValueToOverride : Value.Get<bool>();
 
 	if (!MKHPlayerCharacter->HasAuthority())
-		ServerSprintPressed(Value, true, bSprintValue);
+		ServerSprintPressed(bSprintValue);
 
-	if (bSprintValue)
+	const bool bIntentToSprint = bSprintAsDefault ? !bSprintValue : bSprintValue;
+
+	if (bIntentToSprint)
 	{
 		bSprintInterrupted = false;
 		bIsSprinting = true;
@@ -115,9 +123,9 @@ void USprintSystemComponent::SprintPressed(const FInputActionValue& Value, const
 	}
 }
 
-void USprintSystemComponent::ServerSprintPressed_Implementation(const FInputActionValue& Value, const bool bOverrideSprint, const bool bValueToOverride)
+void USprintSystemComponent::ServerSprintPressed_Implementation(bool bSprintValue)
 {
-	SprintPressed(Value, bOverrideSprint, bValueToOverride);
+	SprintPressed(FInputActionValue(), true, bSprintValue);
 }
 
 AMKHPlayerCharacter* USprintSystemComponent::GetValidPlayerCharacter() const

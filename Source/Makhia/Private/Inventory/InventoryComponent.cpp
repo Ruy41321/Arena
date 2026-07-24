@@ -8,6 +8,8 @@
 #include "NativeGameplayTags.h"
 #include "AbilitySystemBlueprintLibrary.h"
 #include "AbilitySystem/MKHGameplayTags.h"
+#include "Data/GenericClassReference.h"
+#include "GameInstance/MKHGameInstance.h"
 #include "Engine/AssetManager.h"
 #include "Engine/StreamableManager.h"
 #include "Libraries/MKHAbilitySystemLibrary.h"
@@ -37,6 +39,9 @@ void FRPGInventoryList::AddItem(const FGameplayTag& ItemTag, int32 NumItems)
 	NewEntry.ItemName = ItemDef.ItemName;
 	NewEntry.Quantity = NumItems;
 	NewEntry.ItemID = GenerateID();
+	NewEntry.ConsumableCooldownTime = ItemDef.ConsumableProps.CooldownTime;
+	NewEntry.ConsumableCooldownTag = ItemDef.ConsumableProps.CooldownTag;
+	NewEntry.RarityTag = ItemDef.RarityTag;
 
 	if (NewEntry.ItemTag.MatchesTag(MKHGameplayTags::Equip::Category_Equipment)
 		&& IsValid(WeakStatsData.Get())
@@ -112,7 +117,7 @@ void FRPGInventoryList::RollEquipmentEntry(FRPGInventoryEntry& NewEntry, const F
 		return;
 	}
 
-	const FRarityDefinition* Rarity = UEquipmentRollLibrary::RollRarity(WeakRarityTable.Get());
+	const FRarityDefinition* Rarity = ResolveEntryRarity(NewEntry);
 	if (!Rarity)
 	{
 		return;
@@ -135,6 +140,23 @@ void FRPGInventoryList::RollEquipmentEntry(FRPGInventoryEntry& NewEntry, const F
 		NewEntry.EffectPackage.Abilities.Append(RolledAbilities);
 		UMKHAbilitySystemLibrary::AssignDynamicSkillInputTag(NewEntry);
 	}
+}
+
+const FRarityDefinition* FRPGInventoryList::ResolveEntryRarity(const FRPGInventoryEntry& Entry) const
+{
+	// A pre-defined rarity from the item definition skips the roll entirely.
+	if (Entry.RarityTag.IsValid())
+	{
+		const FRarityDefinition* Rarity = UEquipmentRollLibrary::GetRarityByTag(WeakRarityTable.Get(), Entry.RarityTag);
+		if (!Rarity)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("ResolveEntryRarity: pre-defined rarity tag '%s' not found in the rarity table."),
+				*Entry.RarityTag.ToString());
+		}
+		return Rarity;
+	}
+
+	return UEquipmentRollLibrary::RollRarity(WeakRarityTable.Get());
 }
 
 void FRPGInventoryList::BroadcastNewEntry(FRPGInventoryEntry& NewEntry)
@@ -228,19 +250,9 @@ bool FRPGInventoryList::HasEnough(int64 ItemID, int32 NumItems) const
 
 int64 FRPGInventoryList::GenerateID()
 {
-	int64 NewID = ++LastAssignedID;
-
-	int32 SignatureIndex = 0;
-	while (SignatureIndex < 12)
-	{
-		if (FMath::RandRange(0, 100) < 85)
-		{
-			NewID |= (int64)1 << FMath::RandRange(0, 62);
-		}
-		++SignatureIndex;
-	}
-
-	return NewID;
+	// Server-only sequential counter, so a plain increment is already unique.
+	// Do not OR in random bits here again — that let two different IDs collapse onto the same value.
+	return ++LastAssignedID;
 }
 
 void FRPGInventoryList::SetStats(UEquipmentStatEffects* InStats)
@@ -305,7 +317,7 @@ FRPGInventoryEntry* FRPGInventoryList::GetAlreadyQuickSlottedEntry(const FGamepl
 		return nullptr;
 	}
 
-	const int64 AlreadySlottedItemID = QuickSlotManagerComponent->GetQuickSlotID(QuickSlotTag);
+	const int64 AlreadySlottedItemID = QuickSlotManagerComponent->GetQuickSlotItemID(QuickSlotTag);
 	
 	if (AlreadySlottedItemID == 0)
 	{
@@ -330,7 +342,7 @@ void FRPGInventoryList::AddEntryToQuickSlot(int64 ItemID, const FGameplayTag& Qu
 		Entry->QuickSlotTag = QuickSlotTag;
 		QuickSlotItemRelocatedDelegate.Broadcast(*Entry);
 
-		if (QuickSlotTag.MatchesTag(MKHGameplayTags::Equip::WeaponQuickSlotCategory))
+		if (QuickSlotTag.MatchesTag(MKHGameplayTags::Input::WeaponQuickSlotCategory))
 		{
 			OwnerComponent->PreloadItem(Entry);
 		}
@@ -469,19 +481,73 @@ void UInventoryComponent::TryUseConsumable(FRPGInventoryEntry* Entry, const FMas
 		return;
 	}
 
+	if (IsConsumableOnCooldown(*Entry, OwnerASC))
+	{
+		return;
+	}
+
 	const FGameplayEffectContextHandle EffectContext = OwnerASC->MakeEffectContext();
 	const FGameplayEffectSpecHandle SpecHandle = OwnerASC->MakeOutgoingSpec(
-		ItemDef.ConsumableProps.ItemEffectClass, 
-		ItemDef.ConsumableProps.ItemEffectLevel, 
+		ItemDef.ConsumableProps.ItemEffectClass,
+		ItemDef.ConsumableProps.ItemEffectLevel,
 		EffectContext);
 
 	if (!SpecHandle.IsValid() || !SpecHandle.Data.IsValid())
 	{
 		return;
 	}
-		
+
 	OwnerASC->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
+	ApplyConsumableCooldown(*Entry, OwnerASC);
 	InventoryList.RemoveItem(*Entry, 1);
+}
+
+bool UInventoryComponent::IsConsumableOnCooldown(const FRPGInventoryEntry& Entry, const UAbilitySystemComponent* OwnerASC) const
+{
+	if (!Entry.ConsumableCooldownTag.IsValid() || !IsValid(OwnerASC))
+	{
+		return false;
+	}
+
+	return OwnerASC->HasMatchingGameplayTag(Entry.ConsumableCooldownTag);
+}
+
+void UInventoryComponent::ApplyConsumableCooldown(const FRPGInventoryEntry& Entry, UAbilitySystemComponent* OwnerASC) const
+{
+	if (!Entry.ConsumableCooldownTag.IsValid() || Entry.ConsumableCooldownTime <= 0.f || !IsValid(OwnerASC))
+	{
+		return;
+	}
+
+	UMKHGameInstance* GameInstance = UMKHGameInstance::GetMKHGameInstance(GetWorld());
+	if (!IsValid(GameInstance))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("ApplyConsumableCooldown: missing MKHGameInstance, cooldown not applied."));
+		return;
+	}
+
+	const TSubclassOf<UGameplayEffect> CooldownEffect = UGenericClassReference::GetGameplayEffectByName(
+		GameInstance->GetGenericClassReference(),
+		UGenericClassReference::SkillCooldownEffectKey);
+	if (!IsValid(CooldownEffect))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("ApplyConsumableCooldown: generic cooldown effect not found, cooldown not applied."));
+		return;
+	}
+
+	const FGameplayEffectContextHandle EffectContext = OwnerASC->MakeEffectContext();
+	const FGameplayEffectSpecHandle SpecHandle = OwnerASC->MakeOutgoingSpec(CooldownEffect, 1.f, EffectContext);
+	if (!SpecHandle.IsValid() || !SpecHandle.Data.IsValid())
+	{
+		return;
+	}
+
+	// Same pattern as skill cooldowns: duration via set-by-caller, cooldown tag granted dynamically
+	// so the HUD can track it through GetCooldownRemainingForTag.
+	SpecHandle.Data->SetSetByCallerMagnitude(MKHGameplayTags::Combat::Data_AbilityCooldownTime, Entry.ConsumableCooldownTime);
+	SpecHandle.Data->DynamicGrantedTags.AddTag(Entry.ConsumableCooldownTag);
+
+	OwnerASC->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
 }
 
 void UInventoryComponent::TryUseEquipment(FRPGInventoryEntry* Entry, const FMasterItemDefinition& ItemDef)
@@ -554,6 +620,11 @@ FRPGInventoryEntry UInventoryComponent::FindInventoryEntryByID(int64 ItemID)
 		return *Found;
 	}
 	return FRPGInventoryEntry();
+}
+
+bool UInventoryComponent::HasEnough(int64 ItemID, int32 NumItems) const
+{
+	return InventoryList.HasEnough(ItemID, NumItems);
 }
 
 TArray<FRPGInventoryEntry> UInventoryComponent::GetInventoryEntries() const

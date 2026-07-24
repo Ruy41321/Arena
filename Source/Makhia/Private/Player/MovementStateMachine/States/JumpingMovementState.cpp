@@ -6,6 +6,8 @@
 #include "Player/Components/Crouch/CrouchSystemComponent.h"
 #include "Player/MKHPlayerCharacter.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "AbilitySystemComponent.h"
+#include "AbilitySystem/MKHGameplayTags.h"
 
 UJumpingMovementState::UJumpingMovementState()
 {
@@ -16,6 +18,15 @@ EMovementStateValue UJumpingMovementState::GetDesiredTransition_Implementation()
 	AMKHPlayerCharacter* Player = GetPlayerCharacter();
 	if (!Player || !Player->GetCharacterMovement())
 		return EMovementStateValue::None;
+
+	// Check for attacking
+	if (UAbilitySystemComponent* ASC = Player->GetAbilitySystemComponent())
+	{
+		if (ASC->HasMatchingGameplayTag(MKHGameplayTags::Ability::Attacking))
+		{
+			return EMovementStateValue::Attacking;
+		}
+	}
 
 	// Check if we're falling (velocity.Z <= 0)
 	if (Player->GetCharacterMovement()->IsFalling())
@@ -60,4 +71,9 @@ EMovementStateValue UJumpingMovementState::GetDesiredTransition_Implementation()
 	}
 
 	return EMovementStateValue::None;
+}
+
+bool UJumpingMovementState::CanTransitionTo_Implementation(EMovementStateValue NewState) const
+{
+	return Super::CanTransitionTo_Implementation(NewState);
 }

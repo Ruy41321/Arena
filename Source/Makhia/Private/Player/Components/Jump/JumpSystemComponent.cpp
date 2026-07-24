@@ -9,8 +9,11 @@
 #include "InputActionValue.h"
 #include "Player/MKHPlayerCharacter.h"
 #include "GameFramework/Character.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "EnhancedInputComponent.h"
 #include "Net/UnrealNetwork.h"
+#include "AbilitySystemComponent.h"
+#include "AbilitySystem/MKHGameplayTags.h"
 
 UJumpSystemComponent::UJumpSystemComponent()
 {
@@ -53,11 +56,16 @@ void UJumpSystemComponent::JumpPressed(const FInputActionValue& Value)
 	if (!MKHPlayerCharacter)
 		return;
 
+	// Crowd-control states (Stunned / Staggered) must suppress any movement action.
+	if (IsCrowdControlled(MKHPlayerCharacter))
+		return;
+
 	if (MKHPlayerCharacter->GetMovementStateMachine())
 	{
 		EMovementStateValue CurrentState = MKHPlayerCharacter->GetMovementStateMachine()->GetCurrentState();
 				
-		if (bIsLanding || CurrentState == EMovementStateValue::Dodging)
+		if (bIsLanding || CurrentState == EMovementStateValue::Dodging
+			|| CurrentState == EMovementStateValue::Dead || CurrentState == EMovementStateValue::Attacking)
 			return;
 
 		// If crouched, uncrouch instead of jumping
@@ -69,6 +77,7 @@ void UJumpSystemComponent::JumpPressed(const FInputActionValue& Value)
 		}
 	}
 	// Perform the jump
+	MKHPlayerCharacter->GetMovementStateMachine()->TransitionToState(EMovementStateValue::Jumping);
 	MKHPlayerCharacter->Jump();
 }
 
@@ -89,6 +98,24 @@ void UJumpSystemComponent::OnLanded(const FHitResult& Hit)
 void UJumpSystemComponent::ResetLanding()
 {
 	bIsLanding = false;
+}
+
+void UJumpSystemComponent::InterruptJump()
+{
+	AMKHPlayerCharacter* MKHPlayerCharacter = GetValidPlayerCharacter();
+	if (!MKHPlayerCharacter)
+		return;
+
+	// Release the sustained jump so hold-to-jump height accumulation stops.
+	MKHPlayerCharacter->StopJumping();
+
+	// Cancel any remaining upward velocity so the character starts falling immediately.
+	// The movement state machine will then transition Jumping -> Falling on its own.
+	UCharacterMovementComponent* MovementComponent = MKHPlayerCharacter->GetCharacterMovement();
+	if (IsValid(MovementComponent) && MovementComponent->IsFalling() && MovementComponent->Velocity.Z > 0.0f)
+	{
+		MovementComponent->Velocity.Z = 0.0f;
+	}
 }
 
 void UJumpSystemComponent::SetupInput(UEnhancedInputComponent* EnhancedInputComponent)
@@ -120,6 +147,26 @@ void UJumpSystemComponent::SetupInput(UEnhancedInputComponent* EnhancedInputComp
 	EnhancedInputComponent->BindAction(JumpPressedAction, ETriggerEvent::Completed, MKHPlayerCharacter, &ACharacter::StopJumping);
 
 
+}
+
+bool UJumpSystemComponent::IsCrowdControlled(const AMKHPlayerCharacter* PlayerCharacter) const
+{
+	if (!IsValid(PlayerCharacter))
+		return false;
+
+	const UAbilitySystemComponent* ASC = PlayerCharacter->GetAbilitySystemComponent();
+	if (!IsValid(ASC))
+		return false;
+
+	// Actions are blocked while the character is under any crowd-control effect.
+	static FGameplayTagContainer CrowdControlTags;
+	if (CrowdControlTags.IsEmpty())
+	{
+		CrowdControlTags.AddTag(MKHGameplayTags::State::Stunned);
+		CrowdControlTags.AddTag(MKHGameplayTags::State::Staggered);
+	}
+
+	return ASC->HasAnyMatchingGameplayTags(CrowdControlTags);
 }
 
 AMKHPlayerCharacter* UJumpSystemComponent::GetValidPlayerCharacter() const

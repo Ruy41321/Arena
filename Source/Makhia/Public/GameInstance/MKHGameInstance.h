@@ -6,7 +6,16 @@
 #include "Engine/GameInstance.h"
 #include "MKHGameInstance.generated.h"
 
+class UGenericClassReference;
 enum class ERegionInfo : uint8;
+
+/** Identifies which named level to travel to, resolved to a level name via UMKHGameInstance's level name properties. */
+UENUM(BlueprintType)
+enum class EMKHLevelType : uint8
+{
+	Lobby,
+	Game
+};
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnReadyStateChangedDelegate, bool, bIsReady);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnUsernameChangedDelegate, const FString&, NewUsername);
@@ -27,6 +36,24 @@ public:
 	// ============================================================
 
 	virtual void Init() override;
+
+	/**
+	 * Called by the engine once a map finished loading.
+	 * Clears the re-entrancy guard raised by BackToLobby so a later return can run.
+	 *
+	 * @param LoadTime  Seconds the map load took.
+	 * @param MapName   Name of the map that finished loading.
+	 */
+	virtual void LoadComplete(const float LoadTime, const FString& MapName) override;
+
+	/**
+	 * Supplies the online session class the engine instantiates for this game instance.
+	 * Returns UMKHOnlineSession so a lost connection routes through BackToLobby instead of
+	 * the engine's default browse to the default map.
+	 *
+	 * @return The online session class to use.
+	 */
+	virtual TSubclassOf<UOnlineSession> GetOnlineSessionClass() override;
 
 	// ============================================================
 	// Delegates
@@ -60,6 +87,12 @@ public:
 	 */
 	UFUNCTION(BlueprintPure, Category = "GameInstance", meta = (WorldContext = "WorldContextObject"))
 	static UMKHGameInstance* GetMKHGameInstance(const UObject* WorldContextObject);
+
+	/**
+	 * Getter for the data asset containing references to blueprint class needed in c++
+	 * @return UGenericClassReference
+	 */
+	TObjectPtr<UGenericClassReference> GetGenericClassReference() {return GenericClassReference;}
 	
 	/**
 	 * Sets the player as logged in and assigns a session name.
@@ -216,27 +249,85 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "GameInstance|Lobby")
 	void OnLobbyCreated();
 
-	/** Returns to lobby and restore variables. 
-	 * 
+	/**
+	 * Returns to the lobby and restores the lobby state to a clean, coherent one.
+	 *
+	 * The online session is torn down first so the lobby is re-created from scratch on arrival
+	 * (see UMKHGameInstance::TryDestroyCurrentSession); the level travel is deferred until the
+	 * destroy completes, or until ReturnToLobbyTimeout elapses if the backend never answers.
+	 * Repeated calls while a return is already in flight are ignored: AGameModeBase::Logout
+	 * fires once per controller, so a disconnect triggers this several times in a row.
+	 *
 	 * @param bAsHost If true, the player will return to the lobby with server travel as listen.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "GameInstance|Lobby")
 	void BackToLobby(bool bAsHost = false);
 	
-	/** Executes a server travel to the specified level. */
+	/** Executes a server travel to the level identified by the given level type. */
 	UFUNCTION(BlueprintCallable, Category = "GameInstance|Session")
-	void ServerTravel(FName LevelName);
+	void ServerTravel(EMKHLevelType LevelType);
 
-	/** Opens a level directly using the given URL/Name. */
+	/** Opens the level identified by the given level type. */
 	UFUNCTION(BlueprintCallable, Category = "GameInstance|Session")
-	void OpenLevel(FString LevelUrl, bool bAsListen = false);
+	void OpenLevel(EMKHLevelType LevelType, bool bAsListen = false);
+
+	/** Gets the name of the lobby level. */
+	UFUNCTION(BlueprintPure, Category = "GameInstance|Session")
+	FString GetLobbyLevelName() const { return LobbyLevelName; }
+
+	/** Gets the name of the game level. */
+	UFUNCTION(BlueprintPure, Category = "GameInstance|Session")
+	FString GetGameLevelName() const { return GameLevelName; }
 
 private:
 
 	// ============================================================
-	// Properties
+	// Protected / Internal Logic
 	// ============================================================
 
+	/**
+	 * Resolves a level type to the corresponding level name set on this instance.
+	 *
+	 * @param LevelType The level type to resolve.
+	 * @return The level name associated with the given type.
+	 */
+	FString ResolveLevelName(EMKHLevelType LevelType) const;
+
+	/**
+	 * Asks the online subsystem to destroy the session named CurrentSessionName.
+	 * Leaving the session registered would make the lobby re-creation fail on arrival and
+	 * would strand an orphan lobby on the backend.
+	 *
+	 * @return True if the destroy request was accepted and HandleDestroySessionComplete will run.
+	 */
+	bool TryDestroyCurrentSession();
+
+	/**
+	 * Completion callback for TryDestroyCurrentSession. Clears the local session state and
+	 * resumes the pending return to the lobby.
+	 *
+	 * @param SessionName     Name of the session that was destroyed.
+	 * @param bWasSuccessful  True if the backend reported a clean destroy.
+	 */
+	void HandleDestroySessionComplete(FName SessionName, bool bWasSuccessful);
+
+	/** Unregisters the session destroy callback, if one is still pending. */
+	void ClearPendingSessionDestroy();
+
+	/** Clears the local session state and travels to the lobby using the pending return mode. */
+	void FinishBackToLobby();
+
+	/** Resets the per-match lobby counters and flags to their pre-lobby defaults. */
+	void ResetLobbyState();
+
+	// ============================================================
+	// Properties
+	// ============================================================
+	
+	/** Data Asset to allow c++ code to take references of Blueprint Classes */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta = (AllowPrivateAccess = true), Category = "GameInstance|ClassDataAsset")
+	TObjectPtr<UGenericClassReference> GenericClassReference;
+		
 	/** Name of the current active session. */
 	UPROPERTY(VisibleAnywhere, Category = "GameInstance|Session", meta = (AllowPrivateAccess = "true"))
 	FName CurrentSessionName = NAME_None;
@@ -288,5 +379,31 @@ private:
 	/** The currently selected matchmaking region. */
 	UPROPERTY(VisibleAnywhere, Category = "GameInstance|Session", meta = (AllowPrivateAccess = "true"))
 	ERegionInfo SelectedRegion;
+
+	/** Name of the lobby level to travel to. */
+	UPROPERTY(EditDefaultsOnly, Category = "GameInstance|Session", meta = (AllowPrivateAccess = "true"))
+	FString LobbyLevelName;
+
+	/** Name of the game level to travel to. */
+	UPROPERTY(EditDefaultsOnly, Category = "GameInstance|Session", meta = (AllowPrivateAccess = "true"))
+	FString GameLevelName;
+
+	/** Seconds to wait for the session destroy callback before travelling to the lobby anyway. */
+	UPROPERTY(EditDefaultsOnly, Category = "GameInstance|Lobby", meta = (AllowPrivateAccess = "true", ClampMin = "0.0"))
+	float ReturnToLobbyTimeout = 5.f;
+
+	/** True while a return to the lobby is in flight; used to ignore duplicate requests. */
+	UPROPERTY(VisibleAnywhere, Category = "GameInstance|Lobby", meta = (AllowPrivateAccess = "true"))
+	bool bReturningToLobby = false;
+
+	/** Return mode requested by the in-flight BackToLobby call. */
+	UPROPERTY(VisibleAnywhere, Category = "GameInstance|Lobby", meta = (AllowPrivateAccess = "true"))
+	bool bPendingReturnAsHost = false;
+
+	/** Handle for the session destroy completion delegate registered by TryDestroyCurrentSession. */
+	FDelegateHandle DestroySessionCompleteHandle;
+
+	/** Timer guarding against a session destroy callback that never fires. */
+	FTimerHandle ReturnToLobbyTimeoutHandle;
 
 };

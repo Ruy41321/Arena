@@ -2,3 +2,13 @@
 
 
 #include "Equipment/EquipmentTypes.h"
+
+bool FStatusEffectData::NetSerialize(FArchive& Ar, UPackageMap* Map, bool& bOutSuccess)
+{
+	Ar << EffectClass;
+	Ar << EffectDuration;
+	Ar << EffectValue;
+
+	bOutSuccess = true;
+	return true;
+}

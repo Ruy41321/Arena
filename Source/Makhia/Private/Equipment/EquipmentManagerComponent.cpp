@@ -9,6 +9,7 @@
 #include "Net/UnrealNetwork.h"
 #include "AbilitySystem/MKHAbilitySystemComponent.h"
 #include "AbilitySystemGlobals.h"
+#include "AbilitySystem/MKHGameplayTags.h"
 
 UMKHAbilitySystemComponent* FRPGEquipmentList::GetAbilitySystemComponent()
 {
@@ -102,7 +103,7 @@ UEquipmentInstance* FRPGEquipmentList::AddEntry(const FRPGEquipmentEntry& InEntr
 
 	if (IsValid(NewEntry.Instance))
 	{
-		NewEntry.Instance->SpawnEquipmentActors(EquipmentCDO->ActorsToSpawn, EquipmentCDO->BaseDamage);
+		NewEntry.Instance->SpawnEquipmentActors(EquipmentCDO->ActorsToSpawn, EquipmentCDO->BaseDamage, EquipmentCDO->BlockStabilityPercent);
 	}
 
 	MarkItemDirty(NewEntry);
@@ -205,9 +206,8 @@ void FRPGEquipmentList::PostReplicatedChange(const TArrayView<int32>& ChangedInd
 
 UEquipmentManagerComponent::UEquipmentManagerComponent() : EquipmentList(this)
 {
-	PrimaryComponentTick.bCanEverTick = true;
+	PrimaryComponentTick.bCanEverTick = false;
 	SetIsReplicatedByDefault(true);
-
 }
 
 void UEquipmentManagerComponent::PrintEquipmentList() const
@@ -312,6 +312,17 @@ UEquipmentInstance* UEquipmentManagerComponent::GetEquipmentInstanceBySlot(const
 FRPGEquipmentEntry* UEquipmentManagerComponent::GetEquipmentEntryBySlot(const FGameplayTag& SlotTag) const
 {
 	return const_cast<FRPGEquipmentEntry*>(EquipmentList.FindEntryBySlot(SlotTag));
+}
+
+void UEquipmentManagerComponent::HideEquippedWeaponMesh(const bool bHide) const
+{
+	if (const UEquipmentInstance* WeaponInstance = GetEquipmentInstanceBySlot(MKHGameplayTags::Equip::WeaponSlot))
+	{
+		for (TObjectPtr<AActor> SpawnedActor : WeaponInstance->GetSpawnedActors()) 
+		{
+			SpawnedActor->SetActorHiddenInGame(bHide);
+		}
+	}
 }
 
 void UEquipmentManagerComponent::ServerEquipItem_Implementation(FRPGEquipmentEntry InEntry)

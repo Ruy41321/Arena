@@ -15,4 +15,5 @@ public:
 	UFallingMovementState();
 	virtual EMovementStateValue GetStateType() const override { return EMovementStateValue::Falling; }
 	virtual EMovementStateValue GetDesiredTransition_Implementation() const override;
+	virtual bool CanTransitionTo_Implementation(EMovementStateValue NewState) const override;
 };

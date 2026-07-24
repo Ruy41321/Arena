@@ -9,9 +9,9 @@ public class MakhiaEditorTarget : TargetRules
 	{
 		Type = TargetType.Editor;
 		
-		// 1. Usa la V6 per UE 5.7
-		DefaultBuildSettings = BuildSettingsVersion.V6;
-		IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_7;
+		// 1. Usa la V7 per UE 5.8
+		DefaultBuildSettings = BuildSettingsVersion.V7;
+		IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_8;
 
 		// 2. IMPORTANTE: Rimuovi o commenta la riga "Unique"
 		// BuildEnvironment = TargetBuildEnvironment.Unique; 

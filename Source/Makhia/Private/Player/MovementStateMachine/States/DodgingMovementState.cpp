@@ -7,6 +7,9 @@
 #include "Player/MKHPlayerCharacter.h"
 #include "InputActionValue.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Player/Components/Blocking/BlockingSystemComponent.h"
+#include "AbilitySystemComponent.h"
+#include "AbilitySystem/MKHGameplayTags.h"
 
 UDodgingMovementState::UDodgingMovementState()
 {
@@ -17,6 +20,15 @@ EMovementStateValue UDodgingMovementState::GetDesiredTransition_Implementation()
 	AMKHPlayerCharacter* Player = GetPlayerCharacter();
 	if (!Player || !Player->GetCharacterMovement())
 		return EMovementStateValue::None;
+
+	// Check for attacking
+	if (UAbilitySystemComponent* ASC = Player->GetAbilitySystemComponent())
+	{
+		if (ASC->HasMatchingGameplayTag(MKHGameplayTags::Ability::Attacking))
+		{
+			return EMovementStateValue::Attacking;
+		}
+	}
 
 	// Check if no longer dodging
 	if (!Player->DodgeSystem || !Player->DodgeSystem->IsDodging())
@@ -30,7 +42,7 @@ EMovementStateValue UDodgingMovementState::GetDesiredTransition_Implementation()
 			else
 				return EMovementStateValue::Falling;
 		}
-
+		
 		// Determine ground state based on crouching and velocity
 		if (Player->CrouchSystem && Player->CrouchSystem->IsCrouched() && !(!Player->SprintSystem->IsSprintInterrupted() && Player->CrouchSystem->CanUncrouchSafely()))
 		{
@@ -39,6 +51,12 @@ EMovementStateValue UDodgingMovementState::GetDesiredTransition_Implementation()
 				return EMovementStateValue::CrouchingMoving;
 			else
 				return EMovementStateValue::CrouchingIdle;
+		}
+		
+		// Enter block state on dodge finish if the player was willing to block during dodge
+		if (Player->BlockingSystem && Player->BlockingSystem->IsBlocking())
+		{
+			return EMovementStateValue::Blocking;
 		}
 		
 		float Speed = Player->GetCharacterMovement()->Velocity.Size2D();
@@ -63,28 +81,5 @@ EMovementStateValue UDodgingMovementState::GetDesiredTransition_Implementation()
 
 bool UDodgingMovementState::CanTransitionTo_Implementation(EMovementStateValue NewState) const
 {
-	// Dodging can transition to any state once completed
-	switch (NewState)
-	{
-	case EMovementStateValue::CrouchingIdle:
-	case EMovementStateValue::CrouchingMoving:
-		// Can return to crouching states
-		return true;
-	case EMovementStateValue::Idle:
-	case EMovementStateValue::Walking:
-	case EMovementStateValue::Sprinting:
-		// Basic movement transitions allowed
-		return true;
-	case EMovementStateValue::Jumping:
-	case EMovementStateValue::Falling:
-		// Air movement always allowed
-		return true;
-	case EMovementStateValue::LandingInPlace:
-	case EMovementStateValue::LandingMoving:
-		// Landing can be reached if ending in air
-		return true;
-	default:
-		// Other states use base logic
-		return Super::CanTransitionTo_Implementation(NewState);
-	}
+	return Super::CanTransitionTo_Implementation(NewState);
 }

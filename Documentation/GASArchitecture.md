@@ -6,31 +6,39 @@
 2. [Directory Structure](#directory-structure)
 3. [Initialization Flow](#initialization-flow)
 4. [Ability System Component](#ability-system-component)
-5. [Attribute Set](#attribute-set)
-6. [Gameplay Abilities](#gameplay-abilities)
-7. [Execution Calculations](#execution-calculations)
-8. [Custom Effect Context](#custom-effect-context)
-9. [Gameplay Tags](#gameplay-tags)
-10. [Damage Pipeline](#damage-pipeline)
-11. [Equipment Integration](#equipment-integration)
-12. [Input Binding](#input-binding)
-13. [Data Assets](#data-assets)
+5. [Input Binding & Ability Queue](#input-binding--ability-queue)
+6. [Ability Grant Payload](#ability-grant-payload)
+7. [Attribute Set](#attribute-set)
+8. [Gameplay Abilities](#gameplay-abilities)
+9. [Execution Calculations](#execution-calculations)
+10. [Custom Effect Context](#custom-effect-context)
+11. [Damage Pipeline](#damage-pipeline)
+12. [Equipment Integration](#equipment-integration)
+13. [Gameplay Tags](#gameplay-tags)
+14. [Data Assets](#data-assets)
 
 ---
 
 ## Overview
 
-Makhia uses Unreal Engine's **Gameplay Ability System (GAS)** to manage character attributes (Health, Stamina, Shield), combat logic, equipment effects, and ability activation. The GAS integration is built on several custom classes that extend the default engine types:
+Makhia uses Unreal Engine's **Gameplay Ability System (GAS)** to manage character attributes (Health, Shield, Stamina), combat logic, equipment effects, and ability activation. The GAS integration is built on several custom classes that extend the default engine types:
 
 | Custom Class | Engine Base | Purpose |
 |---|---|---|
-| `UMKHAbilitySystemComponent` | `UAbilitySystemComponent` | Manages abilities, effects, and equipment integration |
-| `UMKHAttributeSet` | `UAttributeSet` | Defines character attributes with replication |
-| `UMKHGameplayAbility` | `UGameplayAbility` | Base ability with input tag binding |
-| `UMKHDamageAbility` | `UMKHGameplayAbility` | Abilities that deal damage |
-| `UProjectileAbility` | `UMKHDamageAbility` | Abilities that spawn projectiles |
-| `FMKHGameplayEffectContext` | `FGameplayEffectContext` | Extended context with critical hit tracking |
-| `UMKHAbilitySystemGlobals` | `UAbilitySystemGlobals` | Overrides default effect context allocation |
+| `UMKHAbilitySystemComponent` | `UAbilitySystemComponent` | Ability granting, tag-based input routing, input queue, equipment integration |
+| `UMKHAttributeSet` | `UAttributeSet` | Character attributes, damage/stamina-damage resolution, death event |
+| `UMKHGameplayAbility` | `UGameplayAbility` | Base ability: input tags, montage orchestration, priority tags, queue hooks |
+| `UMKHDamageAbility` | `UMKHGameplayAbility` | Damage-dealing abilities: attack data, combos, skill cooldowns |
+| `UMKHMeleeAbility` | `UMKHDamageAbility` | Melee attacks: weapon hit scans + DMT soft-homing |
+| `UMKHProjectileAbility` | `UMKHDamageAbility` | Projectile-spawning abilities |
+| `UMKHAbilityGrantPayload` | `UObject` | Per-grant configuration attached to `FGameplayAbilitySpec::SourceObject` |
+| `UMKHAbilityTask_ApplyDMT` | `UAbilityTask` | Ticking task rotating/moving the character towards the best melee target |
+| `UExecCalc_Damage` | `UGameplayEffectExecutionCalculation` | Damage computation: block check, dodge check, crit roll |
+| `UExecCalc_DodgeCost` | `UGameplayEffectExecutionCalculation` | Stamina cost for dodging |
+| `FMKHGameplayEffectContext` | `FGameplayEffectContext` | Extended context: critical hit, dodge flag, on-hit status effects |
+| `UMKHAbilitySystemGlobals` | `UAbilitySystemGlobals` | Allocates the custom effect context |
+
+Logging for this layer uses the dedicated `LogMKHAbility` category (`MKHLogChannels.h`).
 
 ---
 
@@ -41,26 +49,30 @@ Source/Makhia/
 ├── Public/AbilitySystem/
 │   ├── MKHAbilitySystemComponent.h
 │   ├── MKHAbilitySystemGlobals.h
+│   ├── MKHAbilityGrantPayload.h     # Per-grant data via Spec.SourceObject
 │   ├── MKHAbilityTypes.h            # FMKHGameplayEffectContext, FProjectileParams, FDamageEffectInfo
 │   ├── MKHGameplayTags.h            # Native gameplay tag declarations
 │   ├── Abilities/
-│   │   ├── MKHGameplayAbility.h     # Base ability with InputTag
+│   │   ├── MKHGameplayAbility.h     # Base ability
 │   │   ├── MKHDamageAbility.h       # Damage-dealing ability base
-│   │   └── ProjectileAbility.h      # Projectile-spawning ability
+│   │   ├── MKHMeleeAbility.h        # Melee + hit scan + DMT
+│   │   └── MKHProjectileAbility.h   # Projectile-spawning ability
 │   ├── Attributes/
-│   │   └── MKHAttributeSet.h        # Character attributes
-│   └── ExecCalc/
-│       ├── ExecCalc_Damage.h        # Damage calculation with critical hits
-│       └── ExecCalc_DodgeCost.h     # Stamina cost for dodging
-├── Private/AbilitySystem/
-│   └── (mirrors Public/ with .cpp implementations)
-├── Public/Interfaces/
-│   └── MKHAbilitySystemInterface.h  # Interface for GAS-aware actors
+│   │   └── MKHAttributeSet.h        # Character attributes + damage resolution
+│   ├── ExecCalc/
+│   │   ├── ExecCalc_Damage.h        # Damage computation (block/dodge/crit)
+│   │   └── ExecCalc_DodgeCost.h     # Stamina cost for dodging
+│   ├── Tasks/
+│   │   └── MKHAbilityTask_ApplyDMT.h
+│   └── Cue/
+│       └── MkhCameraShakeGcn_Burst.h
 ├── Public/Libraries/
-│   └── MKHAbilitySystemLibrary.h    # Static helper functions
+│   └── MKHAbilitySystemLibrary.h    # ApplyDamageEffect, class-info accessors, skill tag assignment
+├── Public/MKHLogChannels.h          # LogMKHAbility category
 └── Public/Data/
     ├── CharacterClassInfo.h         # Per-class ability/attribute defaults
-    └── ProjectileInfo.h             # Projectile configuration data
+    ├── ProjectileInfo.h             # Projectile configuration data
+    └── GenericClassReference.h      # Named BP class references (GE_Damage, skill cooldown)
 ```
 
 ---
@@ -71,7 +83,7 @@ GAS components are initialised at different points depending on whether the char
 
 ### Player Characters
 
-For player characters the ASC and attribute set live on the **Player State** (`AMKHPlayerState`), not on the character itself. This follows the recommended GAS pattern for multiplayer games where the Player State persists across respawns.
+For player characters the ASC and attribute set live on the **Player State** (`AMKHPlayerState`), not on the character itself. This follows the recommended GAS pattern for multiplayer games where the Player State persists across respawns. `AMKHPlayerState` raises its net update frequency (100 Hz, min 66 Hz) to keep the ASC responsive in the 1v1 setting.
 
 ```
 AMKHPlayerState (constructor)
@@ -118,23 +130,27 @@ AEnemyBase::BeginPlay()
 
 ## Ability System Component
 
-**Class**: `UMKHAbilitySystemComponent` (inherits `UAbilitySystemComponent`)  
+**Class**: `UMKHAbilitySystemComponent` (inherits `UAbilitySystemComponent`)
 **Location**: `Source/Makhia/Public/AbilitySystem/MKHAbilitySystemComponent.h`
 
 ### Public API
 
 | Method | Description |
 |---|---|
-| `AddCharacterAbilities(Abilities)` | Grants active abilities. Each ability's `InputTag` is added to the spec's dynamic source tags so it can be activated by input. |
+| `AddCharacterAbilities(Abilities)` | Grants active abilities. Each ability's `InputTag` (from the CDO) is added to the spec's dynamic source tags so it can be activated by input. |
 | `AddCharacterPassiveAbilities(Passives)` | Grants and immediately activates passive abilities via `GiveAbilityAndActivateOnce`. |
 | `InitializeDefaultAttributes(AttributeEffect)` | Applies a `UGameplayEffect` that sets the initial attribute values, then broadcasts `OnAttributesGiven`. |
-| `AbilityInputPressed(InputTag)` | Iterates activatable abilities, finds the one matching the tag, and calls `TryActivateAbility` or sends `InputPressed` replicated event. |
+| `AbilityInputPressed(InputTag, bForceQueue)` | Routes a pressed input tag: queues it (`ShouldQueueAbility` / `bForceQueue`), sends the quick-slot event, or activates/forwards to the matching spec. |
 | `AbilityInputReleased(InputTag)` | Sends `InputReleased` replicated event to matching active abilities. |
-| `SetDynamicProjectile(ProjectileTag, Level)` | Replaces the current projectile ability at runtime. Handles authority with a Server RPC. |
-| `AddEquipmentEffects(Entry)` | Applies stat effects from an equipment entry. Supports async loading via `FStreamableManager`. |
-| `RemoveEquipmentEffects(Entry)` | Removes all active effects granted by an equipment entry. |
-| `AddEquipmentAbility(Entry)` | Grants abilities from equipment. Also supports async loading. |
-| `RemoveEquipmentAbility(Entry)` | Clears all abilities granted by an equipment entry. |
+| `NotifyWeaponSwapRequested/Completed`, `IsWeaponSwapInFlight` | Client-side weapon-swap synchronization (see [Input Binding & Ability Queue](#input-binding--ability-queue)). |
+| `HasGrantedAbilityForInputTag(InputTag)` | True when an activatable spec is already granted for the input tag (used to decide queue vs activate during equip round trips). |
+| `GetCooldownRemainingForTag(CooldownTag, ...)` | Returns remaining/total cooldown duration for the effect granting the tag. |
+| `AddEquipmentEffects(Entry)` / `RemoveEquipmentEffects(Entry)` | Applies/removes stat effects from an equipment entry (supports async loading via `FStreamableManager`). |
+| `AddEquipmentAbility(Entry)` / `RemoveEquipmentAbility(Entry)` | Grants/clears abilities from an equipment entry (supports async loading). |
+
+### OnGiveAbility (client-side retry)
+
+`OnGiveAbility` also fires on clients when specs replicate down (e.g. after a weapon-equip RPC round trip). When a queued input matches the granted spec (or a weapon swap is in flight), the component schedules a **next-tick** flush of the input queue (`FlushQueuedAbilityAfterGrant`). The deferral is mandatory: the callback runs mid FastArray delta serialize, where server-removed specs are still physically inside `ActivatableAbilities` — activating synchronously would pick a stale spec.
 
 ### Delegate
 
@@ -146,48 +162,105 @@ Broadcast after `InitializeDefaultAttributes` completes. Used by `AEnemyBase` to
 
 ---
 
+## Input Binding & Ability Queue
+
+Abilities are activated through a tag-based input system using Enhanced Input.
+
+### Configuration & Binding
+
+`UMKHInputConfig` (data asset) maps `UInputAction` assets to `FGameplayTag` values. `UMKHSystemInputComponent::BindAbilityActions` filters the config by a parent tag (`Input.Ability`) and binds `Started` → `AMKHPlayerController::AbilityInputPressed(Tag)` and `Completed` → `AbilityInputReleased(Tag)`.
+
+### Activation Path
+
+```
+AMKHPlayerController::AbilityInputPressed(InputTag)
+  ├─ For non-dodge attacks: EnsureWeaponEquipped()
+  │    ├─ If a weapon swap is in flight → force-queue the input
+  │    ├─ Armed check: equipment entry OR ASC already grants the input tag
+  │    └─ If unarmed: quick-equip flow (queue or TryEquipWeapon + queue)
+  └─ UMKHAbilitySystemComponent::AbilityInputPressed(InputTag, bForceQueue)
+       ├─ ShouldQueueAbility?  → QueueAbility (input buffer)
+       ├─ Quick-slot input     → Event::UseQuickSlot gameplay event
+       └─ Otherwise            → TryActivateAbility / replicated InputPressed
+```
+
+### Input Queue
+
+The buffering/priority logic (input buffer window, swap-into-attack chains, consumable priority) is documented in **`Documentation/QueueAbilitySystem.md`**, including the client-side **weapon swap in flight** state that keeps buffered attacks queued until the authoritative swap result replicates down.
+
+### Priority Tags
+
+Each ability may set a `PriorityTag` (`GameplayAbility.Active.Priority.First/Second`). While active, the tag blocks activation of same-or-lower priority abilities (`DoesAbilitySatisfyTagRequirements`). The `Event::MakeAbilityCancellable` gameplay event (raised by animation notifies) removes the tag early and flushes the input queue, enabling recovery-frame cancels.
+
+---
+
+## Ability Grant Payload
+
+**Class**: `UMKHAbilityGrantPayload`
+**Location**: `Source/Makhia/Public/AbilitySystem/MKHAbilityGrantPayload.h`
+
+Equipment can grant the same ability class with different data (dynamic skill input tags, per-weapon attack data, rolled cooldowns). Writing that data on the ability CDO would turn the CDO into shared mutable state and cross-contaminate every owner using the same class. Instead:
+
+1. `UMKHAbilitySystemComponent::GrantEquipmentAbility` fills a payload (`InputTag`, `ProjectileToSpawnTag`, `AttacksData`, `bIsSkillAbility`, cooldown data) and assigns it to `Spec.SourceObject`.
+2. The input tag is also added to `Spec.GetDynamicSpecSourceTags()`, which is what input matching actually reads (the ability's own `InputTag` member is a CDO-level design value, not consumed per-instance).
+3. `UMKHDamageAbility` / `UMKHProjectileAbility` read the payload in `OnGiveAbility` via the shared `GetGrantPayload(Spec)` helper and override their instance fields. This runs synchronously inside `GiveAbility` on the authority, so the payload does not need to outlive the grant call.
+4. No explicit CDO fallback is needed: these abilities are `InstancedPerActor`, so each instance already starts from the CDO defaults. A null payload (remote clients, where `SourceObject` is not network-addressable; or non-equipment grants) simply leaves those defaults in place. All payload-driven data is consumed server-side, so empty client-side defaults are harmless.
+
+Character base abilities (granted via `AddCharacterAbilities`) are plain `UMKHGameplayAbility` BPs with no per-grant data — they carry no payload and rely purely on their CDO `InputTag`.
+
+**Rule: never mutate `Spec.Ability` — it is the class CDO.**
+
+---
+
 ## Attribute Set
 
-**Class**: `UMKHAttributeSet` (inherits `UAttributeSet`)  
+**Class**: `UMKHAttributeSet` (inherits `UAttributeSet`)
 **Location**: `Source/Makhia/Public/AbilitySystem/Attributes/MKHAttributeSet.h`
 
 ### Attributes
 
 | Attribute | Replicated | Purpose |
 |---|---|---|
-| `Health` | Yes | Current health points, clamped to `[0, MaxHealth]` |
-| `MaxHealth` | Yes | Upper bound for Health |
-| `Shield` | Yes | Protective shield value, clamped to `[0, MaxShield]` |
-| `MaxShield` | Yes | Upper bound for Shield |
-| `Stamina` | Yes | Resource for dodge/sprint, clamped to `[0, MaxStamina]` |
-| `MaxStamina` | Yes | Upper bound for Stamina |
+| `Health` / `MaxHealth` | Yes | Current/maximum health, clamped to `[0, MaxHealth]` |
+| `Shield` / `MaxShield` | Yes | Protective shield value, clamped to `[0, MaxShield]` |
+| `Stamina` / `MaxStamina` | Yes | Resource for dodge/sprint/block, clamped to `[0, MaxStamina]` |
 | `DodgeStaminaCost` | Yes | How much Stamina a dodge consumes |
 | `CritChance` | Yes | Probability of a critical hit (0–100) |
 | `CritDamageMod` | Yes | Bonus damage multiplier on critical hits |
-| `IncomingDamage` | No | Transient meta-attribute written by `ExecCalc_Damage` and consumed in `PostGameplayEffectExecute` |
+| `IncomingDamage` | No (meta) | Written by `ExecCalc_Damage`, consumed in `PostGameplayEffectExecute` |
+| `IncomingStaminaDamage` | No (meta) | Written by `ExecCalc_Damage` when the attack is blocked |
 
 Each replicated attribute has an `OnRep_*` function that calls `GAMEPLAYATTRIBUTE_REPNOTIFY`.
 
 ### Key Overrides
 
-- **`PreAttributeChange`**: Clamps Health, Stamina, and Shield to their respective max values before application.
-- **`PostAttributeChange`**: When a max attribute changes, scales the current value proportionally via `AdjustAttributeForMaxChange` so the character keeps the same percentage.
-- **`PostGameplayEffectExecute`**: When `IncomingDamage` is written, delegates to `HandleIncomingDamage` which applies the shield absorption formula and then distributes remaining damage to Health.
+- **`PreAttributeChange`**: clamp-only (Health, Stamina, Shield to their max values). No side effects here — the callback also runs on clients during replication.
+- **`PostAttributeChange`**: when a max attribute changes, scales the current value proportionally via `AdjustAttributeForMaxChange` so the character keeps the same percentage.
+- **`PostGameplayEffectExecute`**: resolves the meta attributes — `HandleIncomingDamage` (shield/health split, hit events, status effects, death) and `HandleIncomingStaminaDamage` (block/guard-break pipeline).
 
-### Shield Absorption Formula
+### Damage Resolution (`HandleIncomingDamage`)
 
-The absorption rate uses a hybrid linear/exponential model:
+1. If the context is flagged **dodged** (`FMKHGameplayEffectContext::IsDodged`): send `Event.Combat.AttackDodged` to both actors, apply nothing.
+2. Otherwise split the damage between Shield and Health via `CalculateDamageSplit` — **Shield Break** (`ApplyShieldBreak`) if damage ≥ `Shield × 2.0`, normal mitigation (`ApplyShieldDamageMitigation`) otherwise. The scaling model is documented in **[ShieldDamageScaling.md](ShieldDamageScaling.md)**.
+3. Send `Event.Combat.HitReceived` (defender) and `Event.Combat.HitInflicted` (attacker).
+4. Apply the on-hit **status effects** carried by the context (`ApplyStatusEffectsFromContext`), with their duration passed via the `Combat.Data.StatusEffectDuration` set-by-caller.
+5. **Death**: if Health reached 0, `TrySendDeathEvent` sends `Event.Combat.Death` to the avatar — authority-only, avatar-type agnostic (works for players and enemies), guarded by the `State.Movement.Dead` tag against double-firing.
 
-```
-if Shield ≤ ReferenceShield (100):
-    Absorption = 0.5 × (Shield / ReferenceShield)     // 0–50%
+### Stamina Damage Resolution (`HandleIncomingStaminaDamage`)
 
-if Shield > ReferenceShield (100):
-    Ratio = Shield / ReferenceShield
-    Absorption = 1.0 − 0.5^(Ratio × 2 − 1)           // 50–100% (asymptotic)
-```
+Runs when the attack was **blocked**:
 
-A **Shield Break** occurs if the incoming damage exceeds `CurrentShield × 2.0`, destroying the shield entirely and letting only the surplus damage pass to Health.
+1. Send `Event.Combat.BlockSuccessful` to both actors.
+2. If stamina damage ≥ current Stamina → **Guard Break**: stamina zeroed, `Event.Combat.GuardBreak` sent to both actors.
+3. Otherwise subtract the stamina damage.
+
+### Shield Damage Scaling
+
+The Shield is **armor, not a second health bar**: it scales the damage reaching Health and pays for
+that protection out of its own pool, at a rate that guarantees it always breaks first.
+
+The algorithm, its invariants, the tuning constants and the balance tables are documented in
+**[ShieldDamageScaling.md](ShieldDamageScaling.md)**.
 
 ---
 
@@ -197,177 +270,106 @@ A **Shield Break** occurs if the incoming damage exceeds `CurrentShield × 2.0`,
 
 ```
 UGameplayAbility
-  └─ UMKHGameplayAbility          (adds InputTag)
-       └─ UMKHDamageAbility       (adds BaseDamage + DamageEffect + CaptureDamageEffectInfo)
-            └─ UProjectileAbility (adds projectile spawning)
+  └─ UMKHGameplayAbility            (input tags, montage, priority, queue hooks)
+       └─ UMKHDamageAbility         (attack data, combos, skill cooldowns, owning weapon)
+            ├─ UMKHMeleeAbility     (hit scans + DMT)
+            └─ UMKHProjectileAbility (projectile spawning)
 ```
 
 ### UMKHGameplayAbility
 
-**Location**: `Source/Makhia/Public/AbilitySystem/Abilities/MKHGameplayAbility.h`
+Base class for every ability. Key behaviors:
 
-The base class for all custom abilities. Its only addition is:
-
-```cpp
-UPROPERTY(EditDefaultsOnly, Category = "Custom Values | Input")
-FGameplayTag InputTag;
-```
-
-This tag is added to the ability spec's dynamic source tags on grant. When the player presses an input bound to this tag, `AbilityInputPressed` finds the matching spec and activates it.
+- **`InputTag`** (`EditDefaultsOnly`): added to the spec's dynamic source tags on grant; matched by `AbilityInputPressed`. Skills receive theirs dynamically via the grant payload.
+- **`ActivateAbility`**: binds input press/release tasks, **commits the ability and aborts on a failed commit** (cost/cooldown), adds the loose `PriorityTag` (locally controlled), plays `MontageToPlay` when set.
+- **`EndAbility`**: removes the priority tag and fires `Event::ActivateQueuedAbility` (before `Super`, guarded against double-firing) so buffered inputs resolve immediately; force-stops the montage on remote peers only when cancelled.
+- **`OnMakeAbilityCancellable`**: animation-notify driven early-cancel point — removes the priority tag and flushes the input queue.
+- **Blueprint hooks**: `OnAbilityActivatedAgain`, `OnAbilityReleased`, `OnAbilityRemoved`, `OnMontageStarted`, `OnMontageFinished`.
 
 ### UMKHDamageAbility
 
-**Location**: `Source/Makhia/Public/AbilitySystem/Abilities/MKHDamageAbility.h`
+- **`AttacksData`** (`TArray<FAttackData>`): per-strike damage percent, stamina damage, and status effects. Indexed by the combo hit counter.
+- **Combo system**: `Event.Animation.ContinueCombo.Start/End` notifies open/close the combo window; re-pressing the input inside the window triggers `OnComboTriggered(++ComboHitCounter)`, otherwise the ability ends.
+- **Skill cooldowns**: skills (`bIsSkillAbility`) apply a generic cooldown effect whose duration travels as the `Combat.Data.AbilityCooldownTime` set-by-caller and whose granted tags come from the rolled `CooldownTags`.
+- **`CaptureDamageEffectInfo`**: fills `FDamageEffectInfo` (base damage from weapon damage × attack percent, stamina damage, status effects, source/target ASC) consumed by `UMKHAbilitySystemLibrary::ApplyDamageEffect`.
+- **`OwningWeapon`**: resolved on activation (authority) through the controller's `UEquipmentManagerComponent`.
 
-Adds damage configuration:
+### UMKHMeleeAbility
 
-- `DamageEffect` — the `UGameplayEffect` subclass that carries the damage execution calculation.
-- `BaseDamage` — an `FScalableFloat` that scales with ability level.
-- `CaptureDamageEffectInfo(TargetActor, OutInfo)` — fills an `FDamageEffectInfo` struct with all data needed to apply damage (source ASC, target ASC, avatar actor, ability level, base damage, effect class).
+- **Hit scans**: `Event.Animation.HitScan.Start/End` notifies (bound authority-only) drive `AMKHWeaponBase::HitScanStart/End` with the captured damage info.
+- **DMT (Directional Movement Technique)**: `UMKHAbilityTask_ApplyDMT` is a ticking task that picks the best target in a radius/angle (score = alignment + proximity) and interpolates the character's rotation/position towards it during the attack. Re-triggered on every combo strike and by the `Event.Animation.ApplyDMT` notify. Note: it moves the character with `SetActorLocation` outside the CharacterMovementComponent — acceptable for short bursts, but a known source of server corrections under heavy latency.
 
-### UProjectileAbility
+### UMKHProjectileAbility
 
-**Location**: `Source/Makhia/Public/AbilitySystem/Abilities/ProjectileAbility.h`
-
-Spawns projectile actors. Key details:
-
-- **Instancing**: `InstancedPerActor` — each character gets its own ability instance.
-- **`OnGiveAbility`**: Loads projectile parameters from `UProjectileInfo` using the `ProjectileToSpawnTag`.
-- **`SpawnProjectile`** (BlueprintCallable): Spawns a `AMKHMKHProjectileBase` at the character's dynamic spawn point (obtained via `IMKHAbilitySystemInterface`), applies projectile parameters and damage info, then calls `FinishSpawning`.
+- `ProjectileToSpawnTag` (per grant, via payload) resolves `FProjectileParams` from `UProjectileInfo`.
+- `Event.Animation.SpawnProjectile` triggers `SpawnProjectile`, which deferred-spawns the `AMKHProjectileBase`, injects params + `FDamageEffectInfo`, and finishes spawning.
 
 ---
 
 ## Execution Calculations
 
+Execution calculations are **pure computation**: they read captures/set-by-callers, compute output modifiers, and annotate the effect context. All side effects (gameplay events, status effect application) live in `UMKHAttributeSet::PostGameplayEffectExecute`.
+
 ### ExecCalc_Damage
 
-**Location**: `Source/Makhia/Public/AbilitySystem/ExecCalc/ExecCalc_Damage.h`
-
-Handles damage calculation including critical hits:
-
-1. **Get Base Damage**: Read from `SetByCaller` using `MKHGameplayTags::Combat::Data_Damage`.
-2. **Capture Source Attributes**: `CritChance`, `CritDamageMod`.
-3. **Capture Target Attributes**: `Shield` (for context).
-4. **Critical Hit Roll**: Random 0–100 compared against `CritChance`. On crit: `Damage *= (1 + CritDamageMod)`.
-5. **Store Result**: Sets `bCriticalHit` on the `FMKHGameplayEffectContext` and outputs the final value to `IncomingDamage`.
-
-The actual health/shield split happens later in `UMKHAttributeSet::PostGameplayEffectExecute`.
+1. Early-out if the target is dead.
+2. **Block check** (`IsAttackBlocked`): target has `State.Movement.Blocking` and faces the attacker (2D dot product > 0) → the attack is blocked:
+   - Reads `Combat.Data.StaminaDamage` set-by-caller, reduces it by the defender weapon's block stability (`RefineStaminaDamage`), outputs to `IncomingStaminaDamage`.
+3. Otherwise (**health damage path**):
+   - Reads `Combat.Data.Damage` set-by-caller.
+   - **Dodge check**: target has `State.Movement.Dodging` → sets `bDodged` on the context and outputs the would-be damage (the attribute set skips application and only notifies).
+   - **Crit roll**: `RandRange(1,100) <= CritChance` → `Damage × (1 + CritDamageMod)`; result flagged on the context (`bCriticalHit`).
+   - Outputs to `IncomingDamage`.
 
 ### ExecCalc_DodgeCost
 
-**Location**: `Source/Makhia/Public/AbilitySystem/ExecCalc/ExecCalc_DodgeCost.h`
-
-Deducts stamina for dodge actions:
-
-1. **Capture Source Attributes**: `Stamina`, `MaxStamina`, `DodgeStaminaCost`.
-2. **Clamp**: Ensures non-negative values.
-3. **Calculate Actual Cost**: `ActualCost = Min(DodgeStaminaCost, CurrentStamina)` — if stamina is too low, consume whatever is left.
-4. **Output**: Subtracts `ActualCost` from `Stamina`.
+Captures `Stamina`, `MaxStamina`, `DodgeStaminaCost`; consumes `min(DodgeStaminaCost, Stamina)` so a low-stamina dodge drains whatever is left.
 
 ---
 
 ## Custom Effect Context
 
-**Struct**: `FMKHGameplayEffectContext` (inherits `FGameplayEffectContext`)  
+**Struct**: `FMKHGameplayEffectContext` (inherits `FGameplayEffectContext`)
 **Location**: `Source/Makhia/Public/AbilitySystem/MKHAbilityTypes.h`
 
 Extends the default effect context with:
 
-- `bCriticalHit` — set by `ExecCalc_Damage` and readable by UI or other systems.
-- **Network serialization**: Uses the 8th bit (bit 7) of the existing `RepBits` flags for the critical hit boolean.
-- **Duplication**: Properly copies the HitResult when duplicating contexts.
+- `bCriticalHit` — set by `ExecCalc_Damage`, replicated (bit 7 of `RepBits`), readable by UI.
+- `StatusEffects` (`TArray<FStatusEffectData>`) — on-hit effects set by `ApplyDamageEffect`, replicated (bit 8), applied by the attribute set after damage.
+- `bDodged` — server-only flag (intentionally **not** serialized): written by the ExecCalc and consumed by the attribute set in the same frame.
 
-### Global Allocation
-
-`UMKHAbilitySystemGlobals` overrides `AllocGameplayEffectContext` to return `FMKHGameplayEffectContext` instances instead of the default type. This ensures every effect in the game uses the extended context.
-
----
-
-## Gameplay Tags
-
-**Location**: `Source/Makhia/Public/AbilitySystem/MKHGameplayTags.h`
-
-Tags are declared using `UE_DECLARE_GAMEPLAY_TAG_EXTERN` and defined in the `.cpp` file. They are organized into namespaces:
-
-### Combat
-
-| Tag | String | Purpose |
-|---|---|---|
-| `Data_Damage` | `Combat.Data.Damage` | `SetByCaller` key for passing damage values |
-
-### State::Movement
-
-Each movement state has a corresponding tag added/removed by `UMovementState::EnterState`/`ExitState`:
-
-| Tag | String |
-|---|---|
-| `Idle` | `State.Movement.Idle` |
-| `Walking` | `State.Movement.Walking` |
-| `Sprinting` | `State.Movement.Sprinting` |
-| `CrouchingIdle` | `State.Movement.CrouchingIdle` |
-| `CrouchingMoving` | `State.Movement.CrouchingMoving` |
-| `Jumping` | `State.Movement.Jumping` |
-| `Falling` | `State.Movement.Falling` |
-| `LandingInPlace` | `State.Movement.LandingInPlace` |
-| `LandingMoving` | `State.Movement.LandingMoving` |
-| `Dodging` | `State.Movement.Dodging` |
-
-### State (General)
-
-| Tag | String | Purpose |
-|---|---|---|
-| `OutOfStamina` | `State.General.Stamina.Out` | Added when Stamina reaches 0, removed when fully regenerated |
-
-### Equipment
-
-| Tag | String | Purpose |
-|---|---|---|
-| `Category_Equipment` | `Item.Equipment` | General equipment category |
-| `Category_Weapon` | `Item.Equipment.Weapon` | Weapon category (child of Equipment) |
-| `Category_Consumable` | `Item.Consumable` | Consumable item category |
-| `ArmorSlot` | `Equipment.Slot.Armor` | Armor equipment slot |
-| `WeaponSlot` | `Equipment.Slot.Weapon` | Weapon equipment slot |
-| `ConsumableQuickSlot1–3` | `Equipment.Slot.QuickSlot.{First,Second,Third}` | Consumable quick slots |
-| `WeaponQuickSlot1–2` | `Equipment.Slot.QuickSlot.Weapon.{Primary,Secondary}` | Weapon quick slots |
-
-### Input
-
-| Tag | String | Purpose |
-|---|---|---|
-| `Ability` | `Input.Ability` | Filter for ability input actions |
-| `QuickSlot` | `Equipment.Slot.QuickSlot` | Filter for quick slot input actions |
+`UMKHAbilitySystemGlobals::AllocGameplayEffectContext` returns this type for every effect in the game (configured via `AbilitySystemGlobalsClassName`).
 
 ---
 
 ## Damage Pipeline
 
-The complete damage flow from ability activation to health reduction:
-
 ```
-1. Ability activates (e.g., UProjectileAbility::SpawnProjectile)
+1. Ability activates (UMKHMeleeAbility hit scan / UMKHProjectileAbility hit)
        │
 2. CaptureDamageEffectInfo() fills FDamageEffectInfo
        │
 3. UMKHAbilitySystemLibrary::ApplyDamageEffect()
        ├─ Creates effect context with source actor
+       ├─ Stores AdditionalStatusEffects in the FMKHGameplayEffectContext
        ├─ Creates outgoing spec from DamageEffect class
-       ├─ Sets BaseDamage via SetByCaller (Combat.Data.Damage tag)
+       ├─ SetByCaller: Combat.Data.Damage + Combat.Data.StaminaDamage
        └─ Applies spec to target ASC
               │
-4. ExecCalc_Damage::Execute_Implementation()
-       ├─ Reads BaseDamage from SetByCaller
-       ├─ Captures CritChance and CritDamageMod from source
-       ├─ Rolls for critical hit
-       ├─ Applies crit multiplier: Damage *= (1 + CritDamageMod)
-       ├─ Stores bCriticalHit in FMKHGameplayEffectContext
-       └─ Outputs result to IncomingDamage attribute
+4. ExecCalc_Damage (pure computation)
+       ├─ Target dead?      → no output
+       ├─ Blocked (facing)? → IncomingStaminaDamage (reduced by block stability)
+       ├─ Dodged?           → context.bDodged, IncomingDamage (skipped later)
+       └─ Else crit roll    → context.bCriticalHit, IncomingDamage
               │
-5. UMKHAttributeSet::PostGameplayEffectExecute()
-       └─ HandleIncomingDamage()
-              ├─ Calculates shield absorption rate
-              ├─ Checks for shield break condition
-              ├─ Applies absorbed portion to Shield
-              └─ Applies remaining damage to Health
+5. UMKHAttributeSet::PostGameplayEffectExecute (server-side effects)
+       ├─ HandleIncomingStaminaDamage: BlockSuccessful → stamina loss / GuardBreak
+       └─ HandleIncomingDamage:
+            ├─ bDodged → AttackDodged events, no damage
+            ├─ Shield break / mitigation → Shield & Health reduction
+            ├─ HitReceived / HitInflicted events
+            ├─ Status effects from context (Data.StatusEffectDuration set-by-caller)
+            └─ Health ≤ 0 → Event.Combat.Death (authority, once, any avatar type)
 ```
 
 ---
@@ -379,65 +381,104 @@ Equipment items can grant both passive stat effects and active abilities through
 ### Equipping Flow
 
 ```
-UEquipmentManagerComponent::EquipItem(InventoryItem)
-  └─ BuildEquipmentEntry()
-       ├─ Rolls rarity via EquipmentRollLibrary::RollRarity()
-       ├─ Rolls stat effects via EquipmentRollLibrary::RollPassiveStats()
-       └─ Rolls abilities via EquipmentRollLibrary::RollActiveAbilities()
-  └─ FMKHEquipmentList::AddEntry()
-       ├─ Creates UEquipmentInstance
-       ├─ ASC->AddEquipmentEffects()     (applies GE stat modifiers)
-       ├─ ASC->AddEquipmentAbility()     (grants abilities)
-       └─ Instance->SpawnEquipmentActors()
+UInventoryComponent::UseItem (server)
+  └─ EquipmentItemUsedDelegate → UEquipmentManagerComponent::EquipItem
+       └─ FRPGEquipmentList::AddEntry
+            ├─ Creates UEquipmentInstance
+            ├─ ASC->AddEquipmentEffects()   (GE stat modifiers, async-load aware)
+            ├─ ASC->AddEquipmentAbility()   (abilities via GrantEquipmentAbility + payload)
+            └─ Instance->SpawnEquipmentActors()
 ```
+
+Rarity, passive stats, and active abilities are rolled at **inventory add time** (`FRPGInventoryList::RollEquipmentEntry` via `UEquipmentRollLibrary`), where skills also receive their dynamic input tags (`UMKHAbilitySystemLibrary::AssignDynamicSkillInputTag` → `Input.Ability.Attacks.Skill.First/Second/Third`).
 
 ### Effect Handles
 
-`FEquipmentGrantedHandles` tracks both granted ability spec handles and active effect handles, enabling clean removal when the equipment is unequipped:
-
-```cpp
-struct FEquipmentGrantedHandles
-{
-    TArray<FGameplayAbilitySpecHandle> GrantedAbilities;
-    TArray<FActiveGameplayEffectHandle> ActiveEffects;
-};
-```
+`FEquipmentGrantedHandles` tracks granted ability spec handles and active effect handles per entry, enabling clean removal on unequip.
 
 ### Async Loading
 
-Both `AddEquipmentEffects` and `AddEquipmentAbility` support soft class pointers (`TSoftClassPtr`) with asynchronous loading via `FStreamableManager::RequestAsyncLoad`. This prevents hitches when loading gameplay effects or ability classes that have not been loaded yet.
+Both `AddEquipmentEffects` and `AddEquipmentAbility` support soft class pointers with asynchronous loading via `FStreamableManager::RequestAsyncLoad`; quick-slotted weapons are preloaded (`UInventoryComponent::PreloadItem`) so swaps don't hitch.
 
 ---
 
-## Input Binding
+## Gameplay Tags
 
-Abilities are activated through a tag-based input system using Enhanced Input.
+**Location**: `Source/Makhia/Public/AbilitySystem/MKHGameplayTags.h` (declared) / `.cpp` (defined). Organized in namespaces:
 
-### Configuration
+### Combat
 
-`UMKHInputConfig` is a data asset that maps `UInputAction` assets to `FGameplayTag` values:
+| Tag | String |
+|---|---|
+| `Data_Damage` | `Combat.Data.Damage` |
+| `Data_StaminaDamage` | `Combat.Data.StaminaDamage` |
+| `Data_StatusEffectDuration` | `Combat.Data.StatusEffectDuration` |
+| `Data_AbilityCooldownTime` | `Combat.Data.AbilityCooldownTime` |
+| `InputBufferWindow` | `Combat.InputBufferWindow` |
 
-```cpp
-USTRUCT()
-struct FMKHInputAction
-{
-    TObjectPtr<UInputAction> InputAction;
-    FGameplayTag InputTag;
-};
-```
+### State::Movement
 
-### Binding
+`Idle`, `Walking`, `Sprinting`, `CrouchingIdle`, `CrouchingMoving`, `Jumping`, `Falling`, `LandingInPlace`, `LandingMoving`, `Dodging`, `Blocking`, `Attacking`, `Dead` — all under `State.Movement.*`, synced by the movement state machine and consumed by ability activation and the damage pipeline.
 
-`UMKHSystemInputComponent` (inherits `UEnhancedInputComponent`) provides a template method `BindAbilityActions` that:
+### State (General)
 
-1. Iterates all actions in an `UMKHInputConfig`.
-2. Filters by a parent tag (e.g., `Input.Ability`).
-3. Binds `ETriggerEvent::Started` → `AbilityInputPressed(Tag)`.
-4. Binds `ETriggerEvent::Completed` → `AbilityInputReleased(Tag)`.
+| Tag | String |
+|---|---|
+| `OutOfStamina` | `State.General.Stamina.Out` |
+| `Stunned` | `State.Combat.CC.Stunned` |
+| `Staggered` | `State.Combat.CC.Staggered` |
+| `QuickSlotUse` | `State.General.QuickSlot.Use` |
 
-### Activation
+### Equip
 
-When a bound input fires, `UMKHAbilitySystemComponent::AbilityInputPressed` scans all activatable abilities for one whose dynamic source tags include the pressed `InputTag`, then calls `TryActivateAbility`.
+| Tag | String |
+|---|---|
+| `Category_Equipment` / `Category_Weapon` / `Category_Consumable` | `Item.Equipment`, `Item.Equipment.Weapon`, `Item.Consumable` |
+| `ArmorSlot` / `WeaponSlot` | `Equipment.Slot.Armor`, `Equipment.Slot.Weapon` |
+| `ConsumableQuickSlot1–3` | `Input.Ability.QuickSlot.Consumable.{First,Second,Third}` |
+| `WeaponQuickSlot1–2` | `Input.Ability.QuickSlot.Weapon.{Primary,Secondary}` |
+
+Note: quick-slot tags live under the `Input.Ability.QuickSlot` hierarchy so they double as input tags.
+
+### Input
+
+| Tag | String |
+|---|---|
+| `Ability` | `Input.Ability` |
+| `QuickSlot` | `Input.Ability.QuickSlot` |
+| `WeaponQuickSlotCategory` / `ConsumableQuickSlotCategory` | `Input.Ability.QuickSlot.Weapon` / `.Consumable` |
+| `SheatheWeapon` | `Input.Ability.SheatheWeapon` |
+| `Attacks` | `Input.Ability.Attacks` |
+| `Dodge` | `Input.Ability.Attacks.Dodge` |
+| `Block` | `Input.Ability.Attacks.Basics.Block` |
+| `Skill` / `SkillSlot1–3` | `Input.Ability.Attacks.Skill{,.First,.Second,.Third}` |
+| `Inventory` | `Input.Inventory` |
+
+### Event
+
+| Tag | String |
+|---|---|
+| `Death` | `Event.Combat.Death` |
+| `HitScanStart` / `HitScanEnd` | `Event.Animation.HitScan.Start/End` |
+| `ContinueComboStart` / `ContinueComboEnd` | `Event.Animation.ContinueCombo.Start/End` |
+| `ApplyDMT` | `Event.Animation.ApplyDMT` |
+| `SpawnProjectile` | `Event.Animation.SpawnProjectile` |
+| `MakeAbilityCancellable` | `Event.Animation.MakeAbilityCancellable` |
+| `UseQuickSlot` | `Event.QuickSlot.Use` |
+| `BlockSuccessful` / `GuardBreak` | `Event.Combat.BlockSuccessful` / `.GuardBreak` |
+| `AttackDodged` | `Event.Combat.AttackDodged` |
+| `HitInflicted` / `HitReceived` | `Event.Combat.HitInflicted` / `.HitReceived` |
+| `ActivateQueuedAbility` | `Event.Combat.ActivateQueuedAbility` |
+
+### Ability
+
+| Tag | String |
+|---|---|
+| `All` | `GameplayAbility` (asset tag on every ability; also in `CancelAbilitiesWithTag`) |
+| `AbilityActive` / `Attacking` | `GameplayAbility.Active` / `.Active.Attack` |
+| `Priority1` / `Priority2` | `GameplayAbility.Active.Priority.First/Second` |
+| `Type_Attacks` (+ `Basic`, `Basic.Heavy`, `Basic.Light`, `Skill`) | `GameplayAbility.Type.Attacks.*` |
+| `Type_Block` | `GameplayAbility.Type.Block` |
 
 ---
 
@@ -445,46 +486,19 @@ When a bound input fires, `UMKHAbilitySystemComponent::AbilityInputPressed` scan
 
 ### UCharacterClassInfo
 
-**Location**: `Source/Makhia/Public/Data/CharacterClassInfo.h`
-
-A `UDataAsset` that maps `FGameplayTag` character class identifiers to their default configuration:
-
-```cpp
-USTRUCT()
-struct FCharacterClassDefaultInfo
-{
-    TSubclassOf<UGameplayEffect> DefaultAttributes;     // Initial attribute values
-    TArray<TSubclassOf<UGameplayAbility>> StartingAbilities;  // Active abilities
-    TArray<TSubclassOf<UGameplayAbility>> StartingPassives;   // Passive abilities
-};
-
-UCLASS()
-class UCharacterClassInfo : public UDataAsset
-{
-    TMap<FGameplayTag, FCharacterClassDefaultInfo> ClassDefaultInfoMap;
-};
-```
-
-Stored on `AMKHGameMode` and accessed via `UMKHAbilitySystemLibrary::GetCharacterClassDefaultInfo`.
+Maps `FGameplayTag` character class identifiers to default attributes and starting (passive) abilities. Stored on `AMKHGameMode`, accessed via `UMKHAbilitySystemLibrary::GetCharacterClassDefaultInfo`.
 
 ### UProjectileInfo
 
-**Location**: `Source/Makhia/Public/Data/ProjectileInfo.h`
+Maps `FGameplayTag` → `FProjectileParams` (projectile class, mesh, speed, gravity, bounce). Stored on `AMKHGameMode`, accessed via `UMKHAbilitySystemLibrary::GetProjectileInfo`.
 
-Maps `FGameplayTag` to `FProjectileParams`:
+### UGenericClassReference
 
-```cpp
-UCLASS()
-class UProjectileInfo : public UDataAsset
-{
-    TMap<FGameplayTag, FProjectileParams> ProjectileInfoMap;
-};
-```
+Maps well-known `FName` keys to Blueprint classes that native code must reference without hard dependencies. The canonical keys are named constants on the class — never spell them inline:
 
-`FProjectileParams` defines:
-- `ProjectileClass` — the actor class to spawn.
-- `ProjectileMesh` — the static mesh for the projectile.
-- `InitialSpeed`, `GravityScale` — physics configuration.
-- `bShouldBounce`, `Bounciness` — bounce behaviour.
+| Constant | Key | Used by |
+|---|---|---|
+| `UGenericClassReference::DamageEffectKey` | `GE_Damage` | `UMKHDamageAbility::AssignBPClasses` |
+| `UGenericClassReference::SkillCooldownEffectKey` | `GE_GenericSkillCooldown` | `UMKHDamageAbility::AssignBPClasses` |
 
-
+Use the typed accessor `GetGameplayEffectByName` for gameplay effect classes.

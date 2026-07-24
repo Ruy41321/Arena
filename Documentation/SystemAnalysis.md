@@ -72,8 +72,8 @@ ACharacter (Engine)
 See [GASArchitecture.md](GASArchitecture.md) for full details. Key points:
 
 - **Attribute set**: Health, MaxHealth, Shield, MaxShield, Stamina, MaxStamina, DodgeStaminaCost, CritChance, CritDamageMod, IncomingDamage (meta).
-- **Damage pipeline**: Ability → `FDamageEffectInfo` → `ApplyDamageEffect` → `ExecCalc_Damage` (with crit roll) → `IncomingDamage` → `PostGameplayEffectExecute` → shield absorption → Health reduction.
-- **Shield absorption**: Hybrid linear/exponential model with shield-break mechanic.
+- **Damage pipeline**: Ability → `FDamageEffectInfo` → `ApplyDamageEffect` → `ExecCalc_Damage` (with crit roll) → `IncomingDamage` → `PostGameplayEffectExecute` → Shield/Health split → Health reduction.
+- **Shield damage scaling**: armor model with a shield-break mechanic — see [ShieldDamageScaling.md](ShieldDamageScaling.md).
 - **Custom effect context**: `FMKHGameplayEffectContext` with serialised `bCriticalHit` flag.
 - **Global override**: `UMKHAbilitySystemGlobals` ensures all effects use the custom context.
 

@@ -32,6 +32,16 @@ public:
 	static const FRarityDefinition* RollRarity(const UDataTable* RarityTable);
 
 	/**
+	 * Finds the rarity row matching the given rarity tag.
+	 * Used when an item has a pre-defined rarity and the roll must be skipped.
+	 *
+	 * @param RarityTable The rarity DataTable to search.
+	 * @param RarityTag   The rarity tag to match against each row's RarityTag.
+	 * @return The matching FRarityDefinition pointer, or nullptr if not found.
+	 */
+	static const FRarityDefinition* GetRarityByTag(const UDataTable* RarityTable, const FGameplayTag& RarityTag);
+
+	/**
 	 * Rolls passive stat effects for an equipment item.
 	 * @param EquipmentCDO  The equipment CDO whose PossibleStatRolls define the candidate pool.
 	 * @param StatData      The master stat data asset containing DataTables per tag category.

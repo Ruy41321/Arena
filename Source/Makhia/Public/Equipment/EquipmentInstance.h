@@ -26,7 +26,7 @@ public:
 	virtual void OnUnEquipped();
 
 	/** Spawns and attaches all actor specs defined by the equipment definition. */
-	void SpawnEquipmentActors(const TArray<FEquipmentActorToSpawn>& ActorsToSpawn, float WeaponDamage);
+	void SpawnEquipmentActors(const TArray<FEquipmentActorToSpawn>& ActorsToSpawn, float WeaponDamage, float BlockStabilityPercent);
 	/** Destroys all actors spawned by this instance and clears runtime references. */
 	void DestroySpawnedActors();
 
@@ -35,13 +35,13 @@ public:
 	
 private:
 	/** Spawns one actor from a spec and stores it if creation succeeds. */
-	void SpawnActorFromSpecification(const FEquipmentActorToSpawn& ActorToSpawn, ACharacter* OwningCharacter, float WeaponDamage);
+	void SpawnActorFromSpecification(const FEquipmentActorToSpawn& ActorToSpawn, ACharacter* OwningCharacter, float WeaponDamage, float BlockStabilityPercent);
 	/** Requests asynchronous class loading, then spawns the actor when loading completes. */
-	void RequestAsyncSpawn(const FEquipmentActorToSpawn& ActorToSpawn, ACharacter* OwningCharacter, float WeaponDamage);
+	void RequestAsyncSpawn(const FEquipmentActorToSpawn& ActorToSpawn, ACharacter* OwningCharacter, float WeaponDamage, float BlockStabilityPercent);
 	/** Finalizes deferred actor spawn, attachment, and optional weapon damage initialization. */
-	void FinalizeSpawnedActor(AEquipmentActor* SpawnedActor, ACharacter* OwningCharacter, const FName& AttachName, float WeaponDamage) const;
+	void FinalizeSpawnedActor(AEquipmentActor* SpawnedActor, ACharacter* OwningCharacter, const FName& AttachName, float WeaponDamage, float BlockStabilityPercent) const;
 	/** Applies weapon damage only when the spawned actor is a weapon actor type. */
-	static void ApplyWeaponDamageIfWeapon(AEquipmentActor* SpawnedActor, float WeaponDamage);
+	static void ApplyWeaponDamageIfWeapon(AEquipmentActor* SpawnedActor, float WeaponDamage, float BlockStabilityPercent);
 	/** Returns the owning character resolved from this object's outer hierarchy. */
 	ACharacter* GetCharacter() const;
 	

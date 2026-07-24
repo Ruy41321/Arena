@@ -32,7 +32,7 @@ public:
 	void SprintPressed(const FInputActionValue& Value, const bool bOverrideSprint = false, const bool bValueToOverride = false);
 
 	UFUNCTION(Server, Reliable)
-	void ServerSprintPressed(const FInputActionValue& Value, const bool bOverrideSprint, const bool bValueToOverride);
+	void ServerSprintPressed(bool bSprintValue);
 
 	/** Returns true if character is currently sprinting */
 	UFUNCTION(BlueprintPure, Category = "Sprint System", meta = (ToolTip = "Check if character is sprinting"))
@@ -73,6 +73,11 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Sprint System", 
 		meta = (ToolTip = "True if sprint is interrupted"))
 	bool bSprintInterrupted = true;
+	
+	/** Indicates if the sprint should be activated by default. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Sprint System",
+		meta = (ToolTip = "True if character should sprint as default"))
+	bool bSprintAsDefault = false;
 
 private:
 	/** Cached MKHPlayerCharacter reference */

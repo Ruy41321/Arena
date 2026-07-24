@@ -13,9 +13,6 @@ UCLASS()
 class MAKHIA_API UMKHPlayerAnimInstance : public UAnimInstance
 {
 	GENERATED_BODY()
-
-public:
-	FString GetCurrentStateMachineName();
 	
 protected:
     virtual void NativeBeginPlay() override;
@@ -30,17 +27,24 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Default")
 	class AMKHPlayerCharacter* MKHPlayerCharacter;
 
-	// Locomotion properties for Blend Space
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Locomotion")
-	float Speed;
-
+	// Locomotion properties for Blend Space, indicates the current horizontal velocity
+	UPROPERTY(BlueprintReadOnly, Category = "Locomotion")
+	float CurrentSpeed;
+	
+	UPROPERTY(BlueprintReadOnly, Category = "Locomotion")
+	float Direction = 0.0f;
+	
+	// Property to indicates whenever the character is holding a weapon to switch locomotion blendspace
+	UPROPERTY(BlueprintReadOnly, Category = "Locomotion")
+	bool bIsHoldingWeapon = false; 
+	
 	// Movement State Machine properties - now updated via observer pattern
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement State Machine")
 	EMovementStateValue CurrentMovementState;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement State Machine")
 	EMovementStateValue PreviousMovementState;
-
+	
 	// Crouching properties
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Default")
 	float CrouchingRate = 1000.0f; // Rate at which the player crouches, can be adjusted in the editor
@@ -71,4 +75,5 @@ private:
 
 	/** Helper function to unsubscribe from movement state changes */
 	void UnsubscribeFromMovementStateChanges();
+	
 };

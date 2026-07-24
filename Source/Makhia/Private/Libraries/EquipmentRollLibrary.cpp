@@ -79,6 +79,27 @@ const FRarityDefinition* UEquipmentRollLibrary::RollRarity(const UDataTable* Rar
 	return Rows.Last();
 }
 
+const FRarityDefinition* UEquipmentRollLibrary::GetRarityByTag(const UDataTable* RarityTable, const FGameplayTag& RarityTag)
+{
+	if (!RarityTable || !RarityTag.IsValid())
+	{
+		return nullptr;
+	}
+
+	TArray<FRarityDefinition*> Rows;
+	RarityTable->GetAllRows<FRarityDefinition>(TEXT("GetRarityByTag"), Rows);
+
+	for (const FRarityDefinition* Row : Rows)
+	{
+		if (Row && Row->RarityTag.MatchesTagExact(RarityTag))
+		{
+			return Row;
+		}
+	}
+
+	return nullptr;
+}
+
 TArray<FEquipmentStatEffectDefinition> UEquipmentRollLibrary::RollPassiveStats(
 	const UEquipmentDefinition* EquipmentCDO,
 	const UEquipmentStatEffects* StatData,

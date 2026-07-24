@@ -5,6 +5,7 @@
 #include "Components/SphereComponent.h"
 #include "AbilitySystem/MKHAbilityTypes.h"
 #include "AbilitySystemGlobals.h"
+#include "Components/StaticMeshComponent.h"
 #include "Libraries/MKHAbilitySystemLibrary.h"
 #include "GameFramework/ProjectileMovementComponent.h"
 

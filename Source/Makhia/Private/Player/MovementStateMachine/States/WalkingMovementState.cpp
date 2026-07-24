@@ -6,6 +6,8 @@
 #include "Player/Components/Sprint/SprintSystemComponent.h"
 #include "Player/MKHPlayerCharacter.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "AbilitySystemComponent.h"
+#include "AbilitySystem/MKHGameplayTags.h"
 
 UWalkingMovementState::UWalkingMovementState()
 {
@@ -16,6 +18,15 @@ EMovementStateValue UWalkingMovementState::GetDesiredTransition_Implementation()
 	AMKHPlayerCharacter* Player = GetPlayerCharacter();
 	if (!Player || !Player->GetCharacterMovement())
 		return EMovementStateValue::None;
+
+	// Check for attacking
+	if (UAbilitySystemComponent* ASC = Player->GetAbilitySystemComponent())
+	{
+		if (ASC->HasMatchingGameplayTag(MKHGameplayTags::Ability::Attacking))
+		{
+			return EMovementStateValue::Attacking;
+		}
+	}
 
 	// Check for falling first
 	if (Player->GetCharacterMovement()->IsFalling())

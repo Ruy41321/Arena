@@ -91,7 +91,23 @@ public:
 	/** Returns the assigned quick slot tag, if any. */
 	UFUNCTION(BlueprintPure, Category = "Inventory|Item")
 	FGameplayTag GetQuickSlotTag() const { return QuickSlotTag; }
-	
+
+	/** Returns the consumable cooldown duration in seconds (0 when not a consumable). */
+	UFUNCTION(BlueprintPure, Category = "Inventory|Item")
+	float GetConsumableCooldownTime() const { return ConsumableCooldownTime; }
+
+	/** Sets the consumable cooldown duration in seconds. */
+	UFUNCTION(BlueprintCallable, Category = "Inventory|Item")
+	void SetConsumableCooldownTime(float InCooldownTime) { ConsumableCooldownTime = InCooldownTime; }
+
+	/** Returns the cooldown gameplay tag applied when this consumable is used. */
+	UFUNCTION(BlueprintPure, Category = "Inventory|Item")
+	FGameplayTag GetConsumableCooldownTag() const { return ConsumableCooldownTag; }
+
+	/** Sets the cooldown gameplay tag applied when this consumable is used. */
+	UFUNCTION(BlueprintCallable, Category = "Inventory|Item")
+	void SetConsumableCooldownTag(const FGameplayTag& InCooldownTag) { ConsumableCooldownTag = InCooldownTag; }
+
 	// -----------------------------------------------------------------------
 	// ItemDefinition-derived getters (cached on init)
 	// -----------------------------------------------------------------------
@@ -173,6 +189,14 @@ private:
 	/** Cached from ItemDefinition on init. */
 	UPROPERTY(BlueprintReadOnly, Category = "Inventory|Item", meta = (AllowPrivateAccess = "true"))
 	FText Description = FText();
+
+	/** Cooldown duration (seconds) for consumable use. Only set when created from an inventory entry. */
+	UPROPERTY(BlueprintReadOnly, Category = "Inventory|Item", meta = (AllowPrivateAccess = "true"))
+	float ConsumableCooldownTime = 0.f;
+
+	/** Cooldown gameplay tag for consumable use. Only set when created from an inventory entry. */
+	UPROPERTY(BlueprintReadOnly, Category = "Inventory|Item", meta = (AllowPrivateAccess = "true"))
+	FGameplayTag ConsumableCooldownTag = FGameplayTag();
 
 	/** Copies all serializable fields from another inventory item without broadcasting delegates. */
 	void CopyCoreDataFrom(const UInventoryItem& Other);

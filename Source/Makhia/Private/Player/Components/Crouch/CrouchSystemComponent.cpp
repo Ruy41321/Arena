@@ -12,6 +12,8 @@
 #include "CollisionQueryParams.h"
 #include "EnhancedInputComponent.h"
 #include "Net/UnrealNetwork.h"
+#include "AbilitySystemComponent.h"
+#include "AbilitySystem/MKHGameplayTags.h"
 
 UCrouchSystemComponent::UCrouchSystemComponent()
 {
@@ -99,6 +101,10 @@ void UCrouchSystemComponent::CrouchPressed(const FInputActionValue& Value)
 	if (!MKHPlayerCharacter)
 		return;
 
+	// Crowd-control states (Stunned / Staggered) must suppress any movement action.
+	if (IsCrowdControlled(MKHPlayerCharacter))
+		return;
+
 	// Don't allow crouch changes during dodge (not using the state check because its called right after the dodge and the state could be still not updated)
 	if (MKHPlayerCharacter->DodgeSystem && MKHPlayerCharacter->DodgeSystem->IsDodging())
 		return;
@@ -124,7 +130,8 @@ void UCrouchSystemComponent::Crouch()
 	{
 		EMovementStateValue CurrentState = MKHPlayerCharacter->GetMovementStateMachine()->GetCurrentState();
 
-		if (CurrentState == EMovementStateValue::Falling || CurrentState == EMovementStateValue::Jumping)
+		if (CurrentState == EMovementStateValue::Falling || CurrentState == EMovementStateValue::Jumping || CurrentState == EMovementStateValue::Blocking
+			|| CurrentState == EMovementStateValue::Dead || CurrentState == EMovementStateValue::Attacking)
 			return;
 	}
 	
@@ -162,6 +169,18 @@ void UCrouchSystemComponent::UnCrouch()
 void UCrouchSystemComponent::ServerUnCrouch_Implementation()
 {
 	this->UnCrouch();
+}
+
+void UCrouchSystemComponent::ForceUncrouch()
+{
+	if (!bIsCrouched)
+		return;
+
+	// Respect headroom so a forced uncrouch never pushes the capsule into geometry.
+	if (!CanUncrouchSafely())
+		return;
+
+	UnCrouch();
 }
 
 bool UCrouchSystemComponent::CanUncrouchSafely() const
@@ -219,6 +238,26 @@ bool UCrouchSystemComponent::CanUncrouchSafely() const
 	);
 	
 	return !bHasOverlap;
+}
+
+bool UCrouchSystemComponent::IsCrowdControlled(const AMKHPlayerCharacter* PlayerCharacter) const
+{
+	if (!IsValid(PlayerCharacter))
+		return false;
+
+	const UAbilitySystemComponent* ASC = PlayerCharacter->GetAbilitySystemComponent();
+	if (!IsValid(ASC))
+		return false;
+
+	// Actions are blocked while the character is under any crowd-control effect.
+	static FGameplayTagContainer CrowdControlTags;
+	if (CrowdControlTags.IsEmpty())
+	{
+		CrowdControlTags.AddTag(MKHGameplayTags::State::Stunned);
+		CrowdControlTags.AddTag(MKHGameplayTags::State::Staggered);
+	}
+
+	return ASC->HasAnyMatchingGameplayTags(CrowdControlTags);
 }
 
 AMKHPlayerCharacter* UCrouchSystemComponent::GetValidPlayerCharacter() const

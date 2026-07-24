@@ -43,6 +43,14 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Crouch System", meta = (ToolTip = "Stops crouch"))
 	void UnCrouch();
 
+	/**
+	 * Forces the character out of crouch regardless of input, used when an external
+	 * system (e.g. a Stun/Stagger crowd-control effect) must cancel the crouch state.
+	 * The uncrouch is still gated by CanUncrouchSafely() to avoid clipping into geometry.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Crouch System", meta = (ToolTip = "Forces uncrouch, bypassing input toggle"))
+	void ForceUncrouch();
+
 	/** Server RPC for uncrouch */
 	UFUNCTION(Server, Reliable)
 	void ServerUnCrouch();
@@ -93,6 +101,15 @@ public:
 
 	/** Gets valid MKHPlayerCharacter with fallback */
 	AMKHPlayerCharacter* GetValidPlayerCharacter() const;
+
+	/**
+	 * Checks whether the character is currently under a crowd-control effect
+	 * (Stunned or Staggered) that must suppress movement actions such as crouching.
+	 *
+	 * @param PlayerCharacter  The owning player character to query.
+	 * @return True if a crowd-control tag is active on the character's ability system.
+	 */
+	bool IsCrowdControlled(const AMKHPlayerCharacter* PlayerCharacter) const;
 
 private:
 

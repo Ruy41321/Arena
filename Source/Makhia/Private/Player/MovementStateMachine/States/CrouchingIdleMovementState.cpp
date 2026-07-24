@@ -5,6 +5,9 @@
 #include "Player/Components/Crouch/CrouchSystemComponent.h"
 #include "Player/MKHPlayerCharacter.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Player/Components/Blocking/BlockingSystemComponent.h"
+#include "AbilitySystemComponent.h"
+#include "AbilitySystem/MKHGameplayTags.h"
 
 UCrouchingIdleMovementState::UCrouchingIdleMovementState()
 {
@@ -15,6 +18,15 @@ EMovementStateValue UCrouchingIdleMovementState::GetDesiredTransition_Implementa
 	AMKHPlayerCharacter* Player = GetPlayerCharacter();
 	if (!Player || !Player->GetCharacterMovement())
 		return EMovementStateValue::None;
+
+	// Check for attacking
+	if (UAbilitySystemComponent* ASC = Player->GetAbilitySystemComponent())
+	{
+		if (ASC->HasMatchingGameplayTag(MKHGameplayTags::Ability::Attacking))
+		{
+			return EMovementStateValue::Attacking;
+		}
+	}
 
 	// Check for dodging - high priority
 	if (Player->DodgeSystem && Player->DodgeSystem->IsDodging())
@@ -30,6 +42,13 @@ EMovementStateValue UCrouchingIdleMovementState::GetDesiredTransition_Implementa
 			return EMovementStateValue::Falling;
 	}
 
+	// Check if willing to block but didnt because it was not safe to uncrouch
+	if (Player->BlockingSystem && Player->BlockingSystem->IsBlocking() && 
+		Player->CrouchSystem && Player->CrouchSystem->CanUncrouchSafely())
+	{
+		return EMovementStateValue::Blocking;
+	}
+	
 	// Check if no longer crouching
 	if (!Player->CrouchSystem || !Player->CrouchSystem->IsCrouched())
 	{

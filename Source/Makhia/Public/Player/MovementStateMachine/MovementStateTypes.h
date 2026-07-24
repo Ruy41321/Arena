@@ -22,7 +22,10 @@ enum class EMovementStateValue : uint8
 	Falling				UMETA(DisplayName = "Falling"),
 	LandingInPlace		UMETA(DisplayName = "Landing In Place"),
 	LandingMoving		UMETA(DisplayName = "Landing Moving"),
-	Dodging				UMETA(DisplayName = "Dodging")
+	Dodging				UMETA(DisplayName = "Dodging"),
+	Blocking			UMETA(DisplayName = "Blocking"),
+	Attacking			UMETA(DisplayName = "Attacking"),
+	Dead				UMETA(DisplayName = "Dead")
 };
 
 /**

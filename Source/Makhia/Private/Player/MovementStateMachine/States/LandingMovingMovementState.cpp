@@ -6,6 +6,9 @@
 #include "Player/Components/Crouch/CrouchSystemComponent.h"
 #include "Player/MKHPlayerCharacter.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Player/Components/Blocking/BlockingSystemComponent.h"
+#include "AbilitySystemComponent.h"
+#include "AbilitySystem/MKHGameplayTags.h"
 
 ULandingMovingMovementState::ULandingMovingMovementState()
 {
@@ -17,10 +20,26 @@ EMovementStateValue ULandingMovingMovementState::GetDesiredTransition_Implementa
 	if (!Player || !Player->GetCharacterMovement())
 		return EMovementStateValue::None;
 
+	// Check for attacking
+	if (UAbilitySystemComponent* ASC = Player->GetAbilitySystemComponent())
+	{
+		if (ASC->HasMatchingGameplayTag(MKHGameplayTags::Ability::Attacking))
+		{
+			return EMovementStateValue::Attacking;
+		}
+	}
+
 	// Check if landing state is finished
 	if (!Player->JumpSystem || !Player->JumpSystem->IsLanding())
 	{
 		// Landing finished - transition based on current conditions
+		
+		// Enter block state on state ending if the player was willing to block during this state
+		if (Player->BlockingSystem && Player->BlockingSystem->IsBlocking())
+		{
+			return EMovementStateValue::Blocking;
+		}
+		
 		if (Player->CrouchSystem && Player->CrouchSystem->IsCrouched())
 			return EMovementStateValue::CrouchingMoving; // Landing while moving goes to crouching moving
 		
@@ -45,26 +64,5 @@ EMovementStateValue ULandingMovingMovementState::GetDesiredTransition_Implementa
 
 bool ULandingMovingMovementState::CanTransitionTo_Implementation(EMovementStateValue NewState) const
 {
-	// Landing while moving can transition to movement states
-	switch (NewState)
-	{
-	case EMovementStateValue::Walking:
-	case EMovementStateValue::Sprinting:
-	case EMovementStateValue::CrouchingMoving:
-		// Primary transitions after landing while moving
-		return true;
-	case EMovementStateValue::Idle:
-	case EMovementStateValue::CrouchingIdle:
-		// Can transition to stationary states
-		return true;
-	case EMovementStateValue::Dodging:
-		// Can dodge during landing
-		return true;
-	case EMovementStateValue::Jumping:
-	case EMovementStateValue::Falling:
-		// Can re-enter air states
-		return true;
-	default:
-		return Super::CanTransitionTo_Implementation(NewState);
-	}
+	return Super::CanTransitionTo_Implementation(NewState);
 }

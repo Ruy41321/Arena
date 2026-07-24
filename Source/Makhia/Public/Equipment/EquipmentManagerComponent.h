@@ -195,6 +195,10 @@ public:
 	
 	/** Returns the equipment entry associated with the slot, if any. */
 	FRPGEquipmentEntry* GetEquipmentEntryBySlot(const FGameplayTag& SlotTag) const;
+	
+	/** Hide or Show the Spawned Actor by the weapon Instance. */
+	UFUNCTION(BlueprintCallable)
+	void HideEquippedWeaponMesh(const bool bHide = true) const;
 
 private:
 

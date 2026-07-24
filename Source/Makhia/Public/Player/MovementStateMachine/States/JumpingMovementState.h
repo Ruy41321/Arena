@@ -15,4 +15,5 @@ public:
 	UJumpingMovementState();
 	virtual EMovementStateValue GetStateType() const override { return EMovementStateValue::Jumping; }
 	virtual EMovementStateValue GetDesiredTransition_Implementation() const override;
+	virtual bool CanTransitionTo_Implementation(EMovementStateValue NewState) const override;
 };

@@ -49,6 +49,8 @@ void UInventoryItem::InitFromInventoryEntry(const FRPGInventoryEntry& InEntry)
 	bIsEquipped = InEntry.bIsUsed;
 	bIsQuickSlotted = InEntry.bIsQuickSlotted;
 	QuickSlotTag = InEntry.QuickSlotTag;
+	ConsumableCooldownTime = InEntry.ConsumableCooldownTime;
+	ConsumableCooldownTag = InEntry.ConsumableCooldownTag;
 	ResolveItemDefinition();
 }
 
@@ -63,6 +65,8 @@ void UInventoryItem::InitFromEquipmentEntry(const FRPGEquipmentEntry& InEquipEnt
 	bIsEquipped = true;
 	bIsQuickSlotted = false;
 	QuickSlotTag = FGameplayTag();
+	ConsumableCooldownTime = 0.f;
+	ConsumableCooldownTag = FGameplayTag();
 	ResolveItemDefinition();
 	ItemName = ItemDefinition.ItemName;
 }
@@ -90,6 +94,8 @@ void UInventoryItem::CopyCoreDataFrom(const UInventoryItem& Other)
 	bIsEquipped = Other.bIsEquipped;
 	bIsQuickSlotted = Other.bIsQuickSlotted;
 	QuickSlotTag = Other.QuickSlotTag;
+	ConsumableCooldownTime = Other.ConsumableCooldownTime;
+	ConsumableCooldownTag = Other.ConsumableCooldownTag;
 	ItemDefinition = Other.ItemDefinition;
 	Icon = Other.Icon;
 	BaseWeaponDamage = Other.BaseWeaponDamage;

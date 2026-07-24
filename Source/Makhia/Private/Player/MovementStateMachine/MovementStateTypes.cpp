@@ -28,6 +28,10 @@ FString UMovementStateTypes::MovementStateToString(EMovementStateValue State)
 		return TEXT("Landing Moving");
 	case EMovementStateValue::Dodging:
 		return TEXT("Dodging");
+	case EMovementStateValue::Blocking:
+		return TEXT("Blocking");
+	case EMovementStateValue::Attacking:
+		return TEXT("Attacking");
 	default:
 		return TEXT("Unknown");
 	}
@@ -45,6 +49,8 @@ bool UMovementStateTypes::IsGroundedState(EMovementStateValue State)
 	case EMovementStateValue::LandingInPlace:
 	case EMovementStateValue::LandingMoving:
 	case EMovementStateValue::Dodging:
+	case EMovementStateValue::Blocking:
+	case EMovementStateValue::Attacking:
 		return true;
 	default:
 		return false;
@@ -74,6 +80,8 @@ bool UMovementStateTypes::CanReceiveMovementInput(EMovementStateValue State)
 	case EMovementStateValue::CrouchingMoving:
 	case EMovementStateValue::Jumping:
 	case EMovementStateValue::Falling:
+	case EMovementStateValue::Blocking:
+	case EMovementStateValue::Attacking:
 		return true;
 	case EMovementStateValue::LandingInPlace:
 	case EMovementStateValue::LandingMoving:

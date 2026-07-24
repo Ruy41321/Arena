@@ -31,6 +31,12 @@ struct FConsumableProps
 	/** Level used when applying the consumable Gameplay Effect. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	float ItemEffectLevel = 1.f;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float CooldownTime = 0.f;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	FGameplayTag CooldownTag = FGameplayTag();
 
 };
 
@@ -46,6 +52,14 @@ struct FMasterItemDefinition : public FTableRowBase
 	/** Localized text describing the item's gameplay purpose or lore. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	FText ItemDescription = FText();
+
+	/**
+	 * Optional pre-defined rarity for this item.
+	 * When set, equipment entries skip the random rarity roll and use this tier directly;
+	 * when left empty, rarity is rolled from the rarity table as usual.
+	 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	FGameplayTag RarityTag = FGameplayTag();
 
 	/** Current stack quantity of the item instance. */
 	UPROPERTY(BlueprintReadOnly)

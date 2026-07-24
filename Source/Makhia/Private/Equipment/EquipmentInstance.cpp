@@ -20,7 +20,7 @@ void UEquipmentInstance::OnUnEquipped()
 {
 }
 
-void UEquipmentInstance::SpawnEquipmentActors(const TArray<FEquipmentActorToSpawn>& ActorsToSpawn, float WeaponDamage)
+void UEquipmentInstance::SpawnEquipmentActors(const TArray<FEquipmentActorToSpawn>& ActorsToSpawn, float WeaponDamage, float BlockStabilityPercent)
 {
 	ACharacter* OwningCharacter = GetCharacter();
 	if (!IsValid(OwningCharacter))
@@ -37,15 +37,15 @@ void UEquipmentInstance::SpawnEquipmentActors(const TArray<FEquipmentActorToSpaw
 
 		if (IsValid(ActorToSpawn.EquipmentClass.Get()))
 		{
-			SpawnActorFromSpecification(ActorToSpawn, OwningCharacter, WeaponDamage);
+			SpawnActorFromSpecification(ActorToSpawn, OwningCharacter, WeaponDamage, BlockStabilityPercent);
 			continue;
 		}
 
-		RequestAsyncSpawn(ActorToSpawn, OwningCharacter, WeaponDamage);
+		RequestAsyncSpawn(ActorToSpawn, OwningCharacter, WeaponDamage, BlockStabilityPercent);
 	}
 }
 
-void UEquipmentInstance::SpawnActorFromSpecification(const FEquipmentActorToSpawn& ActorToSpawn, ACharacter* OwningCharacter, float WeaponDamage)
+void UEquipmentInstance::SpawnActorFromSpecification(const FEquipmentActorToSpawn& ActorToSpawn, ACharacter* OwningCharacter, float WeaponDamage, float BlockStabilityPercent)
 {
 	if (!IsValid(OwningCharacter) || !IsValid(OwningCharacter->GetMesh()))
 	{
@@ -75,11 +75,11 @@ void UEquipmentInstance::SpawnActorFromSpecification(const FEquipmentActorToSpaw
 		return;
 	}
 
-	FinalizeSpawnedActor(NewActor, OwningCharacter, ActorToSpawn.AttachName, WeaponDamage);
+	FinalizeSpawnedActor(NewActor, OwningCharacter, ActorToSpawn.AttachName, WeaponDamage, BlockStabilityPercent);
 	SpawnedActors.Emplace(NewActor);
 }
 
-void UEquipmentInstance::RequestAsyncSpawn(const FEquipmentActorToSpawn& ActorToSpawn, ACharacter* OwningCharacter, float WeaponDamage)
+void UEquipmentInstance::RequestAsyncSpawn(const FEquipmentActorToSpawn& ActorToSpawn, ACharacter* OwningCharacter, float WeaponDamage, float BlockStabilityPercent)
 {
 	if (!IsValid(OwningCharacter))
 	{
@@ -92,18 +92,18 @@ void UEquipmentInstance::RequestAsyncSpawn(const FEquipmentActorToSpawn& ActorTo
 
 	Manager.RequestAsyncLoad(
 		ActorToSpawn.EquipmentClass.ToSoftObjectPath(),
-		[WeakThis, WeakCharacter, ActorToSpawn, WeaponDamage]
+		[WeakThis, WeakCharacter, ActorToSpawn, WeaponDamage, BlockStabilityPercent]
 		{
 			if (!WeakThis.IsValid() || !WeakCharacter.IsValid())
 			{
 				return;
 			}
 
-			WeakThis->SpawnActorFromSpecification(ActorToSpawn, WeakCharacter.Get(), WeaponDamage);
+			WeakThis->SpawnActorFromSpecification(ActorToSpawn, WeakCharacter.Get(), WeaponDamage, BlockStabilityPercent);
 		});
 }
 
-void UEquipmentInstance::FinalizeSpawnedActor(AEquipmentActor* SpawnedActor, ACharacter* OwningCharacter, const FName& AttachName, float WeaponDamage) const
+void UEquipmentInstance::FinalizeSpawnedActor(AEquipmentActor* SpawnedActor, ACharacter* OwningCharacter, const FName& AttachName, float WeaponDamage, float BlockStabilityPercent) const
 {
 	if (!IsValid(SpawnedActor) || !IsValid(OwningCharacter) || !IsValid(OwningCharacter->GetMesh()))
 	{
@@ -112,14 +112,15 @@ void UEquipmentInstance::FinalizeSpawnedActor(AEquipmentActor* SpawnedActor, ACh
 
 	SpawnedActor->FinishSpawning(FTransform::Identity);
 	SpawnedActor->AttachToComponent(OwningCharacter->GetMesh(), FAttachmentTransformRules::KeepRelativeTransform, AttachName);
-	ApplyWeaponDamageIfWeapon(SpawnedActor, WeaponDamage);
+	ApplyWeaponDamageIfWeapon(SpawnedActor, WeaponDamage, BlockStabilityPercent);
 }
 
-void UEquipmentInstance::ApplyWeaponDamageIfWeapon(AEquipmentActor* SpawnedActor, float WeaponDamage)
+void UEquipmentInstance::ApplyWeaponDamageIfWeapon(AEquipmentActor* SpawnedActor, float WeaponDamage, float BlockStabilityPercent)
 {
 	if (AMKHWeaponBase* Weapon = Cast<AMKHWeaponBase>(SpawnedActor))
 	{
 		Weapon->SetWeaponDamage(WeaponDamage);
+		Weapon->SetBlockStabilityPercent(BlockStabilityPercent);
 	}
 }
 

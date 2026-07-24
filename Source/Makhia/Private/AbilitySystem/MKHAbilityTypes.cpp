@@ -14,9 +14,27 @@ FMKHGameplayEffectContext* FMKHGameplayEffectContext::GetEffectContext(FGameplay
 	return nullptr;
 }
 
+/** Serializes a status effect array with an explicit element count, shared by both context lists. */
+static void NetSerializeStatusEffectArray(FArchive& Ar, UPackageMap* Map, bool& bOutSuccess, TArray<FStatusEffectData>& StatusEffects)
+{
+	// Safe and clean manual array serialization for custom contexts
+	uint8 NumEffects = StatusEffects.Num();
+	Ar << NumEffects;
+
+	if (Ar.IsLoading())
+	{
+		StatusEffects.SetNumZeroed(NumEffects);
+	}
+
+	for (uint8 i = 0; i < NumEffects; ++i)
+	{
+		StatusEffects[i].NetSerialize(Ar, Map, bOutSuccess);
+	}
+}
+
 bool FMKHGameplayEffectContext::NetSerialize(FArchive& Ar, UPackageMap* Map, bool& bOutSuccess)
 {
-	uint8 RepBits = 0;
+	uint16 RepBits = 0;
 	if (Ar.IsSaving())
 	{
 		if (bReplicateInstigator && Instigator.IsValid())
@@ -51,9 +69,17 @@ bool FMKHGameplayEffectContext::NetSerialize(FArchive& Ar, UPackageMap* Map, boo
 		{
 			RepBits |= 1 << 7;
 		}
+		if (TargetStatusEffects.Num() > 0)
+		{
+			RepBits |= 1 << 8;
+		}
+		if (SelfOnHitStatusEffects.Num() > 0)
+		{
+			RepBits |= 1 << 9;
+		}
 	}
 
-	Ar.SerializeBits(&RepBits, 8);
+	Ar.SerializeBits(&RepBits, 10);
 
 	if (RepBits & (1 << 0))
 	{
@@ -99,11 +125,28 @@ bool FMKHGameplayEffectContext::NetSerialize(FArchive& Ar, UPackageMap* Map, boo
 	{
 		Ar << bCriticalHit;
 	}
+	if (RepBits & 1 << 8)
+	{
+		NetSerializeStatusEffectArray(Ar, Map, bOutSuccess, TargetStatusEffects);
+	}
+	if (RepBits & 1 << 9)
+	{
+		NetSerializeStatusEffectArray(Ar, Map, bOutSuccess, SelfOnHitStatusEffects);
+	}
 
 	if (Ar.IsLoading())
 	{
 		AddInstigator(Instigator.Get(), EffectCauser.Get()); // Just to initialize InstigatorAbilitySystemComponent
 	}
+
+	bOutSuccess = true;
+	return true;
+}
+
+bool FMKHGameplayAbilityTargetData_MeleeHit::NetSerialize(FArchive& Ar, UPackageMap* Map, bool& bOutSuccess)
+{
+	FGameplayAbilityTargetData_SingleTargetHit::NetSerialize(Ar, Map, bOutSuccess);
+	Ar << ComboIndex;
 
 	bOutSuccess = true;
 	return true;

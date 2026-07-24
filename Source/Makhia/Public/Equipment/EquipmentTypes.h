@@ -78,6 +78,72 @@ struct FEquipmentStatEffectDefinition : public FTableRowBase
 
 };
 
+USTRUCT(BlueprintType)
+struct FStatusEffectData
+{
+	GENERATED_BODY()
+	
+	/** Gameplay Effects to apply to the target on hit. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TSubclassOf<UGameplayEffect> EffectClass;
+	
+	/** Time for which the status effect is applied to the target. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float EffectDuration = 1.f;
+	
+	/** Value of this status effect g.e: 0,15 (for 15% empower). */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float EffectValue = 0.f;
+
+	/** Serializes status effect data for replication and context transport. */
+	bool NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess);
+};
+
+/** Enables network serialization support for FStatusEffectData. */
+template<>
+struct TStructOpsTypeTraits<FStatusEffectData> : public TStructOpsTypeTraitsBase2<FStatusEffectData>
+{
+	enum
+	{
+		WithNetSerializer = true,
+	};
+};
+
+/** Struct to represent the Attack Damage Data (power, stamina dmg, status effects). */
+USTRUCT(BlueprintType)
+struct FAttackData
+{
+	GENERATED_BODY()
+	
+	/** Damage multiplier applied by damage abilities granted from this definition. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float DamagePercent = 1.f;
+	
+	/** Damage to apply to the target stamina if he blocks the attack */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float StaminaDamageValue = 20.f;
+
+	/** Status effects applied to the hit target, only when this attack lands. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TArray<FStatusEffectData> TargetStatusEffects;
+
+	/**
+	 * Status effects applied to the attacker as soon as this attack starts, regardless
+	 * of whether it lands. Buffs applied here (e.g. Empower) are active before the damage
+	 * spec is created, so they are captured by this same attack's damage calculation.
+	 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TArray<FStatusEffectData> SelfActivationStatusEffects;
+
+	/**
+	 * Status effects applied to the attacker only after this attack lands a hit.
+	 * They are applied after the damage pipeline, so they never affect the damage
+	 * of the hit that triggered them.
+	 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TArray<FStatusEffectData> SelfOnHitStatusEffects;
+};
+
 /** DataTable row describing one rollable active/passive ability for equipment. */
 USTRUCT(BlueprintType)
 struct  FEquipmentAbilityDefinition : public FTableRowBase
@@ -116,9 +182,8 @@ struct  FEquipmentAbilityDefinition : public FTableRowBase
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TSoftClassPtr<UGameplayAbility> AbilityClass = nullptr;
 
-	/** Damage multiplier applied by damage abilities granted from this definition. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	float DamagePercent = 1.f;
+	TArray<FAttackData> AttacksData{FAttackData()};
 
 	/** Context tag used by ability logic to identify attack context/type. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)

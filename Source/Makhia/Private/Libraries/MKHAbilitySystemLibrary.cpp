@@ -38,13 +38,49 @@ void UMKHAbilitySystemLibrary::ApplyDamageEffect(const FDamageEffectInfo& Damage
 	
 	FGameplayEffectContextHandle ContextHandle = DamageEffectInfo.SourceASC->MakeEffectContext();
 	ContextHandle.AddSourceObject(DamageEffectInfo.AvatarActor);
-	
-	const FGameplayEffectSpecHandle SpecHandle = DamageEffectInfo.SourceASC->MakeOutgoingSpec(DamageEffectInfo.DamageEffect,
+
+	if (FMKHGameplayEffectContext* MKHContext = FMKHGameplayEffectContext::GetEffectContext(ContextHandle))
+	{
+		MKHContext->SetTargetStatusEffects(DamageEffectInfo.TargetStatusEffects);
+		MKHContext->SetSelfOnHitStatusEffects(DamageEffectInfo.SelfOnHitStatusEffects);
+	}
+
+	const FGameplayEffectSpecHandle DamageSpecHandle = DamageEffectInfo.SourceASC->MakeOutgoingSpec(DamageEffectInfo.DamageEffect,
 		1.f, ContextHandle);
 
-	UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(SpecHandle, MKHGameplayTags::Combat::Data_Damage, DamageEffectInfo.BaseDamage);
+	UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(DamageSpecHandle, MKHGameplayTags::Combat::Data_Damage, DamageEffectInfo.DamageMultiplier);
+	UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(DamageSpecHandle, MKHGameplayTags::Combat::Data_StaminaDamage, DamageEffectInfo.StaminaDamage);
 
-	DamageEffectInfo.TargetASC->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
+	DamageEffectInfo.TargetASC->ApplyGameplayEffectSpecToSelf(*DamageSpecHandle.Data.Get());
+}
+
+void UMKHAbilitySystemLibrary::ApplyStatusEffects(UAbilitySystemComponent* SourceASC, UAbilitySystemComponent* TargetASC,
+	const TArray<FStatusEffectData>& StatusEffects, const FGameplayEffectContextHandle& ContextHandle)
+{
+	if (!IsValid(SourceASC) || !IsValid(TargetASC))
+	{
+		return;
+	}
+
+	for (const auto& [EffectClass, EffectDuration, EffectValue] : StatusEffects)
+	{
+		if (!IsValid(EffectClass))
+		{
+			continue;
+		}
+
+		const FGameplayEffectSpecHandle SpecHandle = SourceASC->MakeOutgoingSpec(EffectClass, 1.0f, ContextHandle);
+		if (!SpecHandle.IsValid())
+		{
+			continue;
+		}
+
+		// The status effect duration and value travel as set-by-caller magnitudes.
+		UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(SpecHandle, MKHGameplayTags::Combat::Data_StatusEffectDuration, EffectDuration);
+		UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(SpecHandle, MKHGameplayTags::Combat::Data_StatusEffectValue, EffectValue);
+
+		TargetASC->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
+	}
 }
 
 void UMKHAbilitySystemLibrary::K2_SetLooseTagCountStatic(UAbilitySystemComponent* ASC, FGameplayTag Tag, int32 NewCount)

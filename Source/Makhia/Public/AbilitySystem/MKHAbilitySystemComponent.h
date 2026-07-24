@@ -35,6 +35,16 @@ public:
 	// Initialization & Core Abilities
 	// =========================================================================================
 
+	virtual void BeginPlay() override;
+
+	/**
+	 * Called whenever an ability spec is given, both on the server (via GiveAbility) and on
+	 * clients (via replication of ActivatableAbilities). Used to retry a queued input tag
+	 * once the ability it depends on has actually become available (see HasGrantedAbilityForInputTag).
+	 * @param AbilitySpec The ability spec that was just granted.
+	 */
+	virtual void OnGiveAbility(FGameplayAbilitySpec& AbilitySpec) override;
+
 	/**
 	 * Grants active character abilities and binds their configured input tags.
 	 * @param AbilitiesToGrant Ability classes to grant to this component.
@@ -66,7 +76,7 @@ public:
 	 * @param InputTag Gameplay tag produced by the input layer.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "GAS|Input")
-	void AbilityInputPressed(const FGameplayTag& InputTag);
+	void AbilityInputPressed(const FGameplayTag& InputTag, bool bForceQueue);
 
 	/**
 	 * Handles released input tags for abilities that consume release events.
@@ -117,11 +127,79 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "GAS|Abilities")
 	void GetCooldownRemainingForTag(FGameplayTag CooldownTag, float& TimeRemaining, float& CooldownDuration) const;
-	
+
+	/**
+	 * Returns true if an activatable ability spec is already granted for the given input tag.
+	 * Used to tell whether an input should be queued (ability not granted yet, e.g. still waiting
+	 * for a weapon quick-equip RPC round trip) or activated immediately.
+	 * @param InputTag The input tag to look for among the granted ability specs.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "GAS|Abilities")
+	bool HasGrantedAbilityForInputTag(const FGameplayTag& InputTag) const;
+
+	/**
+	 * Removes a loose ability-priority tag on the authority, on behalf of the owning client.
+	 *
+	 * The owning client is the authority on the cancellable window (anim-notify driven): the
+	 * server's copy of the montage runs one latency behind, so its priority tag clears late.
+	 * The client mirrors its local removal through this RPC right before sending any queued
+	 * activation request; both travel on the same channel, so the reliable ordering guarantees
+	 * the server clears the tag before validating that activation.
+	 * Only the Priority1/Priority2 tags are accepted.
+	 *
+	 * @param PriorityTag The ability priority tag to remove.
+	 */
+	UFUNCTION(Server, Reliable)
+	void Server_RemovePriorityTag(FGameplayTag PriorityTag);
+
+
+	// =========================================================================================
+	// Weapon Swap Synchronization (client-side)
+	// =========================================================================================
+
+	/**
+	 * Marks a weapon swap as in flight on a non-authoritative client, so queued attacks wait
+	 * for the swap result instead of activating the previous weapon's stale specs (see
+	 * OnGiveAbility). Arms a safety timeout in case the server rejects the swap. No-op on
+	 * the authority, where the swap resolves synchronously.
+	 */
+	void NotifyWeaponSwapRequested();
+
+	/** Clears the in-flight weapon swap state and cancels the safety timeout. */
+	void NotifyWeaponSwapCompleted();
+
+	/** True while a client-initiated weapon swap is still waiting for the server result. */
+	UFUNCTION(BlueprintPure, Category = "GAS|Abilities")
+	bool IsWeaponSwapInFlight() const { return bWeaponSwapInFlight; }
+
 private:
 	// =========================================================================================
 	// Internal Input Logic
 	// =========================================================================================
+
+	/** Array of queued Input Tag to activate abilities after the end of previous ones. */
+	TArray<FGameplayTag, TInlineAllocator<2>> QueuedAbilityTags;
+
+	/** True while a client-initiated weapon swap is waiting for the server result to replicate. */
+	bool bWeaponSwapInFlight = false;
+
+	/** True while a next-tick flush of the queued input is already scheduled after an ability grant. */
+	bool bQueuedFlushScheduled = false;
+
+	/** Safety timeout handle armed when a weapon swap request is sent to the server. */
+	FTimerHandle WeaponSwapTimeoutHandle;
+
+	/** Maximum time (seconds) to wait for a weapon swap round trip before discarding stale queued attacks. */
+	static constexpr float WeaponSwapTimeoutSeconds = 1.5f;
+
+	/** Returns true when the input tag is an attack that must wait for an in-flight weapon swap. */
+	bool IsAttackWaitingForWeaponSwap(const FGameplayTag& InputTag) const;
+
+	/** Clears the in-flight swap state and drops stale queued attack inputs after a timeout. */
+	void HandleWeaponSwapTimeout();
+
+	/** Next-tick continuation from OnGiveAbility: clears the swap state and retries the queued input once stale specs are actually gone from the ability list. */
+	void FlushQueuedAbilityAfterGrant();
 
 	/** Returns true when the input belongs to the quick-slot input hierarchy. */
 	bool IsQuickSlotInput(const FGameplayTag& InputTag) const;
@@ -138,7 +216,22 @@ private:
 	/** Forwards replicated released input to active ability instances. */
 	void HandleAbilityInputReleasedForSpec(const FGameplayAbilitySpec& Spec);
 
+	/** Checks the condition for which the ability should be queued. */
+	bool ShouldQueueAbility(const FGameplayAbilitySpec& Spec, const FGameplayTag& InputTag) const;
+	
+	/** Tries to Queue the ability. Paying attention to place it in the right position of the stack. */
+	UFUNCTION(BlueprintCallable, Category = "GAS|Abilities")
+	void QueueAbility(const FGameplayTag& InputTag);
 
+	/** Returns true if the input tag it's an attack and it's already queued the ability to swap weapon. */
+	bool IsOtherWeaponAtk(const FGameplayTag& InputTag) const;
+	
+	/** Register to the ActivateQueuedAbility event to handle queued activations. */
+	void BindToActivateQueuedAbility();
+	
+	/** Handles the ActivateQueuedAbility event by activating the ability matching the queued input tag. */
+	void OnActivateQueuedAbility(const FGameplayEventData* Payload);
+	
 	// =========================================================================================
 	// Internal Equipment Logic
 	// =========================================================================================

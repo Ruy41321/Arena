@@ -13,7 +13,10 @@
 #include "Player/MovementStateMachine/States/LandingInPlaceMovementState.h"
 #include "Player/MovementStateMachine/States/LandingMovingMovementState.h"
 #include "Player/MovementStateMachine/States/DodgingMovementState.h"
+#include "Player/MovementStateMachine/States/BlockingState.h"
+#include "Player/MovementStateMachine/States/AttackingMovementState.h"
 #include "AbilitySystemComponent.h"
+#include "Player/MovementStateMachine/States/DeadState.h"
 
 UMovementStateMachine::UMovementStateMachine()
 {
@@ -129,6 +132,12 @@ void UMovementStateMachine::InitializeDefaultStates()
 		DefaultStateClasses.Add(EMovementStateValue::LandingMoving, ULandingMovingMovementState::StaticClass());
 	if (!DefaultStateClasses.Contains(EMovementStateValue::Dodging))
 		DefaultStateClasses.Add(EMovementStateValue::Dodging, UDodgingMovementState::StaticClass());
+	if (!DefaultStateClasses.Contains(EMovementStateValue::Blocking))
+		DefaultStateClasses.Add(EMovementStateValue::Blocking, UBlockingState::StaticClass());
+	if (!DefaultStateClasses.Contains(EMovementStateValue::Attacking))
+		DefaultStateClasses.Add(EMovementStateValue::Attacking, UAttackingMovementState::StaticClass());
+	if (!DefaultStateClasses.Contains(EMovementStateValue::Dead))
+		DefaultStateClasses.Add(EMovementStateValue::Dead, UDeadState::StaticClass());
 
 	// Create state objects
 	for (const auto& StateClassPair : DefaultStateClasses)
@@ -237,4 +246,3 @@ void UMovementStateMachine::SyncCurrentStateTagToASC()
 		}
 	}
 }
-
